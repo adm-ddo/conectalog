@@ -1,0 +1,346 @@
+// ConectaLog — schema próprio, banco próprio, sem relação com o extras-app.
+// Padrões (dois sistemas de auth separados, token de e-mail, blob privado
+// pra foto/assinatura) replicados do extras-app por serem comprovados em
+// produção lá — ver plano em C:\Users\Thiago\.claude\plans\recursive-munching-sundae.md
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RoleUsuario {
+  MASTER
+  GESTOR
+}
+
+enum TipoChavePix {
+  CPF
+  CNPJ
+  EMAIL
+  TELEFONE
+  ALEATORIA
+}
+
+enum TipoTokenAutenticacao {
+  VERIFICACAO_EMAIL
+  RECUPERACAO_SENHA
+}
+
+enum FrequenciaPagamento {
+  DIARIA
+  SEMANAL
+}
+
+/// Turno fixo do motoboy — só informativo/organizacional (relatório separa
+/// bandas de manhã vs. de noite quando ele faz os dois no mesmo dia).
+enum TurnoPredefinido {
+  MANHA
+  NOITE
+  LIVRE
+}
+
+enum StatusTurno {
+  ABERTO
+  CONCLUIDO
+  PAGO
+}
+
+enum StatusPagamento {
+  PENDENTE
+  CONCLUIDO
+}
+
+enum TipoMeta {
+  BANDAS
+  VALOR
+}
+
+enum PeriodoMeta {
+  SEMANAL
+  MENSAL
+  PERSONALIZADO
+}
+
+/// Tenant — a cooperativa dona das motos. Cada Empresa é um cliente pagante
+/// do ConectaLog (hoje só uma; o modelo já nasce multi-tenant pra revenda).
+model Empresa {
+  id                    Int      @id @default(autoincrement())
+  nome                  String
+  cnpj                  String?  @unique
+  logoUrl               String?
+  valorBandaPadrao      Decimal  @default(0) @db.Decimal(10, 2)
+  valorTaxaExtraPadrao  Decimal  @default(0) @db.Decimal(10, 2)
+  criadoEm              DateTime @default(now())
+
+  usuarios  Usuario[]
+  clientes  Cliente[]
+  motoboys  Motoboy[]
+  pagamentos Pagamento[]
+  vales     Vale[]
+}
+
+/// Login do painel (dono/gestor da cooperativa) — sistema de sessão
+/// deliberadamente separado do login do Motoboy (auth-motoboy.ts), mesmo
+/// espírito do extras-app: uma falha num nunca deve derrubar o outro.
+model Usuario {
+  id        Int         @id @default(autoincrement())
+  empresaId Int
+  nome      String
+  email     String      @unique
+  senhaHash String
+  role      RoleUsuario @default(GESTOR)
+  ativo     Boolean     @default(true)
+  criadoEm  DateTime    @default(now())
+
+  empresa Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  sessoes Sessao[]
+  vales   Vale[]
+}
+
+model Sessao {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  usuarioId Int
+  criadoEm  DateTime @default(now())
+  expiraEm  DateTime
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+}
+
+/// Empresa cliente atendida pela cooperativa (ex.: um restaurante que
+/// contrata a cooperativa pra fazer as entregas). valorBanda/valorTaxaExtra
+/// nulos herdam o padrão da Empresa (cooperativa) — ver
+/// src/lib/valores.ts:valorBandaEfetivo.
+model Cliente {
+  id              Int      @id @default(autoincrement())
+  empresaId       Int
+  nome            String
+  endereco        String?
+  valorBanda      Decimal? @db.Decimal(10, 2)
+  valorTaxaExtra  Decimal? @db.Decimal(10, 2)
+  ativo           Boolean  @default(true)
+  criadoEm        DateTime @default(now())
+
+  empresa          Empresa           @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  motoboysLiberados MotoboyCliente[]
+  turnos           Turno[]
+  apoios           Apoio[]
+
+  @@index([empresaId])
+}
+
+/// O motoboy — cadastro próprio (Portal-like) ou criado manualmente pela
+/// cooperativa. senhaHash fica null até ele definir a senha pelo link de
+/// verificação de e-mail (mesmo fluxo do Portal do extras-app).
+model Motoboy {
+  id                        Int                  @id @default(autoincrement())
+  empresaId                 Int
+  nomeCompleto              String
+  dataNascimento            DateTime             @db.Date
+  cpf                       String               @unique
+  email                     String               @unique
+  endereco                  String
+  numero                    String?
+  complemento               String?
+  bairro                    String?
+  cidade                    String?
+  cep                       String?
+  telefoneCelular           String
+  telefoneEmergencia        String
+  chavePix                  String
+  tipoChavePix              TipoChavePix
+  /// Selfie tirada na hora (CameraCapture, sem upload de galeria) — mesmo
+  /// motivo do extras-app: a cooperativa precisa saber que é uma foto
+  /// atual de verdade, não uma foto de anos atrás.
+  fotoPerfilUrl             String?
+  /// CNH aceita foto ao vivo OU anexo de arquivo — ao contrário da selfie,
+  /// que é sempre ao vivo (decisão confirmada com o Thiago).
+  cnhFotoUrl                String?
+  senhaHash                 String?
+  emailVerificadoEm         DateTime?
+  frequenciaPagamento       FrequenciaPagamento  @default(SEMANAL)
+  /// true = pode iniciar turno em qualquer Cliente ativo da cooperativa,
+  /// sem precisar de liberação individual em MotoboyCliente.
+  livre                     Boolean              @default(false)
+  ativo                     Boolean              @default(true)
+  criadoEm                  DateTime             @default(now())
+
+  empresa            Empresa                    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  clientesLiberados  MotoboyCliente[]
+  turnos             Turno[]
+  pagamentos         Pagamento[]
+  vales              Vale[]
+  metas              Meta[]
+  sessoes            SessaoMotoboy[]
+  tokensAutenticacao TokenAutenticacaoMotoboy[]
+
+  @@index([empresaId])
+}
+
+/// Sessão de login do Motoboy no app — separada de Sessao (login do
+/// painel), mesmo espírito de SessaoPessoa no extras-app.
+model SessaoMotoboy {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  motoboyId Int
+  expiraEm  DateTime
+  criadoEm  DateTime @default(now())
+
+  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+}
+
+/// Token de uso único (verificação de e-mail / recuperação de senha) do
+/// Motoboy — espelha TokenAutenticacaoPessoa do extras-app.
+model TokenAutenticacaoMotoboy {
+  id        Int                   @id @default(autoincrement())
+  token     String                @unique
+  motoboyId Int
+  tipo      TipoTokenAutenticacao
+  expiraEm  DateTime
+  usadoEm   DateTime?
+  criadoEm  DateTime              @default(now())
+
+  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+
+  @@index([motoboyId, tipo])
+}
+
+/// Autorização explícita: este motoboy pode iniciar turno neste Cliente.
+/// Diferente do extras-app (vínculo aberto, criado no primeiro check-in),
+/// aqui a cooperativa precisa liberar antes — decisão confirmada com o
+/// Thiago. Não existe linha aqui = não autorizado (a não ser que
+/// Motoboy.livre seja true).
+model MotoboyCliente {
+  id         Int      @id @default(autoincrement())
+  motoboyId  Int
+  clienteId  Int
+  liberado   Boolean  @default(true)
+  criadoEm   DateTime @default(now())
+
+  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@unique([motoboyId, clienteId])
+}
+
+/// Um turno do motoboy num Cliente: foto+assinatura de início, foto+
+/// assinatura de recibo no fim, quantidade de bandas e taxas extras
+/// (ambos via stepper +/- na UI) informadas no fechamento. valorBandaAplicado/
+/// valorTaxaExtraAplicado são o snapshot do valor no momento do fechamento —
+/// não recalcula se o preço do Cliente mudar depois (mesmo motivo do
+/// extras-app: histórico não pode mudar retroativamente).
+model Turno {
+  id                    Int               @id @default(autoincrement())
+  motoboyId             Int
+  clienteId             Int
+  turnoPredefinido      TurnoPredefinido  @default(LIVRE)
+  horaInicio            DateTime          @default(now())
+  horaFim               DateTime?
+  fotoInicioUrl         String
+  fotoFimUrl            String?
+  assinaturaTermoUrl    String
+  assinaturaReciboUrl   String?
+  quantidadeBandas      Int               @default(0)
+  quantidadeTaxasExtras Int               @default(0)
+  valorBandaAplicado    Decimal?          @db.Decimal(10, 2)
+  valorTaxaExtraAplicado Decimal?         @db.Decimal(10, 2)
+  valorTotal            Decimal?          @db.Decimal(10, 2)
+  status                StatusTurno       @default(ABERTO)
+  pagamentoId           Int?
+  criadoEm              DateTime          @default(now())
+
+  motoboy   Motoboy    @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  cliente   Cliente    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pagamento Pagamento? @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+  apoios    Apoio[]
+
+  @@index([motoboyId, status])
+  @@index([clienteId, status])
+}
+
+/// Apoio: o motoboy ajuda outro Cliente durante/depois do turno principal.
+/// Sem foto/assinatura de propósito (decisão confirmada com o Thiago) —
+/// só marca o Cliente de apoio e a quantidade, pra não atrapalhar o fluxo
+/// dele no meio da correria.
+model Apoio {
+  id                     Int      @id @default(autoincrement())
+  turnoId                Int
+  clienteId              Int
+  quantidadeBandas       Int      @default(0)
+  quantidadeTaxasExtras  Int      @default(0)
+  valorBandaAplicado     Decimal  @db.Decimal(10, 2)
+  valorTaxaExtraAplicado Decimal  @db.Decimal(10, 2)
+  valorTotal             Decimal  @db.Decimal(10, 2)
+  pagamentoId            Int?
+  criadoEm               DateTime @default(now())
+
+  turno     Turno      @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+  cliente   Cliente    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pagamento Pagamento? @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+
+  @@index([turnoId])
+}
+
+/// Pagamento de um período pra um motoboy — bookkeeping manual (a
+/// cooperativa faz o PIX pelo banco dela e marca aqui como pago), mesmo
+/// modelo do extras-app: sem integração PIX automática no MVP.
+model Pagamento {
+  id            Int             @id @default(autoincrement())
+  motoboyId     Int
+  empresaId     Int
+  periodoInicio DateTime        @db.Date
+  periodoFim    DateTime        @db.Date
+  valorTotal    Decimal         @db.Decimal(10, 2)
+  status        StatusPagamento @default(PENDENTE)
+  pagoEm        DateTime?
+  criadoEm      DateTime        @default(now())
+
+  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  turnos  Turno[]
+  apoios  Apoio[]
+
+  @@index([motoboyId, status])
+}
+
+/// Vale (adiantamento) dado pela cooperativa a um motoboy — aparece no app
+/// dele como valor a compensar no próximo pagamento.
+model Vale {
+  id                Int      @id @default(autoincrement())
+  motoboyId         Int
+  empresaId         Int
+  valor             Decimal  @db.Decimal(10, 2)
+  data              DateTime @default(now()) @db.Date
+  observacao        String?
+  criadoPorUsuarioId Int
+  criadoEm          DateTime @default(now())
+
+  motoboy         Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  empresa         Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  criadoPorUsuario Usuario @relation(fields: [criadoPorUsuarioId], references: [id])
+
+  @@index([motoboyId])
+}
+
+/// Meta pessoal do motoboy (bandas ou valor-alvo num período) — puramente
+/// motivacional, sem efeito em pagamento. Progresso calculado a partir de
+/// Turno+Apoio no período, não armazenado aqui.
+model Meta {
+  id             Int         @id @default(autoincrement())
+  motoboyId      Int
+  tipo           TipoMeta
+  valorAlvo      Decimal     @db.Decimal(10, 2)
+  periodoTipo    PeriodoMeta @default(SEMANAL)
+  periodoInicio  DateTime    @db.Date
+  periodoFim     DateTime    @db.Date
+  ativa          Boolean     @default(true)
+  criadoEm       DateTime    @default(now())
+
+  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+
+  @@index([motoboyId, ativa])
+}
