@@ -14,6 +14,8 @@ import type { RoleUsuario } from "@/generated/prisma/enums";
 // extras-app.
 export const SESSAO_EMPRESA_COOKIE = "cl_sessao_empresa";
 const SESSAO_TTL_DIAS = 30;
+const TOKEN_TTL_HORAS = 24;
+const CONVITE_TTL_DIAS = 7;
 
 export type SessaoEmpresa = {
   usuarioId: number;
@@ -100,4 +102,67 @@ export async function requireMaster(): Promise<SessaoEmpresa> {
   const sessao = await requireEmpresa();
   if (sessao.role !== "MASTER") redirect("/dashboard");
   return sessao;
+}
+
+/** Cria um token de uso único (verificação de e-mail / recuperação de
+ * senha) do Usuario — espelha criarTokenAutenticacaoMotoboy. */
+export async function criarTokenAutenticacaoUsuario(
+  usuarioId: number,
+  tipo: "VERIFICACAO_EMAIL" | "RECUPERACAO_SENHA"
+): Promise<string> {
+  const token = randomBytes(32).toString("hex");
+  const expiraEm = new Date(Date.now() + TOKEN_TTL_HORAS * 60 * 60 * 1000);
+  await prisma.tokenAutenticacaoUsuario.create({
+    data: { token, usuarioId, tipo, expiraEm },
+  });
+  return token;
+}
+
+export type ResultadoTokenUsuarioValido =
+  | { valido: true; usuarioId: number; tokenId: number }
+  | { valido: false; motivo: "invalido" | "expirado" | "usado" };
+
+export async function buscarTokenUsuarioValido(
+  token: string,
+  tipo: "VERIFICACAO_EMAIL" | "RECUPERACAO_SENHA"
+): Promise<ResultadoTokenUsuarioValido> {
+  const registro = await prisma.tokenAutenticacaoUsuario.findUnique({ where: { token } });
+  if (!registro || registro.tipo !== tipo) return { valido: false, motivo: "invalido" };
+  if (registro.usadoEm !== null) return { valido: false, motivo: "usado" };
+  if (registro.expiraEm < new Date()) return { valido: false, motivo: "expirado" };
+  return { valido: true, usuarioId: registro.usuarioId, tokenId: registro.id };
+}
+
+export async function tokenUsuarioRecenteExiste(
+  usuarioId: number,
+  tipo: "VERIFICACAO_EMAIL" | "RECUPERACAO_SENHA",
+  minutosCooldown: number
+): Promise<boolean> {
+  const desde = new Date(Date.now() - minutosCooldown * 60 * 1000);
+  const recente = await prisma.tokenAutenticacaoUsuario.findFirst({
+    where: {
+      usuarioId,
+      tipo,
+      usadoEm: null,
+      criadoEm: { gte: desde },
+      expiraEm: { gt: new Date() },
+    },
+  });
+  return recente !== null;
+}
+
+/** Cria um convite de equipe (role GESTOR) — token vale 7 dias, bem mais
+ * que o de verificação de e-mail, porque é comum a pessoa não ver o
+ * e-mail logo de cara. */
+export async function criarConviteEquipe(
+  empresaId: number,
+  email: string,
+  criadoPorUsuarioId: number
+): Promise<string> {
+  const token = randomBytes(32).toString("hex");
+  const expiraEm = new Date(Date.now() + CONVITE_TTL_DIAS * 24 * 60 * 60 * 1000);
+  await prisma.conviteEquipe.create({
+    data: { empresaId, email, token, criadoPorUsuarioId, expiraEm },
+  });
+  return token;
 }

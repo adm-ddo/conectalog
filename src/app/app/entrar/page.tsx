@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessaoMotoboy } from "@/lib/auth-motoboy";
 import LoginMotoboyForm from "./LoginMotoboyForm";
@@ -13,11 +12,8 @@ export default async function EntrarMotoboyPage() {
         <span className="text-2xl font-black tracking-tight text-navy-900">
           Conecta<span className="text-brand-600">Log</span>
         </span>
-        <p className="text-sm text-stone-500">
-          Ainda não tem conta?{" "}
-          <Link href="/app/cadastro" className="text-brand-700 underline">
-            Cadastre-se
-          </Link>
+        <p className="text-sm text-stone-500 text-center max-w-xs">
+          Ainda não tem conta? Peça o link de cadastro pra cooperativa que você vai trabalhar.
         </p>
       </div>
       <LoginMotoboyForm />

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
 import LogoForm from "./LogoForm";
 import ValoresPadraoForm from "./ValoresPadraoForm";
+import LinkCadastroMotoboySection from "./LinkCadastroMotoboySection";
 
 export default async function ConfiguracoesPage() {
   const sessao = await requireEmpresa();
@@ -15,6 +16,7 @@ export default async function ConfiguracoesPage() {
       valorBandaClientePadrao: true,
       valorTaxaExtraMotoboyPadrao: true,
       valorTaxaExtraClientePadrao: true,
+      tokenCadastroMotoboy: true,
     },
   });
 
@@ -26,6 +28,7 @@ export default async function ConfiguracoesPage() {
       </div>
 
       <LogoForm logoUrlAtual={empresa.logoUrl} />
+      <LinkCadastroMotoboySection token={empresa.tokenCadastroMotoboy} />
       <ValoresPadraoForm
         valorBandaMotoboyPadrao={paraNumero(empresa.valorBandaMotoboyPadrao)}
         valorBandaClientePadrao={paraNumero(empresa.valorBandaClientePadrao)}

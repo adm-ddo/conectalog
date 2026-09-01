@@ -87,6 +87,78 @@ function layoutEmail({
 </html>`;
 }
 
+export async function enviarEmailVerificacaoUsuario(
+  destinatario: string,
+  nome: string,
+  token: string
+): Promise<{ sucesso: boolean }> {
+  const resend = cliente();
+  if (!resend) {
+    console.warn("RESEND_API_KEY não configurada — e-mail de verificação não enviado.");
+    return { sucesso: false };
+  }
+
+  const link = `${SITE_URL}/verificar-email/${token}`;
+  const html = layoutEmail({
+    titulo: `Oi, ${escaparHtml(nome.split(" ")[0])}! Confirme seu e-mail`,
+    paragrafos: [
+      "Falta só um passo pra ativar sua cooperativa no ConectaLog — confirmar que este e-mail é seu de verdade.",
+      "O link abaixo vale por 24 horas.",
+    ],
+    textoBotao: "Confirmar meu e-mail",
+    linkBotao: link,
+  });
+
+  try {
+    await resend.emails.send({
+      from: REMETENTE,
+      to: destinatario,
+      subject: "Confirme seu e-mail — ConectaLog",
+      html,
+    });
+    return { sucesso: true };
+  } catch (err) {
+    console.error("Falha ao enviar e-mail de verificação:", err);
+    return { sucesso: false };
+  }
+}
+
+export async function enviarEmailConviteEquipe(
+  destinatario: string,
+  nomeEmpresa: string,
+  token: string
+): Promise<{ sucesso: boolean }> {
+  const resend = cliente();
+  if (!resend) {
+    console.warn("RESEND_API_KEY não configurada — convite de equipe não enviado.");
+    return { sucesso: false };
+  }
+
+  const link = `${SITE_URL}/equipe/aceitar/${token}`;
+  const html = layoutEmail({
+    titulo: `Você foi convidado pra equipe da ${escaparHtml(nomeEmpresa)}`,
+    paragrafos: [
+      `A cooperativa <strong>${escaparHtml(nomeEmpresa)}</strong> te convidou pra fazer parte da equipe dela no ConectaLog.`,
+      "Clique no botão abaixo pra criar sua senha e começar a usar. O convite vale por 7 dias.",
+    ],
+    textoBotao: "Aceitar convite",
+    linkBotao: link,
+  });
+
+  try {
+    await resend.emails.send({
+      from: REMETENTE,
+      to: destinatario,
+      subject: `Convite para a equipe da ${nomeEmpresa} — ConectaLog`,
+      html,
+    });
+    return { sucesso: true };
+  } catch (err) {
+    console.error("Falha ao enviar convite de equipe:", err);
+    return { sucesso: false };
+  }
+}
+
 export async function enviarEmailVerificacaoMotoboy(
   destinatario: string,
   nome: string,

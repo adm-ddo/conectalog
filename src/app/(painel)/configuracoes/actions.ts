@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { requireMaster } from "@/lib/auth-empresa";
 import { uploadDataUrlPublico } from "@/lib/blob";
@@ -63,5 +64,14 @@ export async function atualizarValoresPadrao(
     },
   });
 
+  revalidatePath("/configuracoes");
+}
+
+export async function regenerarTokenCadastroMotoboy() {
+  const sessao = await requireMaster();
+  await prisma.empresa.update({
+    where: { id: sessao.empresaId },
+    data: { tokenCadastroMotoboy: randomBytes(16).toString("hex") },
+  });
   revalidatePath("/configuracoes");
 }

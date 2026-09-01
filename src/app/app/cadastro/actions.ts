@@ -9,6 +9,7 @@ import { enviarEmailVerificacaoMotoboy } from "@/lib/email";
 import type { TipoChavePix, TipoEquipamento } from "@/generated/prisma/enums";
 
 export type DadosCadastroMotoboy = {
+  tokenEmpresa: string;
   nomeCompleto: string;
   dataNascimento: string;
   cpf: string;
@@ -39,10 +40,22 @@ export type CadastroState = { erro?: string } | undefined;
  *
  * Manda e-mail de verificação em vez de logar direto — mesmo padrão do
  * extras-app (Usuario/Pessoa): só entra no app depois de clicar no link
- * de confirmação, ver src/app/app/verificar-email/[token]/actions.ts. */
+ * de confirmação, ver src/app/app/verificar-email/[token]/actions.ts.
+ *
+ * `tokenEmpresa` vem do link que a cooperativa gerou
+ * (/app/cadastro/[token]) — é isso que decide em qual cooperativa o
+ * motoboy entra. Sem link válido, não tem cadastro: descobrir e pedir
+ * credenciamento em outra cooperativa é uma fase futura. */
 export async function cadastrarMotoboy(
   dados: DadosCadastroMotoboy
 ): Promise<CadastroState> {
+  const empresa = await prisma.empresa.findUnique({
+    where: { tokenCadastroMotoboy: dados.tokenEmpresa },
+  });
+  if (!empresa) {
+    return { erro: "Esse link de cadastro não é mais válido. Peça um novo pra cooperativa." };
+  }
+
   const cpf = dados.cpf.replace(/\D/g, "");
   const email = dados.email.trim().toLowerCase();
 
@@ -71,15 +84,14 @@ export async function cadastrarMotoboy(
     return { erro: "Informe qual equipamento de entrega você usa." };
   }
 
-  // Nesta fase o ConectaLog atende uma cooperativa só — o cadastro
-  // público do motoboy entra automaticamente nela. Quando existir mais
-  // de uma cooperativa (revenda), isso precisa virar um link/convite
-  // por cooperativa em vez de "a única que existe".
-  const empresa = await prisma.empresa.findFirstOrThrow();
-
   const existente = await prisma.motoboy.findFirst({ where: { OR: [{ cpf }, { email }] } });
   if (existente && existente.senhaHash) {
     return { erro: "Já existe uma conta com esse CPF ou e-mail. Faça login." };
+  }
+  if (existente && existente.empresaId !== empresa.id) {
+    return {
+      erro: "Esse CPF ou e-mail já está cadastrado em outra cooperativa. Confira o link que você usou.",
+    };
   }
 
   const senhaHash = await hashSenha(dados.senha);

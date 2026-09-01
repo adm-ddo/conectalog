@@ -98,6 +98,13 @@ model Empresa {
   valorBandaClientePadrao     Decimal  @default(0) @db.Decimal(10, 2)
   valorTaxaExtraMotoboyPadrao Decimal  @default(0) @db.Decimal(10, 2)
   valorTaxaExtraClientePadrao Decimal  @default(0) @db.Decimal(10, 2)
+  /// Link fixo de cadastro pro motoboy (/app/cadastro/[token]) — quem se
+  /// cadastra por esse link já entra credenciado nesta cooperativa
+  /// direto, sem precisar de aprovação. Gerado automaticamente na
+  /// criação da Empresa. Modelo "descobrir e solicitar credenciamento
+  /// noutra cooperativa" fica pra uma fase futura — ver conversa com o
+  /// Thiago sobre o motoboy como perfil global no ConectaLog.
+  tokenCadastroMotoboy        String?  @unique
   criadoEm                    DateTime @default(now())
 
   usuarios   Usuario[]
@@ -105,26 +112,72 @@ model Empresa {
   motoboys   Motoboy[]
   pagamentos Pagamento[]
   vales      Vale[]
+  convites   ConviteEquipe[]
 }
 
 /// Login do painel (dono/gestor da cooperativa) — sistema de sessão
 /// deliberadamente separado do login do Motoboy (auth-motoboy.ts), mesmo
 /// espírito do extras-app: uma falha num nunca deve derrubar o outro.
 model Usuario {
-  id        Int         @id @default(autoincrement())
-  empresaId Int
-  nome      String
-  email     String      @unique
-  senhaHash String
-  role      RoleUsuario @default(GESTOR)
-  ativo     Boolean     @default(true)
-  criadoEm  DateTime    @default(now())
+  id                Int         @id @default(autoincrement())
+  empresaId         Int
+  nome              String
+  email             String      @unique
+  senhaHash         String
+  role              RoleUsuario @default(GESTOR)
+  /// null até confirmar o cadastro pelo link de e-mail (só se aplica a
+  /// quem se cadastrou sozinho, ou seja, o primeiro MASTER de cada
+  /// cooperativa) — GESTOR convidado já entra verificado, porque clicar
+  /// no link de convite já prova posse do e-mail.
+  emailVerificadoEm DateTime?
+  ativo             Boolean     @default(true)
+  criadoEm          DateTime    @default(now())
 
-  empresa                      Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa                      Empresa                    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   sessoes                      Sessao[]
   vales                        Vale[]
   escalasCriadas               EscalaTurno[]
   solicitacoesApoioRespondidas SolicitacaoApoio[]
+  tokensAutenticacao           TokenAutenticacaoUsuario[]
+  convitesEnviados             ConviteEquipe[]
+}
+
+/// Token de uso único (verificação de e-mail / recuperação de senha) do
+/// Usuario — espelha TokenAutenticacaoMotoboy, mesmo motivo de tabela
+/// própria (nunca misturar com a sessão/token de outro sistema de auth).
+model TokenAutenticacaoUsuario {
+  id        Int                   @id @default(autoincrement())
+  token     String                @unique
+  usuarioId Int
+  tipo      TipoTokenAutenticacao
+  expiraEm  DateTime
+  usadoEm   DateTime?
+  criadoEm  DateTime              @default(now())
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId, tipo])
+}
+
+/// Convite pra alguém entrar na equipe do painel (role GESTOR) — o
+/// MASTER manda pra um e-mail, a pessoa clica no link e define a
+/// própria senha. Diferente do extras-app (que cria o login pronto na
+/// hora, sem convite real por e-mail): aqui é convite de verdade,
+/// porque agora existe infraestrutura de e-mail (Resend) pra isso.
+model ConviteEquipe {
+  id                 Int       @id @default(autoincrement())
+  empresaId          Int
+  email              String
+  token              String    @unique
+  criadoPorUsuarioId Int
+  expiraEm           DateTime
+  aceitoEm           DateTime?
+  criadoEm           DateTime  @default(now())
+
+  empresa          Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  criadoPorUsuario Usuario @relation(fields: [criadoPorUsuarioId], references: [id])
+
+  @@index([empresaId])
 }
 
 model Sessao {

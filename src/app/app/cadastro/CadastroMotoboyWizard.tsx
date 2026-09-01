@@ -7,7 +7,7 @@ import type { TipoEquipamento } from "@/generated/prisma/enums";
 
 type Dados = Omit<
   DadosCadastroMotoboy,
-  "fotoPerfilDataUrl" | "cnhDataUrl" | "senha" | "tipoEquipamento"
+  "tokenEmpresa" | "fotoPerfilDataUrl" | "cnhDataUrl" | "senha" | "tipoEquipamento"
 > & {
   confirmarSenha: string;
   senha: string;
@@ -36,7 +36,7 @@ const DADOS_INICIAIS: Dados = {
 
 const PASSOS = ["Dados pessoais", "PIX e senha", "Sua foto", "CNH", "Equipamento", "Enviar"] as const;
 
-export default function CadastroMotoboyWizard() {
+export default function CadastroMotoboyWizard({ tokenEmpresa }: { tokenEmpresa: string }) {
   const [passo, setPasso] = useState(0);
   const [dados, setDados] = useState<Dados>(DADOS_INICIAIS);
   const [fotoPerfilDataUrl, setFotoPerfilDataUrl] = useState<string | null>(null);
@@ -116,6 +116,7 @@ export default function CadastroMotoboyWizard() {
     startTransition(async () => {
       const resultado = await cadastrarMotoboy({
         ...dados,
+        tokenEmpresa,
         tipoEquipamento: dados.tipoEquipamento as TipoEquipamento,
         fotoPerfilDataUrl,
         cnhDataUrl,
