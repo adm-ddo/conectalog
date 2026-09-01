@@ -4,7 +4,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireMotoboy } from "@/lib/auth-motoboy";
 import { uploadDataUrl } from "@/lib/blob";
-import { valorEfetivo } from "@/lib/valores";
+import { valorEfetivo, paraNumero } from "@/lib/valores";
+import { calcularValores } from "@/lib/precificacao";
 
 export type EncerrarTurnoState = { erro?: string } | undefined;
 
@@ -32,13 +33,22 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
   }
 
   const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaId } });
-  const valorBandaAplicado = valorEfetivo(turno.cliente.valorBanda, empresa.valorBandaPadrao);
-  const valorTaxaExtraAplicado = valorEfetivo(
-    turno.cliente.valorTaxaExtra,
-    empresa.valorTaxaExtraPadrao
+  const { valorMotoboy, valorCliente } = calcularValores(
+    turno.cliente,
+    empresa,
+    dados.quantidadeBandas,
+    dados.quantidadeTaxasExtras
   );
-  const valorTotal =
-    dados.quantidadeBandas * valorBandaAplicado + dados.quantidadeTaxasExtras * valorTaxaExtraAplicado;
+  // Snapshot informativo do valor por banda em vigor — na diária, é a
+  // tarifa de excedente (a única que de fato varia com a quantidade).
+  const valorBandaAplicado =
+    turno.cliente.valorDiariaMotoboy != null
+      ? paraNumero(turno.cliente.valorBandaExcedenteMotoboy)
+      : valorEfetivo(turno.cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);
+  const valorTaxaExtraAplicado = valorEfetivo(
+    turno.cliente.valorTaxaExtraMotoboy,
+    empresa.valorTaxaExtraMotoboyPadrao
+  );
 
   const [fotoFimUrl, assinaturaReciboUrl] = await Promise.all([
     uploadDataUrl(`turnos/foto-fim-${Date.now()}.jpg`, dados.fotoFimDataUrl),
@@ -55,7 +65,8 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
       quantidadeTaxasExtras: dados.quantidadeTaxasExtras,
       valorBandaAplicado,
       valorTaxaExtraAplicado,
-      valorTotal,
+      valorTotal: valorMotoboy,
+      valorCobradoCliente: valorCliente,
       status: "CONCLUIDO",
     },
   });

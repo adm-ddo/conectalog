@@ -1,76 +1,53 @@
 "use client";
 
-import { useActionState, useRef, useEffect } from "react";
+import { useActionState, useRef, useEffect, useState } from "react";
 import { criarCliente } from "./actions";
+import CamposCliente from "./CamposCliente";
 
-export default function NovoClienteForm({
-  valorBandaPadrao,
-  valorTaxaExtraPadrao,
-}: {
-  valorBandaPadrao: string;
-  valorTaxaExtraPadrao: string;
-}) {
+export default function NovoClienteForm() {
   const [state, formAction, pending] = useActionState(criarCliente, undefined);
   const formRef = useRef<HTMLFormElement>(null);
   const enviandoRef = useRef(false);
+  const [aberto, setAberto] = useState(false);
 
   useEffect(() => {
     if (enviandoRef.current && !pending && !state?.erro) {
       formRef.current?.reset();
+      setAberto(false);
     }
     enviandoRef.current = pending;
   }, [pending, state]);
+
+  if (!aberto) {
+    return (
+      <button
+        type="button"
+        onClick={() => setAberto(true)}
+        className="self-start rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-5 py-2.5 transition-colors"
+      >
+        + Novo cliente
+      </button>
+    );
+  }
 
   return (
     <form
       ref={formRef}
       action={formAction}
-      className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-3"
+      className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-4"
     >
-      <h2 className="text-sm font-semibold text-navy-900">Novo cliente</h2>
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-stone-500">Nome</label>
-          <input
-            name="nome"
-            required
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-stone-500">Endereço</label>
-          <input
-            name="endereco"
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-stone-500">
-            Valor da banda (padrão: R$ {valorBandaPadrao})
-          </label>
-          <input
-            name="valorBanda"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder={valorBandaPadrao}
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-stone-500">
-            Valor da taxa extra (padrão: R$ {valorTaxaExtraPadrao})
-          </label>
-          <input
-            name="valorTaxaExtra"
-            type="number"
-            step="0.01"
-            min="0"
-            placeholder={valorTaxaExtraPadrao}
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-navy-900">Novo cliente</h2>
+        <button
+          type="button"
+          onClick={() => setAberto(false)}
+          className="text-xs text-stone-500 hover:underline"
+        >
+          Cancelar
+        </button>
       </div>
+
+      <CamposCliente />
 
       {state?.erro && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">

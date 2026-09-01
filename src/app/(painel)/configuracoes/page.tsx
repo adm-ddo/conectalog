@@ -9,7 +9,13 @@ export default async function ConfiguracoesPage() {
 
   const empresa = await prisma.empresa.findUniqueOrThrow({
     where: { id: sessao.empresaId },
-    select: { logoUrl: true, valorBandaPadrao: true, valorTaxaExtraPadrao: true },
+    select: {
+      logoUrl: true,
+      valorBandaMotoboyPadrao: true,
+      valorBandaClientePadrao: true,
+      valorTaxaExtraMotoboyPadrao: true,
+      valorTaxaExtraClientePadrao: true,
+    },
   });
 
   return (
@@ -21,8 +27,10 @@ export default async function ConfiguracoesPage() {
 
       <LogoForm logoUrlAtual={empresa.logoUrl} />
       <ValoresPadraoForm
-        valorBandaPadrao={String(paraNumero(empresa.valorBandaPadrao))}
-        valorTaxaExtraPadrao={String(paraNumero(empresa.valorTaxaExtraPadrao))}
+        valorBandaMotoboyPadrao={paraNumero(empresa.valorBandaMotoboyPadrao)}
+        valorBandaClientePadrao={paraNumero(empresa.valorBandaClientePadrao)}
+        valorTaxaExtraMotoboyPadrao={paraNumero(empresa.valorTaxaExtraMotoboyPadrao)}
+        valorTaxaExtraClientePadrao={paraNumero(empresa.valorTaxaExtraClientePadrao)}
       />
     </div>
   );

@@ -12,8 +12,9 @@ export default function ClienteRow({
     nome: string;
     endereco: string | null;
     ativo: boolean;
-    valorBandaEfetivo: string;
-    valorTaxaExtraEfetivo: string;
+    usaDiaria: boolean;
+    resumoPreco: string;
+    equipeIncompleta: boolean;
   };
 }) {
   const [pending, startTransition] = useTransition();
@@ -21,10 +22,17 @@ export default function ClienteRow({
   return (
     <li className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
       <Link href={`/clientes/${cliente.id}`} className="min-w-0 flex flex-col">
-        <span className="text-sm font-semibold text-navy-900 truncate">{cliente.nome}</span>
+        <span className="text-sm font-semibold text-navy-900 truncate flex items-center gap-2">
+          {cliente.nome}
+          {cliente.equipeIncompleta && (
+            <span className="rounded-full bg-red-100 text-red-700 px-2 py-0.5 text-[10px] font-bold uppercase">
+              Equipe incompleta
+            </span>
+          )}
+        </span>
         <span className="text-xs text-stone-500 truncate">
-          {cliente.endereco || "Sem endereço"} · banda R$ {cliente.valorBandaEfetivo} · taxa extra R${" "}
-          {cliente.valorTaxaExtraEfetivo}
+          {cliente.endereco || "Sem endereço"} · {cliente.resumoPreco}
+          {cliente.usaDiaria && " · diária"}
         </span>
       </Link>
       <button

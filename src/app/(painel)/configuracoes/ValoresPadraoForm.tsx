@@ -1,48 +1,51 @@
 "use client";
 
 import { useActionState } from "react";
+import CampoMoeda from "@/components/CampoMoeda";
 import { atualizarValoresPadrao } from "./actions";
 
 export default function ValoresPadraoForm({
-  valorBandaPadrao,
-  valorTaxaExtraPadrao,
+  valorBandaMotoboyPadrao,
+  valorBandaClientePadrao,
+  valorTaxaExtraMotoboyPadrao,
+  valorTaxaExtraClientePadrao,
 }: {
-  valorBandaPadrao: string;
-  valorTaxaExtraPadrao: string;
+  valorBandaMotoboyPadrao: number;
+  valorBandaClientePadrao: number;
+  valorTaxaExtraMotoboyPadrao: number;
+  valorTaxaExtraClientePadrao: number;
 }) {
   const [state, formAction, pending] = useActionState(atualizarValoresPadrao, undefined);
 
   return (
     <form action={formAction} className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-3">
-      <h2 className="text-sm font-semibold text-navy-900">Valores padrão</h2>
+      <h2 className="text-sm font-semibold text-navy-900">Valores padrão por banda</h2>
       <p className="text-xs text-stone-500">
         Usados quando um cliente não tem valor próprio configurado. Dá pra sobrescrever por
-        cliente na página de cada um.
+        cliente na página de cada um (inclusive trocar pro modelo de diária).
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-stone-500">Valor da banda (R$)</label>
-          <input
-            name="valorBandaPadrao"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={valorBandaPadrao}
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
-        <div className="flex flex-col gap-1">
-          <label className="text-xs text-stone-500">Valor da taxa extra (R$)</label>
-          <input
-            name="valorTaxaExtraPadrao"
-            type="number"
-            step="0.01"
-            min="0"
-            defaultValue={valorTaxaExtraPadrao}
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
-        </div>
+        <CampoMoeda
+          name="valorBandaMotoboyPadrao"
+          label="Banda — motoboy recebe"
+          defaultValue={valorBandaMotoboyPadrao}
+        />
+        <CampoMoeda
+          name="valorBandaClientePadrao"
+          label="Banda — cooperativa cobra do cliente"
+          defaultValue={valorBandaClientePadrao}
+        />
+        <CampoMoeda
+          name="valorTaxaExtraMotoboyPadrao"
+          label="Taxa extra — motoboy recebe"
+          defaultValue={valorTaxaExtraMotoboyPadrao}
+        />
+        <CampoMoeda
+          name="valorTaxaExtraClientePadrao"
+          label="Taxa extra — cooperativa cobra do cliente"
+          defaultValue={valorTaxaExtraClientePadrao}
+        />
       </div>
 
       {state?.erro && (

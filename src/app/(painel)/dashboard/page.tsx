@@ -1,12 +1,13 @@
 import Link from "next/link";
 import { requireEmpresa } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
+import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
 import DashboardAutoRefresh from "../DashboardAutoRefresh";
 
 export default async function DashboardPage() {
   const sessao = await requireEmpresa();
 
-  const [turnosAbertos, totalMotoboysAtivos, totalClientesAtivos] = await Promise.all([
+  const [turnosAbertos, totalMotoboysAtivos, clientesAtivos] = await Promise.all([
     prisma.turno.findMany({
       where: { status: "ABERTO", motoboy: { empresaId: sessao.empresaId } },
       orderBy: { horaInicio: "asc" },
@@ -18,7 +19,7 @@ export default async function DashboardPage() {
       },
     }),
     prisma.motoboy.count({ where: { empresaId: sessao.empresaId, ativo: true } }),
-    prisma.cliente.count({ where: { empresaId: sessao.empresaId, ativo: true } }),
+    prisma.cliente.findMany({ where: { empresaId: sessao.empresaId, ativo: true } }),
   ]);
 
   const porCliente = new Map<
@@ -30,6 +31,15 @@ export default async function DashboardPage() {
     atual.motoboys.push({ id: t.id, nome: t.motoboy.nomeCompleto, horaInicio: t.horaInicio });
     porCliente.set(t.cliente.id, atual);
   }
+
+  const equipesIncompletas = clientesAtivos
+    .map((cliente) => {
+      const turnoAtual = turnoAtivoAgora(cliente);
+      const contratadas = motosContratadasNoTurno(cliente, turnoAtual);
+      const presentes = porCliente.get(cliente.id)?.motoboys.length ?? 0;
+      return { id: cliente.id, nome: cliente.nome, turnoAtual, contratadas, presentes };
+    })
+    .filter((c) => c.turnoAtual !== null && c.contratadas > 0 && c.presentes < c.contratadas);
 
   return (
     <div className="flex flex-col gap-6">
@@ -56,9 +66,28 @@ export default async function DashboardPage() {
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
             Clientes ativos
           </p>
-          <p className="text-3xl font-bold text-navy-900 mt-1">{totalClientesAtivos}</p>
+          <p className="text-3xl font-bold text-navy-900 mt-1">{clientesAtivos.length}</p>
         </div>
       </div>
+
+      {equipesIncompletas.length > 0 && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-red-700">
+            Equipe incompleta agora ({equipesIncompletas.length})
+          </h2>
+          <ul className="flex flex-col gap-1">
+            {equipesIncompletas.map((c) => (
+              <li key={c.id} className="text-sm text-red-700">
+                <Link href={`/clientes/${c.id}`} className="font-medium hover:underline">
+                  {c.nome}
+                </Link>{" "}
+                — {c.presentes} de {c.contratadas} motos no turno de{" "}
+                {c.turnoAtual === "MANHA" ? "manhã" : "noite"}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-navy-900 mb-3">Quem está em turno agora</h2>

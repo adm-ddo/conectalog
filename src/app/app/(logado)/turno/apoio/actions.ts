@@ -5,6 +5,11 @@ import { prisma } from "@/lib/prisma";
 import { requireMotoboy } from "@/lib/auth-motoboy";
 import { valorEfetivo } from "@/lib/valores";
 
+// Apoio sempre usa o modelo "por banda" normal do cliente de apoio, nunca
+// a diária/franquia — a diária representa a moto fixa contratada e
+// parada o dia inteiro naquele cliente, o que não é o caso de um apoio
+// pontual/oportunista em outro lugar.
+
 export type ApoioState = { erro?: string } | undefined;
 
 export type DadosApoio = {
@@ -46,10 +51,21 @@ export async function registrarApoio(dados: DadosApoio): Promise<ApoioState> {
     return { erro: "Marque ao menos uma banda ou taxa extra." };
   }
 
-  const valorBandaAplicado = valorEfetivo(cliente.valorBanda, empresa.valorBandaPadrao);
-  const valorTaxaExtraAplicado = valorEfetivo(cliente.valorTaxaExtra, empresa.valorTaxaExtraPadrao);
+  const valorBandaAplicado = valorEfetivo(cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);
+  const valorTaxaExtraAplicado = valorEfetivo(
+    cliente.valorTaxaExtraMotoboy,
+    empresa.valorTaxaExtraMotoboyPadrao
+  );
+  const valorBandaClienteAplicado = valorEfetivo(cliente.valorBandaCliente, empresa.valorBandaClientePadrao);
+  const valorTaxaExtraClienteAplicado = valorEfetivo(
+    cliente.valorTaxaExtraCliente,
+    empresa.valorTaxaExtraClientePadrao
+  );
   const valorTotal =
     dados.quantidadeBandas * valorBandaAplicado + dados.quantidadeTaxasExtras * valorTaxaExtraAplicado;
+  const valorCobradoCliente =
+    dados.quantidadeBandas * valorBandaClienteAplicado +
+    dados.quantidadeTaxasExtras * valorTaxaExtraClienteAplicado;
 
   await prisma.apoio.create({
     data: {
@@ -60,6 +76,7 @@ export async function registrarApoio(dados: DadosApoio): Promise<ApoioState> {
       valorBandaAplicado,
       valorTaxaExtraAplicado,
       valorTotal,
+      valorCobradoCliente,
     },
   });
 

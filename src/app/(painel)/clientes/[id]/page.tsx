@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireEmpresa } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
+import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
 import EditarClienteForm from "./EditarClienteForm";
 
 export default async function ClienteDetalhePage({
@@ -28,6 +29,10 @@ export default async function ClienteDetalhePage({
   });
   if (!cliente) notFound();
 
+  const turnoAtual = turnoAtivoAgora(cliente);
+  const contratadas = motosContratadasNoTurno(cliente, turnoAtual);
+  const equipeIncompleta = turnoAtual !== null && contratadas > 0 && cliente.turnos.length < contratadas;
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -35,13 +40,45 @@ export default async function ClienteDetalhePage({
         <p className="text-stone-600 mt-1 text-sm">{cliente.endereco || "Sem endereço"}</p>
       </div>
 
+      {equipeIncompleta && (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          Faltam motos no turno de {turnoAtual === "MANHA" ? "manhã" : "noite"}: {cliente.turnos.length}{" "}
+          de {contratadas} contratadas presentes agora.
+        </div>
+      )}
+
       <EditarClienteForm
-        cliente={{
-          id: cliente.id,
+        clienteId={cliente.id}
+        valores={{
           nome: cliente.nome,
           endereco: cliente.endereco,
-          valorBanda: String(paraNumero(cliente.valorBanda)),
-          valorTaxaExtra: String(paraNumero(cliente.valorTaxaExtra)),
+          turnoManhaAtivo: cliente.turnoManhaAtivo,
+          turnoManhaInicio: cliente.turnoManhaInicio,
+          turnoManhaFim: cliente.turnoManhaFim,
+          motosFixasManha: cliente.motosFixasManha,
+          turnoNoiteAtivo: cliente.turnoNoiteAtivo,
+          turnoNoiteInicio: cliente.turnoNoiteInicio,
+          turnoNoiteFim: cliente.turnoNoiteFim,
+          motosFixasNoite: cliente.motosFixasNoite,
+          valorBandaMotoboy: cliente.valorBandaMotoboy != null ? paraNumero(cliente.valorBandaMotoboy) : null,
+          valorBandaCliente: cliente.valorBandaCliente != null ? paraNumero(cliente.valorBandaCliente) : null,
+          valorTaxaExtraMotoboy:
+            cliente.valorTaxaExtraMotoboy != null ? paraNumero(cliente.valorTaxaExtraMotoboy) : null,
+          valorTaxaExtraCliente:
+            cliente.valorTaxaExtraCliente != null ? paraNumero(cliente.valorTaxaExtraCliente) : null,
+          valorDiariaMotoboy:
+            cliente.valorDiariaMotoboy != null ? paraNumero(cliente.valorDiariaMotoboy) : null,
+          valorDiariaCliente:
+            cliente.valorDiariaCliente != null ? paraNumero(cliente.valorDiariaCliente) : null,
+          bandasIncluidasNaDiaria: cliente.bandasIncluidasNaDiaria,
+          valorBandaExcedenteMotoboy:
+            cliente.valorBandaExcedenteMotoboy != null
+              ? paraNumero(cliente.valorBandaExcedenteMotoboy)
+              : null,
+          valorBandaExcedenteCliente:
+            cliente.valorBandaExcedenteCliente != null
+              ? paraNumero(cliente.valorBandaExcedenteCliente)
+              : null,
         }}
       />
 
