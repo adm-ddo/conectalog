@@ -19,16 +19,16 @@ export async function convidarMembro(
   if (jaEUsuario) return { erro: "Esse e-mail já tem uma conta." };
 
   const conviteJaPendente = await prisma.conviteEquipe.findFirst({
-    where: { empresaId: sessao.empresaId, email, aceitoEm: null, expiraEm: { gt: new Date() } },
+    where: { empresaId: sessao.empresaEfetivoId, email, aceitoEm: null, expiraEm: { gt: new Date() } },
   });
   if (conviteJaPendente) return { erro: "Já tem um convite pendente pra esse e-mail." };
 
   const empresa = await prisma.empresa.findUniqueOrThrow({
-    where: { id: sessao.empresaId },
+    where: { id: sessao.empresaEfetivoId },
     select: { nome: true },
   });
 
-  const token = await criarConviteEquipe(sessao.empresaId, email, sessao.usuarioId);
+  const token = await criarConviteEquipe(sessao.empresaEfetivoId, email, sessao.usuarioId);
   await enviarEmailConviteEquipe(email, empresa.nome, token);
 
   revalidatePath("/equipe");
@@ -37,7 +37,7 @@ export async function convidarMembro(
 export async function cancelarConvite(conviteId: number) {
   const sessao = await requireMaster();
   await prisma.conviteEquipe.deleteMany({
-    where: { id: conviteId, empresaId: sessao.empresaId, aceitoEm: null },
+    where: { id: conviteId, empresaId: sessao.empresaEfetivoId, aceitoEm: null },
   });
   revalidatePath("/equipe");
 }
@@ -48,7 +48,7 @@ export async function alternarAtivoMembro(usuarioId: number, ativo: boolean) {
   // fora do próprio painel.
   if (usuarioId === sessao.usuarioId) return;
   await prisma.usuario.updateMany({
-    where: { id: usuarioId, empresaId: sessao.empresaId, role: "GESTOR" },
+    where: { id: usuarioId, empresaId: sessao.empresaEfetivoId, role: "GESTOR" },
     data: { ativo },
   });
   revalidatePath("/equipe");

@@ -19,10 +19,20 @@ const CONVITE_TTL_DIAS = 7;
 
 export type SessaoEmpresa = {
   usuarioId: number;
-  empresaId: number;
   nome: string;
   email: string;
   role: RoleUsuario;
+  superAdmin: boolean;
+  /** A cooperativa dona do login (sempre existe, mesmo pra superAdmin). */
+  empresaHomeId: number;
+  /** Só relevante pra superAdmin: qual cooperativa ele "entrou" agora. */
+  empresaAtivaId: number | null;
+  /** A cooperativa que toda page/action deveria usar — empresaAtivaId
+   * quando superAdmin entrou em alguma, senão empresaHomeId. Só fica
+   * null quando superAdmin ainda não entrou em nenhuma (aí a tela
+   * certa é /master, não um painel de cooperativa nenhuma). */
+  empresaEfetivoId: number | null;
+  empresaEfetivoNome: string | null;
 };
 
 export async function criarSessaoEmpresa(usuarioId: number): Promise<void> {
@@ -63,6 +73,7 @@ export const getSessaoEmpresa = cache(
       where: { token },
       select: {
         expiraEm: true,
+        empresaAtivaId: true,
         usuario: {
           select: {
             id: true,
@@ -70,38 +81,109 @@ export const getSessaoEmpresa = cache(
             nome: true,
             email: true,
             role: true,
+            superAdmin: true,
             ativo: true,
           },
         },
+        empresaAtiva: { select: { nome: true } },
       },
     });
     if (!sessao || sessao.expiraEm < new Date() || !sessao.usuario.ativo) {
       return null;
     }
 
+    // Não-superAdmin sempre opera na própria cooperativa — empresaAtivaId
+    // só existe de verdade pra quem pode "entrar" em cooperativa alheia.
+    const empresaEfetivoId = sessao.usuario.superAdmin
+      ? sessao.empresaAtivaId
+      : sessao.usuario.empresaId;
+
+    // Só preenchido quando o superAdmin está dentro de uma cooperativa
+    // alheia — quem não é superAdmin já sabe o próprio nome de outro
+    // jeito (o layout do painel busca a Empresa de qualquer forma).
+    const empresaEfetivoNome =
+      sessao.usuario.superAdmin && sessao.empresaAtiva ? sessao.empresaAtiva.nome : null;
+
     return {
       usuarioId: sessao.usuario.id,
-      empresaId: sessao.usuario.empresaId,
       nome: sessao.usuario.nome,
       email: sessao.usuario.email,
       role: sessao.usuario.role,
+      superAdmin: sessao.usuario.superAdmin,
+      empresaHomeId: sessao.usuario.empresaId,
+      empresaAtivaId: sessao.empresaAtivaId,
+      empresaEfetivoId,
+      empresaEfetivoNome,
     };
   }
 );
 
-/** Use no topo de toda page/action do painel da cooperativa. */
+/** Use só quando precisar saber "tem alguém logado?" sem exigir uma
+ * cooperativa efetiva — ex.: o próprio /master, que é onde o superAdmin
+ * vai antes de entrar em qualquer cooperativa. */
 export async function requireEmpresa(): Promise<SessaoEmpresa> {
   const sessao = await getSessaoEmpresa();
   if (!sessao) redirect("/login");
   return sessao;
 }
 
-/** Use nas ações restritas ao dono (ex.: criar outro login, mexer em
- * valores padrão da cooperativa). */
-export async function requireMaster(): Promise<SessaoEmpresa> {
+/** Use no topo de toda page/action do painel de UMA cooperativa
+ * (dashboard, clientes, motoboys, pagamentos...). Se for superAdmin e
+ * ainda não tiver entrado em nenhuma cooperativa, manda pra /master em
+ * vez de deixar cair num painel sem empresa nenhuma. */
+export async function requireTenant(): Promise<
+  SessaoEmpresa & { empresaEfetivoId: number }
+> {
   const sessao = await requireEmpresa();
-  if (sessao.role !== "MASTER") redirect("/dashboard");
+  if (sessao.empresaEfetivoId === null) redirect("/master");
+  return { ...sessao, empresaEfetivoId: sessao.empresaEfetivoId };
+}
+
+/** Use nas ações restritas ao dono (ex.: criar outro login, mexer em
+ * valores padrão da cooperativa). Quando o superAdmin entrou numa
+ * cooperativa alheia, ele age como se fosse o dono dela — é o próprio
+ * propósito de "entrar como dono" (ver requireSuperAdmin pra quando o
+ * que importa é a plataforma, não uma cooperativa específica). */
+export async function requireMaster(): Promise<
+  SessaoEmpresa & { empresaEfetivoId: number }
+> {
+  const sessao = await requireTenant();
+  const agindoComoDonoPorSerSuperAdmin =
+    sessao.superAdmin && sessao.empresaAtivaId !== null;
+  if (sessao.role !== "MASTER" && !agindoComoDonoPorSerSuperAdmin) {
+    redirect("/dashboard");
+  }
   return sessao;
+}
+
+/** Use no topo de /master e das ações que listam/entram em qualquer
+ * cooperativa — diferente de requireMaster, que é sobre UMA cooperativa
+ * específica, isso é sobre a plataforma inteira. */
+export async function requireSuperAdmin(): Promise<SessaoEmpresa> {
+  const sessao = await requireEmpresa();
+  if (!sessao.superAdmin) redirect("/dashboard");
+  return sessao;
+}
+
+/** SuperAdmin "entra" numa cooperativa — depois disso, empresaEfetivoId
+ * passa a apontar pra ela em toda page/action, como se ele fosse o
+ * MASTER dela. */
+export async function entrarNaEmpresaComoSuperAdmin(empresaId: number): Promise<void> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSAO_EMPRESA_COOKIE)?.value;
+  if (!token) return;
+  await prisma.sessao.update({ where: { token }, data: { empresaAtivaId: empresaId } });
+  revalidatePath("/", "layout");
+}
+
+/** Volta pra lista de cooperativas (/master) — limpa qual empresa
+ * estava ativa, sem derrubar a sessão. */
+export async function sairDaEmpresaAtiva(): Promise<void> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get(SESSAO_EMPRESA_COOKIE)?.value;
+  if (!token) return;
+  await prisma.sessao.update({ where: { token }, data: { empresaAtivaId: null } });
+  revalidatePath("/", "layout");
 }
 
 /** Cria um token de uso único (verificação de e-mail / recuperação de

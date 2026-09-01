@@ -1,13 +1,13 @@
-import { requireEmpresa } from "@/lib/auth-empresa";
+import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import MotoboyRow from "./MotoboyRow";
 import NovoMotoboyForm from "./NovoMotoboyForm";
 
 export default async function MotoboysPage() {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
 
   const motoboys = await prisma.motoboy.findMany({
-    where: { empresaId: sessao.empresaId },
+    where: { empresaId: sessao.empresaEfetivoId },
     orderBy: { nomeCompleto: "asc" },
     select: {
       id: true,

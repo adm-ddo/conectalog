@@ -1,15 +1,15 @@
-import { requireEmpresa } from "@/lib/auth-empresa";
+import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
 import PendenciaRow from "./PendenciaRow";
 import PagamentoRow from "./PagamentoRow";
 
 export default async function PagamentosPage() {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
 
   const [motoboys, pagamentos] = await Promise.all([
     prisma.motoboy.findMany({
-      where: { empresaId: sessao.empresaId, ativo: true },
+      where: { empresaId: sessao.empresaEfetivoId, ativo: true },
       orderBy: { nomeCompleto: "asc" },
       select: {
         id: true,
@@ -28,7 +28,7 @@ export default async function PagamentosPage() {
       },
     }),
     prisma.pagamento.findMany({
-      where: { empresaId: sessao.empresaId },
+      where: { empresaId: sessao.empresaEfetivoId },
       orderBy: { criadoEm: "desc" },
       include: { motoboy: { select: { nomeCompleto: true } } },
     }),

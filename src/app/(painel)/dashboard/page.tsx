@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireEmpresa } from "@/lib/auth-empresa";
+import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
 import DashboardAutoRefresh from "../DashboardAutoRefresh";
@@ -9,12 +9,12 @@ import DivergenciaRow from "./DivergenciaRow";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
 
 export default async function DashboardPage() {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
 
   const [turnosAbertos, totalMotoboysAtivos, clientesAtivos, solicitacoesApoio, turnosDivergentes] =
     await Promise.all([
       prisma.turno.findMany({
-        where: { status: "ABERTO", motoboy: { empresaId: sessao.empresaId } },
+        where: { status: "ABERTO", motoboy: { empresaId: sessao.empresaEfetivoId } },
         orderBy: { horaInicio: "asc" },
         select: {
           id: true,
@@ -23,16 +23,16 @@ export default async function DashboardPage() {
           cliente: { select: { id: true, nome: true } },
         },
       }),
-      prisma.motoboy.count({ where: { empresaId: sessao.empresaId, ativo: true } }),
-      prisma.cliente.findMany({ where: { empresaId: sessao.empresaId, ativo: true } }),
+      prisma.motoboy.count({ where: { empresaId: sessao.empresaEfetivoId, ativo: true } }),
+      prisma.cliente.findMany({ where: { empresaId: sessao.empresaEfetivoId, ativo: true } }),
       prisma.solicitacaoApoio.findMany({
-        where: { status: "PENDENTE", cliente: { empresaId: sessao.empresaId } },
+        where: { status: "PENDENTE", cliente: { empresaId: sessao.empresaEfetivoId } },
         orderBy: { criadoEm: "asc" },
         include: { cliente: { select: { nome: true } } },
       }),
       prisma.turno.findMany({
         where: {
-          motoboy: { empresaId: sessao.empresaId },
+          motoboy: { empresaId: sessao.empresaEfetivoId },
           resolvidoDivergenciaEm: null,
           quantidadeBandasCliente: { not: null },
         },

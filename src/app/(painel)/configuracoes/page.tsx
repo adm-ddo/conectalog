@@ -1,4 +1,4 @@
-import { requireEmpresa } from "@/lib/auth-empresa";
+import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
 import LogoForm from "./LogoForm";
@@ -6,10 +6,10 @@ import ValoresPadraoForm from "./ValoresPadraoForm";
 import LinkCadastroMotoboySection from "./LinkCadastroMotoboySection";
 
 export default async function ConfiguracoesPage() {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
 
   const empresa = await prisma.empresa.findUniqueOrThrow({
-    where: { id: sessao.empresaId },
+    where: { id: sessao.empresaEfetivoId },
     select: {
       logoUrl: true,
       valorBandaMotoboyPadrao: true,

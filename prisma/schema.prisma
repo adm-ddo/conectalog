@@ -107,12 +107,13 @@ model Empresa {
   tokenCadastroMotoboy        String?  @unique
   criadoEm                    DateTime @default(now())
 
-  usuarios   Usuario[]
-  clientes   Cliente[]
-  motoboys   Motoboy[]
-  pagamentos Pagamento[]
-  vales      Vale[]
-  convites   ConviteEquipe[]
+  usuarios      Usuario[]
+  clientes      Cliente[]
+  motoboys      Motoboy[]
+  pagamentos    Pagamento[]
+  vales         Vale[]
+  convites      ConviteEquipe[]
+  sessoesAtivas Sessao[]
 }
 
 /// Login do painel (dono/gestor da cooperativa) — sistema de sessão
@@ -125,6 +126,12 @@ model Usuario {
   email             String      @unique
   senhaHash         String
   role              RoleUsuario @default(GESTOR)
+  /// Dono da plataforma ConectaLog (não confundir com role MASTER, que é
+  /// só o dono de UMA cooperativa) — enxerga todas as cooperativas
+  /// cadastradas e pode "entrar" em qualquer uma como se fosse o dono
+  /// dela (ver Sessao.empresaAtivaId e requireTenant em
+  /// src/lib/auth-empresa.ts). Nunca setado por autocadastro.
+  superAdmin        Boolean     @default(false)
   /// null até confirmar o cadastro pelo link de e-mail (só se aplica a
   /// quem se cadastrou sozinho, ou seja, o primeiro MASTER de cada
   /// cooperativa) — GESTOR convidado já entra verificado, porque clicar
@@ -181,13 +188,18 @@ model ConviteEquipe {
 }
 
 model Sessao {
-  id        Int      @id @default(autoincrement())
-  token     String   @unique
-  usuarioId Int
-  criadoEm  DateTime @default(now())
-  expiraEm  DateTime
+  id             Int      @id @default(autoincrement())
+  token          String   @unique
+  usuarioId      Int
+  /// Só usado por Usuario.superAdmin — qual cooperativa ele "entrou"
+  /// pra ver/mexer como se fosse o dono dela. null = ainda não entrou em
+  /// nenhuma (aí a tela é a lista de cooperativas, ver /master).
+  empresaAtivaId Int?
+  criadoEm       DateTime @default(now())
+  expiraEm       DateTime
 
-  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  usuario      Usuario  @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+  empresaAtiva Empresa? @relation(fields: [empresaAtivaId], references: [id], onDelete: SetNull)
 }
 
 /// Empresa cliente atendida pela cooperativa. Tem dois modelos de preço

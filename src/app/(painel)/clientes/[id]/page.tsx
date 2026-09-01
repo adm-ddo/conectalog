@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireEmpresa } from "@/lib/auth-empresa";
+import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
 import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
@@ -12,11 +12,11 @@ export default async function ClienteDetalhePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
   const clienteId = Number((await params).id);
 
   const cliente = await prisma.cliente.findFirst({
-    where: { id: clienteId, empresaId: sessao.empresaId },
+    where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
     include: {
       motoboysLiberados: {
         where: { liberado: true },

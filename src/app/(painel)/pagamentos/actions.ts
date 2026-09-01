@@ -2,17 +2,17 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireEmpresa } from "@/lib/auth-empresa";
+import { requireTenant } from "@/lib/auth-empresa";
 
 /** Junta todo turno CONCLUIDO (e seus apoios) ainda sem pagamento vinculado
  * pra esse motoboy num Pagamento novo, status PENDENTE — o PIX em si a
  * cooperativa faz pelo banco dela; isso aqui é só o fechamento de conta.
  * Mesmo espírito do extras-app: nunca calcula/envia dinheiro sozinho. */
 export async function fecharPagamento(motoboyId: number) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
 
   const motoboy = await prisma.motoboy.findFirst({
-    where: { id: motoboyId, empresaId: sessao.empresaId },
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
   });
   if (!motoboy) return;
 
@@ -52,7 +52,7 @@ export async function fecharPagamento(motoboyId: number) {
 
   await prisma.$transaction(async (tx) => {
     const pagamento = await tx.pagamento.create({
-      data: { motoboyId, empresaId: sessao.empresaId, periodoInicio, periodoFim, valorTotal },
+      data: { motoboyId, empresaId: sessao.empresaEfetivoId, periodoInicio, periodoFim, valorTotal },
     });
     await tx.turno.updateMany({
       where: { id: { in: turnoIds } },
@@ -76,10 +76,10 @@ export async function fecharPagamento(motoboyId: number) {
 }
 
 export async function marcarPagamentoPago(pagamentoId: number) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
 
   const pagamento = await prisma.pagamento.findFirst({
-    where: { id: pagamentoId, empresaId: sessao.empresaId },
+    where: { id: pagamentoId, empresaId: sessao.empresaEfetivoId },
   });
   if (!pagamento) return;
 

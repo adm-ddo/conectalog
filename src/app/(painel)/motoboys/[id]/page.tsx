@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireEmpresa } from "@/lib/auth-empresa";
+import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
 import LiberacaoClientes from "./LiberacaoClientes";
@@ -13,12 +13,12 @@ export default async function MotoboyDetalhePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
   const motoboyId = Number((await params).id);
 
   const [motoboy, clientes] = await Promise.all([
     prisma.motoboy.findFirst({
-      where: { id: motoboyId, empresaId: sessao.empresaId },
+      where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
       include: {
         clientesLiberados: true,
         vales: { orderBy: { data: "desc" } },
@@ -29,7 +29,7 @@ export default async function MotoboyDetalhePage({
       },
     }),
     prisma.cliente.findMany({
-      where: { empresaId: sessao.empresaId, ativo: true },
+      where: { empresaId: sessao.empresaEfetivoId, ativo: true },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
     }),

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { sair } from "./actions";
+import { sair, voltarAoMaster } from "./actions";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -17,14 +17,26 @@ const LINKS = [
 export default function PainelHeader({
   empresaNome,
   usuarioNome,
+  vendoComoSuperAdmin,
 }: {
   empresaNome: string;
   usuarioNome: string;
+  vendoComoSuperAdmin: boolean;
 }) {
   const pathname = usePathname();
 
   return (
     <header className="bg-navy-900 text-white">
+      {vendoComoSuperAdmin && (
+        <div className="bg-amber-500 text-navy-900 text-sm font-semibold px-4 py-2 flex items-center justify-center gap-3">
+          <span>Você está vendo como dono de {empresaNome}</span>
+          <form action={voltarAoMaster}>
+            <button type="submit" className="underline underline-offset-2">
+              Voltar pra lista de cooperativas
+            </button>
+          </form>
+        </div>
+      )}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-6 min-w-0">
           <Link href="/dashboard" className="font-black text-lg tracking-tight shrink-0">

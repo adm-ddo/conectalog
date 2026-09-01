@@ -19,10 +19,10 @@ export async function atualizarLogo(
   }
 
   const logoUrl = await uploadDataUrlPublico(
-    `empresas/${sessao.empresaId}/logo-${Date.now()}.png`,
+    `empresas/${sessao.empresaEfetivoId}/logo-${Date.now()}.png`,
     dataUrl
   );
-  await prisma.empresa.update({ where: { id: sessao.empresaId }, data: { logoUrl } });
+  await prisma.empresa.update({ where: { id: sessao.empresaEfetivoId }, data: { logoUrl } });
 
   revalidatePath("/configuracoes");
 }
@@ -55,7 +55,7 @@ export async function atualizarValoresPadrao(
   }
 
   await prisma.empresa.update({
-    where: { id: sessao.empresaId },
+    where: { id: sessao.empresaEfetivoId },
     data: {
       valorBandaMotoboyPadrao,
       valorBandaClientePadrao,
@@ -70,7 +70,7 @@ export async function atualizarValoresPadrao(
 export async function regenerarTokenCadastroMotoboy() {
   const sessao = await requireMaster();
   await prisma.empresa.update({
-    where: { id: sessao.empresaId },
+    where: { id: sessao.empresaEfetivoId },
     data: { tokenCadastroMotoboy: randomBytes(16).toString("hex") },
   });
   revalidatePath("/configuracoes");

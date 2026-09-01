@@ -1,4 +1,4 @@
-import { requireEmpresa } from "@/lib/auth-empresa";
+import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import EscalaRow from "./EscalaRow";
 import CandidatoRow from "./CandidatoRow";
@@ -14,11 +14,11 @@ export default async function EscalaPage({
 }: {
   searchParams: Promise<{ clienteId?: string; data?: string; turno?: string }>;
 }) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
   const params = await searchParams;
 
   const clientes = await prisma.cliente.findMany({
-    where: { empresaId: sessao.empresaId, ativo: true },
+    where: { empresaId: sessao.empresaEfetivoId, ativo: true },
     orderBy: { nome: "asc" },
     select: { id: true, nome: true },
   });
@@ -47,7 +47,7 @@ export default async function EscalaPage({
     }),
     prisma.motoboy.findMany({
       where: {
-        empresaId: sessao.empresaId,
+        empresaId: sessao.empresaEfetivoId,
         ativo: true,
         OR: [{ livre: true }, { clientesLiberados: { some: { clienteId, liberado: true } } }],
       },

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireEmpresa } from "@/lib/auth-empresa";
+import { requireTenant } from "@/lib/auth-empresa";
 
 export type MotoboyFormState = { erro?: string } | undefined;
 
@@ -17,7 +17,7 @@ export async function criarMotoboyManual(
   _prev: MotoboyFormState,
   formData: FormData
 ): Promise<MotoboyFormState> {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
 
   const nomeCompleto = String(formData.get("nomeCompleto") ?? "").trim();
   const cpf = String(formData.get("cpf") ?? "").replace(/\D/g, "");
@@ -52,7 +52,7 @@ export async function criarMotoboyManual(
 
   await prisma.motoboy.create({
     data: {
-      empresaId: sessao.empresaId,
+      empresaId: sessao.empresaEfetivoId,
       nomeCompleto,
       cpf,
       email,
@@ -73,9 +73,9 @@ export async function atualizarEquipamentoMotoboy(
   motoboyId: number,
   tipoEquipamento: (typeof TIPOS_EQUIPAMENTO)[number] | null
 ) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
   await prisma.motoboy.updateMany({
-    where: { id: motoboyId, empresaId: sessao.empresaId },
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
     data: { tipoEquipamento },
   });
   revalidatePath(`/motoboys/${motoboyId}`);
@@ -83,18 +83,18 @@ export async function atualizarEquipamentoMotoboy(
 }
 
 export async function alternarAtivoMotoboy(motoboyId: number, ativo: boolean) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
   await prisma.motoboy.updateMany({
-    where: { id: motoboyId, empresaId: sessao.empresaId },
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
     data: { ativo },
   });
   revalidatePath("/motoboys");
 }
 
 export async function alternarLivreMotoboy(motoboyId: number, livre: boolean) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
   await prisma.motoboy.updateMany({
-    where: { id: motoboyId, empresaId: sessao.empresaId },
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
     data: { livre },
   });
   revalidatePath(`/motoboys/${motoboyId}`);
@@ -108,13 +108,13 @@ export async function alternarLiberacaoMotoboyCliente(
   clienteId: number,
   liberado: boolean
 ) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
 
   // Confere posse dos dois lados antes de mexer — motoboy e cliente
   // precisam ser da mesma empresa de quem está logado.
   const [motoboy, cliente] = await Promise.all([
-    prisma.motoboy.findFirst({ where: { id: motoboyId, empresaId: sessao.empresaId } }),
-    prisma.cliente.findFirst({ where: { id: clienteId, empresaId: sessao.empresaId } }),
+    prisma.motoboy.findFirst({ where: { id: motoboyId, empresaId: sessao.empresaEfetivoId } }),
+    prisma.cliente.findFirst({ where: { id: clienteId, empresaId: sessao.empresaEfetivoId } }),
   ]);
   if (!motoboy || !cliente) return;
 
@@ -138,7 +138,7 @@ export async function criarVale(
   _prev: ValeFormState,
   formData: FormData
 ): Promise<ValeFormState> {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
 
   const valor = Number(String(formData.get("valor") ?? "").replace(",", "."));
   const observacao = String(formData.get("observacao") ?? "").trim() || null;
@@ -148,14 +148,14 @@ export async function criarVale(
   }
 
   const motoboy = await prisma.motoboy.findFirst({
-    where: { id: motoboyId, empresaId: sessao.empresaId },
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
   });
   if (!motoboy) return { erro: "Motoboy inválido." };
 
   await prisma.vale.create({
     data: {
       motoboyId,
-      empresaId: sessao.empresaId,
+      empresaId: sessao.empresaEfetivoId,
       valor,
       observacao,
       criadoPorUsuarioId: sessao.usuarioId,
@@ -166,9 +166,9 @@ export async function criarVale(
 }
 
 export async function marcarValeDescontado(valeId: number, motoboyId: number) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
   await prisma.vale.updateMany({
-    where: { id: valeId, empresaId: sessao.empresaId },
+    where: { id: valeId, empresaId: sessao.empresaEfetivoId },
     data: { descontadoEm: new Date() },
   });
   revalidatePath(`/motoboys/${motoboyId}`);

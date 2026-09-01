@@ -2,16 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireEmpresa } from "@/lib/auth-empresa";
+import { requireTenant } from "@/lib/auth-empresa";
 import type { StatusSolicitacaoApoio } from "@/generated/prisma/enums";
 
 export async function responderSolicitacaoApoio(
   solicitacaoId: number,
   status: Extract<StatusSolicitacaoApoio, "A_CAMINHO" | "SEM_MOTO">
 ) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
   await prisma.solicitacaoApoio.updateMany({
-    where: { id: solicitacaoId, cliente: { empresaId: sessao.empresaId }, status: "PENDENTE" },
+    where: { id: solicitacaoId, cliente: { empresaId: sessao.empresaEfetivoId }, status: "PENDENTE" },
     data: { status, respondidoPorUsuarioId: sessao.usuarioId, respondidoEm: new Date() },
   });
   revalidatePath("/dashboard");
@@ -26,16 +26,16 @@ export async function resolverDivergenciaTurno(
   quantidadeBandasFinal: number,
   quantidadeTaxasExtrasFinal: number
 ) {
-  const sessao = await requireEmpresa();
+  const sessao = await requireTenant();
 
   const turno = await prisma.turno.findFirst({
-    where: { id: turnoId, motoboy: { empresaId: sessao.empresaId } },
+    where: { id: turnoId, motoboy: { empresaId: sessao.empresaEfetivoId } },
     include: { cliente: true },
   });
   if (!turno) return;
 
   const { calcularValores } = await import("@/lib/precificacao");
-  const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaId } });
+  const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaEfetivoId } });
   const { valorMotoboy, valorCliente } = calcularValores(
     turno.cliente,
     empresa,

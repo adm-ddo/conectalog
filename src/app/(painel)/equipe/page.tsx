@@ -9,11 +9,11 @@ export default async function EquipePage() {
 
   const [membros, convites] = await Promise.all([
     prisma.usuario.findMany({
-      where: { empresaId: sessao.empresaId },
+      where: { empresaId: sessao.empresaEfetivoId },
       orderBy: [{ role: "asc" }, { nome: "asc" }],
     }),
     prisma.conviteEquipe.findMany({
-      where: { empresaId: sessao.empresaId, aceitoEm: null, expiraEm: { gt: new Date() } },
+      where: { empresaId: sessao.empresaEfetivoId, aceitoEm: null, expiraEm: { gt: new Date() } },
       orderBy: { criadoEm: "desc" },
     }),
   ]);
