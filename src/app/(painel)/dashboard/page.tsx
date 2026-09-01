@@ -4,25 +4,47 @@ import { prisma } from "@/lib/prisma";
 import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
 import DashboardAutoRefresh from "../DashboardAutoRefresh";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
+import SolicitacaoApoioAlert from "./SolicitacaoApoioAlert";
+import DivergenciaRow from "./DivergenciaRow";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
 
 export default async function DashboardPage() {
   const sessao = await requireEmpresa();
 
-  const [turnosAbertos, totalMotoboysAtivos, clientesAtivos] = await Promise.all([
-    prisma.turno.findMany({
-      where: { status: "ABERTO", motoboy: { empresaId: sessao.empresaId } },
-      orderBy: { horaInicio: "asc" },
-      select: {
-        id: true,
-        horaInicio: true,
-        motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
-        cliente: { select: { id: true, nome: true } },
-      },
-    }),
-    prisma.motoboy.count({ where: { empresaId: sessao.empresaId, ativo: true } }),
-    prisma.cliente.findMany({ where: { empresaId: sessao.empresaId, ativo: true } }),
-  ]);
+  const [turnosAbertos, totalMotoboysAtivos, clientesAtivos, solicitacoesApoio, turnosDivergentes] =
+    await Promise.all([
+      prisma.turno.findMany({
+        where: { status: "ABERTO", motoboy: { empresaId: sessao.empresaId } },
+        orderBy: { horaInicio: "asc" },
+        select: {
+          id: true,
+          horaInicio: true,
+          motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
+          cliente: { select: { id: true, nome: true } },
+        },
+      }),
+      prisma.motoboy.count({ where: { empresaId: sessao.empresaId, ativo: true } }),
+      prisma.cliente.findMany({ where: { empresaId: sessao.empresaId, ativo: true } }),
+      prisma.solicitacaoApoio.findMany({
+        where: { status: "PENDENTE", cliente: { empresaId: sessao.empresaId } },
+        orderBy: { criadoEm: "asc" },
+        include: { cliente: { select: { nome: true } } },
+      }),
+      prisma.turno.findMany({
+        where: {
+          motoboy: { empresaId: sessao.empresaId },
+          resolvidoDivergenciaEm: null,
+          quantidadeBandasCliente: { not: null },
+        },
+        include: { motoboy: { select: { nomeCompleto: true } }, cliente: { select: { nome: true } } },
+      }),
+    ]);
+
+  const divergencias = turnosDivergentes.filter(
+    (t) =>
+      t.quantidadeBandasCliente !== t.quantidadeBandas ||
+      t.quantidadeTaxasExtrasCliente !== t.quantidadeTaxasExtras
+  );
 
   const porCliente = new Map<
     number,
@@ -64,6 +86,15 @@ export default async function DashboardPage() {
         <p className="text-stone-600 mt-1 text-sm">Visão geral da operação agora.</p>
       </div>
 
+      <SolicitacaoApoioAlert
+        solicitacoes={solicitacoesApoio.map((s) => ({
+          id: s.id,
+          quantidade: s.quantidade,
+          clienteNome: s.cliente.nome,
+          criadoEm: s.criadoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+        }))}
+      />
+
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
@@ -99,6 +130,28 @@ export default async function DashboardPage() {
                 — {c.presentes} de {c.contratadas} motos no turno de{" "}
                 {c.turnoAtual === "MANHA" ? "manhã" : "noite"}
               </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {divergencias.length > 0 && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 flex flex-col gap-3">
+          <h2 className="text-sm font-semibold text-red-700">
+            Divergência entre motoboy e cliente ({divergencias.length})
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {divergencias.map((t) => (
+              <DivergenciaRow
+                key={t.id}
+                turnoId={t.id}
+                nomeMotoboy={t.motoboy.nomeCompleto}
+                nomeCliente={t.cliente.nome}
+                bandasMotoboy={t.quantidadeBandas}
+                taxasMotoboy={t.quantidadeTaxasExtras}
+                bandasCliente={t.quantidadeBandasCliente ?? 0}
+                taxasCliente={t.quantidadeTaxasExtrasCliente ?? 0}
+              />
             ))}
           </ul>
         </div>

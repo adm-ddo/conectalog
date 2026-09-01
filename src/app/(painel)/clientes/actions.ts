@@ -1,9 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { requireEmpresa } from "@/lib/auth-empresa";
-import { hashSenha } from "@/lib/senha";
 
 export type ClienteFormState = { erro?: string } | undefined;
 
@@ -69,8 +69,16 @@ export async function criarCliente(
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) return { erro: "Informe o nome do cliente." };
 
+  // Já nasce com o link do portal pronto — mesmo espírito do Totem do
+  // extras-app: a cooperativa recebe o link já na hora de cadastrar,
+  // sem precisar de um passo separado depois.
   await prisma.cliente.create({
-    data: { empresaId: sessao.empresaId, nome, ...dadosComuns(formData) },
+    data: {
+      empresaId: sessao.empresaId,
+      nome,
+      tokenPortal: randomBytes(16).toString("hex"),
+      ...dadosComuns(formData),
+    },
   });
 
   revalidatePath("/clientes");
@@ -103,33 +111,13 @@ export async function alternarAtivoCliente(clienteId: number, ativo: boolean) {
   revalidatePath("/clientes");
 }
 
-export type AcessoPortalState = { erro?: string } | undefined;
-
-/** Cria/troca o login do portal do Cliente — configurado pela
- * cooperativa, não é autocadastro (o cliente não escolhe o próprio
- * usuário, quem decide é quem administra a conta dele). */
-export async function definirAcessoPortal(
-  clienteId: number,
-  _prev: AcessoPortalState,
-  formData: FormData
-): Promise<AcessoPortalState> {
+/** Troca o link do portal por um novo — útil se o link vazou ou se
+ * precisar revogar o acesso de quem tinha o link antigo salvo. */
+export async function regenerarTokenPortal(clienteId: number) {
   const sessao = await requireEmpresa();
-  const loginPortal = String(formData.get("loginPortal") ?? "").trim().toLowerCase();
-  const senha = String(formData.get("senha") ?? "");
-
-  if (!loginPortal) return { erro: "Informe um login." };
-  if (senha.length < 6) return { erro: "A senha precisa ter pelo menos 6 caracteres." };
-
-  const emUso = await prisma.cliente.findFirst({
-    where: { loginPortal, NOT: { id: clienteId } },
-  });
-  if (emUso) return { erro: "Esse login já está em uso por outro cliente." };
-
-  const senhaHashPortal = await hashSenha(senha);
   await prisma.cliente.updateMany({
     where: { id: clienteId, empresaId: sessao.empresaId },
-    data: { loginPortal, senhaHashPortal },
+    data: { tokenPortal: randomBytes(16).toString("hex") },
   });
-
   revalidatePath(`/clientes/${clienteId}`);
 }

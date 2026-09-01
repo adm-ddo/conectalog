@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
 import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
 import EditarClienteForm from "./EditarClienteForm";
-import AcessoPortalForm from "./AcessoPortalForm";
+import LinkPortalSection from "./LinkPortalSection";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 
 export default async function ClienteDetalhePage({
@@ -88,7 +88,7 @@ export default async function ClienteDetalhePage({
         }}
       />
 
-      <AcessoPortalForm clienteId={cliente.id} loginAtual={cliente.loginPortal} />
+      <LinkPortalSection clienteId={cliente.id} token={cliente.tokenPortal} />
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-navy-900 mb-3">

@@ -1,19 +1,16 @@
 import Link from "next/link";
 import { getSessaoEmpresa } from "@/lib/auth-empresa";
 import { getSessaoMotoboy } from "@/lib/auth-motoboy";
-import { getSessaoCliente } from "@/lib/auth-cliente";
 import { redirect } from "next/navigation";
 
 export default async function HomePage() {
-  const [sessaoEmpresa, sessaoMotoboy, sessaoCliente] = await Promise.all([
+  const [sessaoEmpresa, sessaoMotoboy] = await Promise.all([
     getSessaoEmpresa(),
     getSessaoMotoboy(),
-    getSessaoCliente(),
   ]);
 
   if (sessaoEmpresa) redirect("/dashboard");
   if (sessaoMotoboy) redirect("/app/inicio");
-  if (sessaoCliente) redirect("/portal/escala");
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center gap-10 px-6 py-16 bg-navy-900 text-white">
@@ -38,13 +35,11 @@ export default async function HomePage() {
         >
           🏢 Sou a cooperativa
         </Link>
-        <Link
-          href="/portal/entrar"
-          className="rounded-xl border border-white/30 hover:bg-white/10 text-white font-bold text-lg px-8 py-4 text-center transition-colors"
-        >
-          🍕 Sou cliente
-        </Link>
       </div>
+      <p className="text-navy-300 text-xs text-center max-w-sm">
+        É empresa cliente da cooperativa? O acesso ao seu portal é por um link próprio, enviado
+        pela cooperativa — não precisa de login aqui.
+      </p>
     </main>
   );
 }

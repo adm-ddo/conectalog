@@ -120,10 +120,11 @@ model Usuario {
   ativo     Boolean     @default(true)
   criadoEm  DateTime    @default(now())
 
-  empresa        Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  sessoes        Sessao[]
-  vales          Vale[]
-  escalasCriadas EscalaTurno[]
+  empresa                      Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  sessoes                      Sessao[]
+  vales                        Vale[]
+  escalasCriadas               EscalaTurno[]
+  solicitacoesApoioRespondidas SolicitacaoApoio[]
 }
 
 model Sessao {
@@ -153,11 +154,11 @@ model Cliente {
   ativo     Boolean  @default(true)
   criadoEm  DateTime @default(now())
 
-  // Acesso do cliente ao próprio portal (ver escala do dia) — login
-  // configurado pela cooperativa, não autocadastro. null = sem acesso
-  // configurado ainda.
-  loginPortal     String? @unique
-  senhaHashPortal String?
+  // Acesso do cliente ao próprio portal — mesmo padrão do Totem do
+  // extras-app: um token na URL (/portal/[token]/...), sem login/senha.
+  // A cooperativa gera o link ao cadastrar o cliente e manda pra ele
+  // deixar aberto/salvo no navegador. null = link ainda não gerado.
+  tokenPortal String? @unique
 
   // Horários dos turnos fixos e quantidade de motos contratada em cada um
   // — usado pro alerta de "equipe incompleta" no dashboard da cooperativa.
@@ -184,28 +185,15 @@ model Cliente {
   valorBandaExcedenteMotoboy Decimal? @db.Decimal(10, 2)
   valorBandaExcedenteCliente Decimal? @db.Decimal(10, 2)
 
-  empresa           Empresa          @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa           Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   motoboysLiberados MotoboyCliente[]
   turnos            Turno[]
   apoios            Apoio[]
-  sessoesPortal     SessaoCliente[]
   escalas           EscalaTurno[]
+  avaliacoes        Avaliacao[]
+  solicitacoesApoio SolicitacaoApoio[]
 
   @@index([empresaId])
-}
-
-/// Sessão de login do Cliente no portal dele — terceiro sistema de
-/// sessão isolado (além de Sessao/Usuario e SessaoMotoboy/Motoboy), pelo
-/// mesmo motivo dos outros dois: uma falha aqui nunca deve derrubar o
-/// painel da cooperativa nem o app do motoboy.
-model SessaoCliente {
-  id        Int      @id @default(autoincrement())
-  token     String   @unique
-  clienteId Int
-  expiraEm  DateTime
-  criadoEm  DateTime @default(now())
-
-  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 }
 
 /// Escala manual: a cooperativa decide que Motoboy vai trabalhar em qual
@@ -279,6 +267,7 @@ model Motoboy {
   sessoes            SessaoMotoboy[]
   tokensAutenticacao TokenAutenticacaoMotoboy[]
   escalas            EscalaTurno[]
+  avaliacoes         Avaliacao[]
 
   @@index([empresaId])
 }
@@ -359,13 +348,71 @@ model Turno {
   pagamentoId            Int?
   criadoEm               DateTime         @default(now())
 
+  /// Contagem que o CLIENTE (restaurante) informa pelo portal ao
+  /// encerrar o motoboy do lado dele — null enquanto ele não fechou.
+  /// Quando os dois números não batem (quantidadeBandas do motoboy vs.
+  /// quantidadeBandasCliente), o turno fica marcado como divergente até
+  /// a cooperativa resolver manualmente (ver resolvidoDivergenciaEm) —
+  /// decisão confirmada com o Thiago: os dois têm que bater, não é o
+  /// registro de um lado que automaticamente vale mais que o outro.
+  quantidadeBandasCliente      Int?
+  quantidadeTaxasExtrasCliente Int?
+  /// Preenchido quando a cooperativa resolve manualmente uma divergência
+  /// (ou confirma que os números batem) — enquanto null e os dois
+  /// números existirem e forem diferentes, o turno aparece na tela de
+  /// divergências do painel.
+  resolvidoDivergenciaEm       DateTime?
+
   motoboy   Motoboy       @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
   cliente   Cliente       @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   pagamento Pagamento?    @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
   apoios    Apoio[]
   escalas   EscalaTurno[]
+  avaliacao Avaliacao?
 
   @@index([motoboyId, status])
+  @@index([clienteId, status])
+}
+
+/// Avaliação do motoboy pelo cliente (restaurante) ao encerrar o turno
+/// dele do lado do portal — nota de 1 a 5 + comentário livre opcional,
+/// pra registrar qualquer ocorrência.
+model Avaliacao {
+  id         Int      @id @default(autoincrement())
+  turnoId    Int      @unique
+  clienteId  Int
+  motoboyId  Int
+  nota       Int
+  comentario String?
+  criadoEm   DateTime @default(now())
+
+  turno   Turno   @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+
+  @@index([motoboyId])
+}
+
+enum StatusSolicitacaoApoio {
+  PENDENTE
+  A_CAMINHO
+  SEM_MOTO
+}
+
+/// Pedido de apoio feito pelo cliente direto no portal — a cooperativa
+/// vê isso na hora no painel (alerta) e responde com um dos dois botões.
+model SolicitacaoApoio {
+  id                     Int                    @id @default(autoincrement())
+  clienteId              Int
+  quantidade             Int
+  status                 StatusSolicitacaoApoio @default(PENDENTE)
+  respondidoPorUsuarioId Int?
+  respondidoEm           DateTime?
+  criadoEm               DateTime               @default(now())
+
+  cliente              Cliente  @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  respondidoPorUsuario Usuario? @relation(fields: [respondidoPorUsuarioId], references: [id])
+
   @@index([clienteId, status])
 }
 
