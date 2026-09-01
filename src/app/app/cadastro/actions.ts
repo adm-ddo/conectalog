@@ -1,0 +1,124 @@
+"use server";
+
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { hashSenha } from "@/lib/senha";
+import { criarSessaoMotoboy } from "@/lib/auth-motoboy";
+import { uploadDataUrl } from "@/lib/blob";
+import type { TipoChavePix } from "@/generated/prisma/enums";
+
+export type DadosCadastroMotoboy = {
+  nomeCompleto: string;
+  dataNascimento: string;
+  cpf: string;
+  email: string;
+  endereco: string;
+  numero: string;
+  complemento: string;
+  bairro: string;
+  cidade: string;
+  cep: string;
+  telefoneCelular: string;
+  telefoneEmergencia: string;
+  chavePix: string;
+  tipoChavePix: TipoChavePix;
+  senha: string;
+  fotoPerfilDataUrl: string;
+  cnhDataUrl: string;
+};
+
+export type CadastroState = { erro?: string } | undefined;
+
+/** Cadastro próprio do motoboy — cobre dois casos com a mesma ação:
+ * (1) CPF/e-mail novo: cria o registro do zero; (2) a cooperativa já
+ * cadastrou ele manualmente (Motoboy sem senhaHash): esse fluxo
+ * "reivindica" esse registro, completando os dados de autocadastro em
+ * cima dele, em vez de criar um duplicado (cpf/email são @unique).
+ *
+ * Sem verificação de e-mail por enquanto (decisão combinada com o
+ * Thiago) — enquanto não existe domínio próprio pra mandar e-mail
+ * transacional, o motoboy já sai logado direto depois do cadastro. */
+export async function cadastrarMotoboy(
+  dados: DadosCadastroMotoboy
+): Promise<CadastroState> {
+  const cpf = dados.cpf.replace(/\D/g, "");
+  const email = dados.email.trim().toLowerCase();
+
+  if (
+    !dados.nomeCompleto.trim() ||
+    !dados.dataNascimento ||
+    cpf.length !== 11 ||
+    !email ||
+    !dados.endereco.trim() ||
+    !dados.telefoneCelular.trim() ||
+    !dados.telefoneEmergencia.trim() ||
+    !dados.chavePix.trim()
+  ) {
+    return { erro: "Preencha todos os dados obrigatórios." };
+  }
+  if (dados.senha.length < 6) {
+    return { erro: "A senha precisa ter pelo menos 6 caracteres." };
+  }
+  if (!dados.fotoPerfilDataUrl) {
+    return { erro: "Falta tirar a foto de perfil." };
+  }
+  if (!dados.cnhDataUrl) {
+    return { erro: "Falta a foto ou o anexo da CNH." };
+  }
+
+  // Nesta fase o ConectaLog atende uma cooperativa só — o cadastro
+  // público do motoboy entra automaticamente nela. Quando existir mais
+  // de uma cooperativa (revenda), isso precisa virar um link/convite
+  // por cooperativa em vez de "a única que existe".
+  const empresa = await prisma.empresa.findFirstOrThrow();
+
+  const existente = await prisma.motoboy.findFirst({ where: { OR: [{ cpf }, { email }] } });
+  if (existente && existente.senhaHash) {
+    return { erro: "Já existe uma conta com esse CPF ou e-mail. Faça login." };
+  }
+
+  const senhaHash = await hashSenha(dados.senha);
+  const [fotoPerfilUrl, cnhFotoUrl] = await Promise.all([
+    uploadDataUrl(`motoboys/foto-perfil-${Date.now()}.jpg`, dados.fotoPerfilDataUrl),
+    uploadDataUrl(`motoboys/cnh-${Date.now()}.jpg`, dados.cnhDataUrl),
+  ]);
+
+  const dadosComuns = {
+    nomeCompleto: dados.nomeCompleto.trim(),
+    dataNascimento: new Date(dados.dataNascimento),
+    endereco: dados.endereco.trim(),
+    numero: dados.numero.trim() || null,
+    complemento: dados.complemento.trim() || null,
+    bairro: dados.bairro.trim() || null,
+    cidade: dados.cidade.trim() || null,
+    cep: dados.cep.trim() || null,
+    telefoneCelular: dados.telefoneCelular.trim(),
+    telefoneEmergencia: dados.telefoneEmergencia.trim(),
+    chavePix: dados.chavePix.trim(),
+    tipoChavePix: dados.tipoChavePix,
+    senhaHash,
+    fotoPerfilUrl,
+    cnhFotoUrl,
+  };
+
+  let motoboyId: number;
+  try {
+    if (existente) {
+      const atualizado = await prisma.motoboy.update({
+        where: { id: existente.id },
+        data: { ...dadosComuns, cpf, email },
+      });
+      motoboyId = atualizado.id;
+    } else {
+      const criado = await prisma.motoboy.create({
+        data: { empresaId: empresa.id, cpf, email, ...dadosComuns },
+      });
+      motoboyId = criado.id;
+    }
+  } catch {
+    return { erro: "Já existe uma conta com esse CPF ou e-mail." };
+  }
+
+  await criarSessaoMotoboy(motoboyId);
+  redirect("/app/inicio");
+}
