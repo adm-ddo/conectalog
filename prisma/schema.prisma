@@ -316,6 +316,9 @@ model Vale {
   valor             Decimal  @db.Decimal(10, 2)
   data              DateTime @default(now()) @db.Date
   observacao        String?
+  /// Preenchido quando a cooperativa já compensou esse vale no pagamento
+  /// (manualmente — não há vínculo automático com Pagamento nesta fase).
+  descontadoEm      DateTime?
   criadoPorUsuarioId Int
   criadoEm          DateTime @default(now())
 

@@ -106,3 +106,49 @@ export async function alternarLiberacaoMotoboyCliente(
   revalidatePath(`/motoboys/${motoboyId}`);
   revalidatePath(`/clientes/${clienteId}`);
 }
+
+export type ValeFormState = { erro?: string } | undefined;
+
+/** Registra um vale (adiantamento) — aparece pro motoboy no app dele.
+ * Não desconta automaticamente de nenhum pagamento; é a cooperativa que
+ * marca como descontado quando de fato compensar na hora do PIX. */
+export async function criarVale(
+  motoboyId: number,
+  _prev: ValeFormState,
+  formData: FormData
+): Promise<ValeFormState> {
+  const sessao = await requireEmpresa();
+
+  const valor = Number(String(formData.get("valor") ?? "").replace(",", "."));
+  const observacao = String(formData.get("observacao") ?? "").trim() || null;
+
+  if (!Number.isFinite(valor) || valor <= 0) {
+    return { erro: "Informe um valor válido." };
+  }
+
+  const motoboy = await prisma.motoboy.findFirst({
+    where: { id: motoboyId, empresaId: sessao.empresaId },
+  });
+  if (!motoboy) return { erro: "Motoboy inválido." };
+
+  await prisma.vale.create({
+    data: {
+      motoboyId,
+      empresaId: sessao.empresaId,
+      valor,
+      observacao,
+      criadoPorUsuarioId: sessao.usuarioId,
+    },
+  });
+
+  revalidatePath(`/motoboys/${motoboyId}`);
+}
+
+export async function marcarValeDescontado(valeId: number, motoboyId: number) {
+  const sessao = await requireEmpresa();
+  await prisma.vale.updateMany({
+    where: { id: valeId, empresaId: sessao.empresaId },
+    data: { descontadoEm: new Date() },
+  });
+  revalidatePath(`/motoboys/${motoboyId}`);
+}

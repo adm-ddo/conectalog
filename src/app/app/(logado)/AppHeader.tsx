@@ -1,6 +1,14 @@
 "use client";
 
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { sairMotoboy } from "./actions";
+
+const LINKS = [
+  { href: "/app/inicio", label: "Início" },
+  { href: "/app/relatorio", label: "Relatório" },
+  { href: "/app/metas", label: "Metas" },
+];
 
 export default function AppHeader({
   nome,
@@ -11,6 +19,8 @@ export default function AppHeader({
   logoUrl: string | null;
   empresaNome: string;
 }) {
+  const pathname = usePathname();
+
   return (
     <header className="bg-white border-b border-stone-200 sticky top-0 z-10">
       <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between gap-3">
@@ -34,6 +44,22 @@ export default function AppHeader({
           </button>
         </form>
       </div>
+      <nav className="max-w-md mx-auto px-4 pb-2 flex items-center gap-1">
+        {LINKS.map((link) => {
+          const ativo = pathname.startsWith(link.href);
+          return (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={`flex-1 text-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                ativo ? "bg-brand-100 text-brand-800" : "text-stone-500 hover:bg-stone-100"
+              }`}
+            >
+              {link.label}
+            </Link>
+          );
+        })}
+      </nav>
     </header>
   );
 }

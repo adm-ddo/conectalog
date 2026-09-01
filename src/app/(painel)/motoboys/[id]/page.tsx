@@ -1,7 +1,9 @@
 import { notFound } from "next/navigation";
 import { requireEmpresa } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
+import { formatarMoeda } from "@/lib/valores";
 import LiberacaoClientes from "./LiberacaoClientes";
+import ValesSection from "./ValesSection";
 
 export default async function MotoboyDetalhePage({
   params,
@@ -14,7 +16,10 @@ export default async function MotoboyDetalhePage({
   const [motoboy, clientes] = await Promise.all([
     prisma.motoboy.findFirst({
       where: { id: motoboyId, empresaId: sessao.empresaId },
-      include: { clientesLiberados: true },
+      include: {
+        clientesLiberados: true,
+        vales: { orderBy: { data: "desc" } },
+      },
     }),
     prisma.cliente.findMany({
       where: { empresaId: sessao.empresaId, ativo: true },
@@ -65,6 +70,17 @@ export default async function MotoboyDetalhePage({
           id: c.id,
           nome: c.nome,
           liberado: liberadosPorClienteId.get(c.id) ?? false,
+        }))}
+      />
+
+      <ValesSection
+        motoboyId={motoboy.id}
+        vales={motoboy.vales.map((v) => ({
+          id: v.id,
+          valor: formatarMoeda(v.valor),
+          observacao: v.observacao,
+          data: v.data.toLocaleDateString("pt-BR"),
+          descontado: v.descontadoEm !== null,
         }))}
       />
     </div>
