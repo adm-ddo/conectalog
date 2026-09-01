@@ -227,14 +227,17 @@ model Cliente {
 
   // Horários dos turnos fixos e quantidade de motos contratada em cada um
   // — usado pro alerta de "equipe incompleta" no dashboard da cooperativa.
+  // motosFixasManha/Noite: 7 posições, índice = Date.getDay() (0=domingo
+  // ... 6=sábado), porque a demanda de moto fixa varia por dia da semana
+  // (ex.: sexta/sábado pedem mais moto que uma terça).
   turnoManhaAtivo  Boolean @default(false)
   turnoManhaInicio String?
   turnoManhaFim    String?
-  motosFixasManha  Int?
+  motosFixasManha  Int[]   @default([0, 0, 0, 0, 0, 0, 0])
   turnoNoiteAtivo  Boolean @default(false)
   turnoNoiteInicio String?
   turnoNoiteFim    String?
-  motosFixasNoite  Int?
+  motosFixasNoite  Int[]   @default([0, 0, 0, 0, 0, 0, 0])
 
   // Preço "por banda" normal — null herda o padrão da Empresa.
   valorBandaMotoboy     Decimal? @db.Decimal(10, 2)

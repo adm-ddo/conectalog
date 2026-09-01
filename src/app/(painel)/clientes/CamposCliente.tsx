@@ -6,17 +6,29 @@ import CampoMoeda from "@/components/CampoMoeda";
 const inputClasse =
   "border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 w-full";
 
+// Índice = Date.getDay() (0=domingo...6=sábado); exibido na ordem
+// segunda→domingo, que é como a cooperativa pensa a semana.
+const DIAS_SEMANA: { dia: number; label: string }[] = [
+  { dia: 1, label: "Seg" },
+  { dia: 2, label: "Ter" },
+  { dia: 3, label: "Qua" },
+  { dia: 4, label: "Qui" },
+  { dia: 5, label: "Sex" },
+  { dia: 6, label: "Sáb" },
+  { dia: 0, label: "Dom" },
+];
+
 export type ValoresCliente = {
   nome?: string;
   endereco?: string | null;
   turnoManhaAtivo?: boolean;
   turnoManhaInicio?: string | null;
   turnoManhaFim?: string | null;
-  motosFixasManha?: number | null;
+  motosFixasManha?: number[];
   turnoNoiteAtivo?: boolean;
   turnoNoiteInicio?: string | null;
   turnoNoiteFim?: string | null;
-  motosFixasNoite?: number | null;
+  motosFixasNoite?: number[];
   valorBandaMotoboy?: number | null;
   valorBandaCliente?: number | null;
   valorTaxaExtraMotoboy?: number | null;
@@ -48,9 +60,9 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
 
       <div className="flex flex-col gap-3">
         <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
-          Turnos e motos fixas contratadas
+          Turnos e motos fixas contratadas por dia da semana
         </span>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3">
           <BlocoTurno
             titulo="Manhã"
             prefixo="Manha"
@@ -171,10 +183,10 @@ function BlocoTurno({
   onAtivoChange: (v: boolean) => void;
   inicioDefault?: string | null;
   fimDefault?: string | null;
-  motosDefault?: number | null;
+  motosDefault?: number[];
 }) {
   return (
-    <div className="rounded-xl border border-stone-200 p-3 flex flex-col gap-2">
+    <div className="rounded-xl border border-stone-200 p-3 flex flex-col gap-3">
       <label className="flex items-center gap-2 text-sm font-medium text-navy-900">
         <input
           type="checkbox"
@@ -186,35 +198,45 @@ function BlocoTurno({
         Turno {titulo}
       </label>
       {ativo && (
-        <div className="grid grid-cols-2 gap-2">
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-stone-500">Início</span>
-            <input
-              type="time"
-              name={`turno${prefixo}Inicio`}
-              defaultValue={inicioDefault ?? ""}
-              className={inputClasse}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-stone-500">Fim</span>
-            <input
-              type="time"
-              name={`turno${prefixo}Fim`}
-              defaultValue={fimDefault ?? ""}
-              className={inputClasse}
-            />
-          </label>
-          <label className="col-span-2 flex flex-col gap-1">
-            <span className="text-xs text-stone-500">Motos fixas contratadas</span>
-            <input
-              type="number"
-              min="0"
-              name={`motosFixas${prefixo}`}
-              defaultValue={motosDefault ?? ""}
-              className={inputClasse}
-            />
-          </label>
+        <div className="flex flex-col gap-3">
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-stone-500">Início</span>
+              <input
+                type="time"
+                name={`turno${prefixo}Inicio`}
+                defaultValue={inicioDefault ?? ""}
+                className={inputClasse}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-stone-500">Fim</span>
+              <input
+                type="time"
+                name={`turno${prefixo}Fim`}
+                defaultValue={fimDefault ?? ""}
+                className={inputClasse}
+              />
+            </label>
+          </div>
+
+          <div className="flex flex-col gap-1">
+            <span className="text-xs text-stone-500">Motos fixas contratadas por dia</span>
+            <div className="grid grid-cols-4 sm:grid-cols-7 gap-2">
+              {DIAS_SEMANA.map(({ dia, label }) => (
+                <label key={dia} className="flex flex-col items-center gap-1">
+                  <span className="text-[11px] text-stone-500">{label}</span>
+                  <input
+                    type="number"
+                    min="0"
+                    name={`motosFixas${prefixo}${dia}`}
+                    defaultValue={motosDefault?.[dia] ?? 0}
+                    className={`${inputClasse} text-center px-1`}
+                  />
+                </label>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>

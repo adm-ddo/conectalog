@@ -41,11 +41,34 @@ export function turnoAtivoAgora(cliente: HorariosCliente, agora: Date = new Date
   return null;
 }
 
+/** Dia da semana (Date.getDay(): 0=domingo...6=sábado) a que o turno
+ * pertence "de verdade" — importante pro turno noite que cruza a meia-
+ * noite (ex.: sexta 22h-05h): à 1h da madrugada de sábado, o turno ainda
+ * é o de sexta-feira, não o de sábado, então a quantidade de moto fixa
+ * contratada a comparar é a de sexta. */
+function diaSemanaDoTurno(cliente: HorariosCliente, turno: TurnoAtual, agora: Date): number {
+  if (turno === "NOITE" && cliente.turnoNoiteInicio && cliente.turnoNoiteFim) {
+    const inicio = paraMinutos(cliente.turnoNoiteInicio);
+    const fim = paraMinutos(cliente.turnoNoiteFim);
+    const minutosAgora = agora.getHours() * 60 + agora.getMinutes();
+    const cruzaMeiaNoite = inicio !== null && fim !== null && inicio > fim;
+    if (cruzaMeiaNoite && minutosAgora <= fim!) {
+      return (agora.getDay() + 6) % 7; // dia anterior
+    }
+  }
+  return agora.getDay();
+}
+
+/** motosFixasManha/Noite: array de 7 posições, índice = Date.getDay()
+ * (0=domingo...6=sábado) — cada dia da semana pode ter uma quantidade
+ * de moto fixa diferente (ex.: sexta/sábado pedem mais que uma terça). */
 export function motosContratadasNoTurno(
-  cliente: { motosFixasManha: number | null; motosFixasNoite: number | null },
-  turno: TurnoAtual
+  cliente: HorariosCliente & { motosFixasManha: number[]; motosFixasNoite: number[] },
+  turno: TurnoAtual,
+  agora: Date = new Date()
 ): number {
-  if (turno === "MANHA") return cliente.motosFixasManha ?? 0;
-  if (turno === "NOITE") return cliente.motosFixasNoite ?? 0;
-  return 0;
+  if (turno === null) return 0;
+  const diaSemana = diaSemanaDoTurno(cliente, turno, agora);
+  if (turno === "MANHA") return cliente.motosFixasManha[diaSemana] ?? 0;
+  return cliente.motosFixasNoite[diaSemana] ?? 0;
 }

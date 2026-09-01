@@ -25,6 +25,13 @@ function textoOpcional(formData: FormData, campo: string): string | null {
   return String(formData.get(campo) ?? "").trim() || null;
 }
 
+/** Monta o array de 7 posições (índice = Date.getDay(), 0=domingo...
+ * 6=sábado) a partir dos campos individuais `motosFixas${prefixo}${dia}`
+ * do form — dia sem valor preenchido vira 0 (sem moto fixa esse dia). */
+function motosPorDiaSemana(formData: FormData, prefixo: "Manha" | "Noite"): number[] {
+  return Array.from({ length: 7 }, (_, dia) => intOpcional(formData, `motosFixas${prefixo}${dia}`) ?? 0);
+}
+
 /** Monta os campos de preço/horário/diária comuns a criar e atualizar —
  * a diária só entra se "usarDiaria" veio marcado no form (senão os
  * campos ficam null, caindo no modelo "por banda" normal). */
@@ -37,12 +44,12 @@ function dadosComuns(formData: FormData) {
     turnoManhaAtivo: formData.get("turnoManhaAtivo") === "on",
     turnoManhaInicio: textoOpcional(formData, "turnoManhaInicio"),
     turnoManhaFim: textoOpcional(formData, "turnoManhaFim"),
-    motosFixasManha: intOpcional(formData, "motosFixasManha"),
+    motosFixasManha: motosPorDiaSemana(formData, "Manha"),
 
     turnoNoiteAtivo: formData.get("turnoNoiteAtivo") === "on",
     turnoNoiteInicio: textoOpcional(formData, "turnoNoiteInicio"),
     turnoNoiteFim: textoOpcional(formData, "turnoNoiteFim"),
-    motosFixasNoite: intOpcional(formData, "motosFixasNoite"),
+    motosFixasNoite: motosPorDiaSemana(formData, "Noite"),
 
     valorBandaMotoboy: decimalOpcional(formData, "valorBandaMotoboy"),
     valorBandaCliente: decimalOpcional(formData, "valorBandaCliente"),
