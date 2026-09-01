@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireMotoboy } from "@/lib/auth-motoboy";
-import { valorEfetivo } from "@/lib/valores";
+import { valorEfetivo, paraNumero } from "@/lib/valores";
 
 // Apoio sempre usa o modelo "por banda" normal do cliente de apoio, nunca
 // a diária/franquia — a diária representa a moto fixa contratada e
@@ -15,7 +15,7 @@ export type ApoioState = { erro?: string } | undefined;
 export type DadosApoio = {
   clienteId: number;
   quantidadeBandas: number;
-  quantidadeTaxasExtras: number;
+  taxasExtras: { clienteTaxaExtraId: number; quantidade: number }[];
 };
 
 /** Apoio: sem foto/assinatura de propósito (decisão confirmada com o
@@ -43,42 +43,63 @@ export async function registrarApoio(dados: DadosApoio): Promise<ApoioState> {
   }
 
   const [cliente, empresa] = await Promise.all([
-    prisma.cliente.findFirst({ where: { id: dados.clienteId, empresaId: sessao.empresaId, ativo: true } }),
+    prisma.cliente.findFirst({
+      where: { id: dados.clienteId, empresaId: sessao.empresaId, ativo: true },
+      include: { taxasExtras: true },
+    }),
     prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaId } }),
   ]);
   if (!cliente) return { erro: "Cliente inválido." };
-  if (dados.quantidadeBandas <= 0 && dados.quantidadeTaxasExtras <= 0) {
+
+  // Nunca confia no valor de taxa extra vindo do app — só a quantidade é
+  // do motoboy, a faixa/valor de verdade é a cadastrada agora no Cliente.
+  const itensTaxaExtra = cliente.taxasExtras.map((faixa) => ({
+    clienteTaxaExtraId: faixa.id,
+    ordem: faixa.ordem,
+    descricao: faixa.descricao,
+    valorMotoboyAplicado: faixa.valorMotoboy,
+    valorClienteAplicado: faixa.valorCliente,
+    quantidade: dados.taxasExtras.find((t) => t.clienteTaxaExtraId === faixa.id)?.quantidade ?? 0,
+  }));
+  const totalTaxasExtras = itensTaxaExtra.reduce((soma, item) => soma + item.quantidade, 0);
+
+  if (dados.quantidadeBandas <= 0 && totalTaxasExtras <= 0) {
     return { erro: "Marque ao menos uma banda ou taxa extra." };
   }
 
+  // Sempre "por banda" normal, nunca a diária (ver comentário no topo do
+  // arquivo) — por isso não usa calcularValores, que ligaria o modelo de
+  // diária se o Cliente tiver esse preço configurado pro turno principal.
   const valorBandaAplicado = valorEfetivo(cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);
-  const valorTaxaExtraAplicado = valorEfetivo(
-    cliente.valorTaxaExtraMotoboy,
-    empresa.valorTaxaExtraMotoboyPadrao
-  );
   const valorBandaClienteAplicado = valorEfetivo(cliente.valorBandaCliente, empresa.valorBandaClientePadrao);
-  const valorTaxaExtraClienteAplicado = valorEfetivo(
-    cliente.valorTaxaExtraCliente,
-    empresa.valorTaxaExtraClientePadrao
+  const somaTaxaMotoboy = itensTaxaExtra.reduce(
+    (soma, item) => soma + item.quantidade * paraNumero(item.valorMotoboyAplicado),
+    0
   );
-  const valorTotal =
-    dados.quantidadeBandas * valorBandaAplicado + dados.quantidadeTaxasExtras * valorTaxaExtraAplicado;
-  const valorCobradoCliente =
-    dados.quantidadeBandas * valorBandaClienteAplicado +
-    dados.quantidadeTaxasExtras * valorTaxaExtraClienteAplicado;
+  const somaTaxaCliente = itensTaxaExtra.reduce(
+    (soma, item) => soma + item.quantidade * paraNumero(item.valorClienteAplicado),
+    0
+  );
+  const valorTotal = dados.quantidadeBandas * valorBandaAplicado + somaTaxaMotoboy;
+  const valorCobradoCliente = dados.quantidadeBandas * valorBandaClienteAplicado + somaTaxaCliente;
 
-  await prisma.apoio.create({
+  const apoio = await prisma.apoio.create({
     data: {
       turnoId: turnoAberto.id,
       clienteId: dados.clienteId,
       quantidadeBandas: dados.quantidadeBandas,
-      quantidadeTaxasExtras: dados.quantidadeTaxasExtras,
+      quantidadeTaxasExtras: totalTaxasExtras,
       valorBandaAplicado,
-      valorTaxaExtraAplicado,
       valorTotal,
       valorCobradoCliente,
     },
   });
+
+  if (itensTaxaExtra.length > 0) {
+    await prisma.apoioTaxaExtraItem.createMany({
+      data: itensTaxaExtra.map((item) => ({ ...item, apoioId: apoio.id })),
+    });
+  }
 
   redirect("/app/inicio");
 }

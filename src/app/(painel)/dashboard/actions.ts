@@ -19,20 +19,24 @@ export async function responderSolicitacaoApoio(
 
 /** Resolve manualmente uma divergência entre o que o motoboy informou e
  * o que o cliente informou — a cooperativa entra em acordo com os dois
- * lados e define aqui a quantidade final, que passa a valer pro
- * pagamento (recalcula valorTotal/valorCobradoCliente). */
+ * lados e define aqui a quantidade final de bandas e de cada faixa de
+ * taxa extra, que passa a valer pro pagamento (recalcula valorTotal/
+ * valorCobradoCliente). */
 export async function resolverDivergenciaTurno(
   turnoId: number,
   quantidadeBandasFinal: number,
-  quantidadeTaxasExtrasFinal: number
+  taxasExtrasFinais: { itemId: number; quantidade: number }[]
 ) {
   const sessao = await requireTenant();
 
   const turno = await prisma.turno.findFirst({
     where: { id: turnoId, motoboy: { empresaId: sessao.empresaEfetivoId } },
-    include: { cliente: true },
+    include: { cliente: true, taxaExtraItens: true },
   });
   if (!turno) return;
+
+  const idsDoTurno = new Set(turno.taxaExtraItens.map((item) => item.id));
+  const itensValidos = taxasExtrasFinais.filter((t) => idsDoTurno.has(t.itemId));
 
   const { calcularValores } = await import("@/lib/precificacao");
   const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaEfetivoId } });
@@ -40,19 +44,32 @@ export async function resolverDivergenciaTurno(
     turno.cliente,
     empresa,
     quantidadeBandasFinal,
-    quantidadeTaxasExtrasFinal
+    turno.taxaExtraItens.map((item) => ({
+      valorMotoboy: item.valorMotoboyAplicado,
+      valorCliente: item.valorClienteAplicado,
+      quantidade: itensValidos.find((t) => t.itemId === item.id)?.quantidade ?? item.quantidade,
+    }))
   );
+  const totalTaxasExtras = itensValidos.reduce((soma, t) => soma + t.quantidade, 0);
 
-  await prisma.turno.update({
-    where: { id: turnoId },
-    data: {
-      quantidadeBandas: quantidadeBandasFinal,
-      quantidadeTaxasExtras: quantidadeTaxasExtrasFinal,
-      valorTotal: valorMotoboy,
-      valorCobradoCliente: valorCliente,
-      resolvidoDivergenciaEm: new Date(),
-    },
-  });
+  await prisma.$transaction([
+    prisma.turno.update({
+      where: { id: turnoId },
+      data: {
+        quantidadeBandas: quantidadeBandasFinal,
+        quantidadeTaxasExtras: totalTaxasExtras,
+        valorTotal: valorMotoboy,
+        valorCobradoCliente: valorCliente,
+        resolvidoDivergenciaEm: new Date(),
+      },
+    }),
+    ...itensValidos.map((t) =>
+      prisma.turnoTaxaExtraItem.update({
+        where: { id: t.itemId },
+        data: { quantidade: t.quantidade },
+      })
+    ),
+  ]);
 
   revalidatePath("/dashboard");
 }

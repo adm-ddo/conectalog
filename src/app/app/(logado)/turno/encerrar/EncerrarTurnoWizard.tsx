@@ -6,13 +6,21 @@ import SignaturePadInput from "@/components/SignaturePadInput";
 import ContadorStepper from "@/components/ContadorStepper";
 import { encerrarTurno } from "./actions";
 
-export default function EncerrarTurnoWizard({ clienteNome }: { clienteNome: string }) {
+export default function EncerrarTurnoWizard({
+  clienteNome,
+  taxasExtras,
+}: {
+  clienteNome: string;
+  taxasExtras: { id: number; descricao: string }[];
+}) {
   const [passo, setPasso] = useState(0);
   const [fotoFimDataUrl, setFotoFimDataUrl] = useState<string | null>(null);
   const [bandas, setBandas] = useState(0);
-  const [taxasExtras, setTaxasExtras] = useState(0);
+  const [quantidades, setQuantidades] = useState<Record<number, number>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const totalTaxasExtras = Object.values(quantidades).reduce((soma, v) => soma + v, 0);
 
   function assinar(assinaturaReciboDataUrl: string) {
     if (!fotoFimDataUrl) return;
@@ -20,7 +28,10 @@ export default function EncerrarTurnoWizard({ clienteNome }: { clienteNome: stri
     startTransition(async () => {
       const resultado = await encerrarTurno({
         quantidadeBandas: bandas,
-        quantidadeTaxasExtras: taxasExtras,
+        taxasExtras: taxasExtras.map((t) => ({
+          itemId: t.id,
+          quantidade: quantidades[t.id] ?? 0,
+        })),
         fotoFimDataUrl,
         assinaturaReciboDataUrl,
       });
@@ -61,11 +72,18 @@ export default function EncerrarTurnoWizard({ clienteNome }: { clienteNome: stri
         <div className="flex flex-col gap-4">
           <p className="text-sm text-stone-600">Quantas bandas você fez nesse turno?</p>
           <ContadorStepper label="Bandas" valor={bandas} onChange={setBandas} />
-          <ContadorStepper label="Taxas extras" valor={taxasExtras} onChange={setTaxasExtras} />
+          {taxasExtras.map((t) => (
+            <ContadorStepper
+              key={t.id}
+              label={t.descricao}
+              valor={quantidades[t.id] ?? 0}
+              onChange={(v) => setQuantidades((prev) => ({ ...prev, [t.id]: v }))}
+            />
+          ))}
           <button
             type="button"
             onClick={() => setPasso(2)}
-            disabled={bandas <= 0 && taxasExtras <= 0}
+            disabled={bandas <= 0 && totalTaxasExtras <= 0}
             className="rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium py-2.5 disabled:opacity-50 transition-colors"
           >
             Continuar
@@ -76,7 +94,7 @@ export default function EncerrarTurnoWizard({ clienteNome }: { clienteNome: stri
       {passo === 2 && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-stone-600">
-            Assine o recibo pra confirmar {bandas} bandas e {taxasExtras} taxas extras.
+            Assine o recibo pra confirmar {bandas} bandas e {totalTaxasExtras} taxas extras.
           </p>
           <SignaturePadInput onConfirm={assinar} confirmLabel="Assinar e encerrar turno" />
         </div>

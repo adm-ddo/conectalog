@@ -42,26 +42,14 @@ export async function atualizarValoresPadrao(
 
   const valorBandaMotoboyPadrao = decimal(formData, "valorBandaMotoboyPadrao");
   const valorBandaClientePadrao = decimal(formData, "valorBandaClientePadrao");
-  const valorTaxaExtraMotoboyPadrao = decimal(formData, "valorTaxaExtraMotoboyPadrao");
-  const valorTaxaExtraClientePadrao = decimal(formData, "valorTaxaExtraClientePadrao");
 
-  if (
-    valorBandaMotoboyPadrao === null ||
-    valorBandaClientePadrao === null ||
-    valorTaxaExtraMotoboyPadrao === null ||
-    valorTaxaExtraClientePadrao === null
-  ) {
+  if (valorBandaMotoboyPadrao === null || valorBandaClientePadrao === null) {
     return { erro: "Preencha todos os valores com números válidos." };
   }
 
   await prisma.empresa.update({
     where: { id: sessao.empresaEfetivoId },
-    data: {
-      valorBandaMotoboyPadrao,
-      valorBandaClientePadrao,
-      valorTaxaExtraMotoboyPadrao,
-      valorTaxaExtraClientePadrao,
-    },
+    data: { valorBandaMotoboyPadrao, valorBandaClientePadrao },
   });
 
   revalidatePath("/configuracoes");

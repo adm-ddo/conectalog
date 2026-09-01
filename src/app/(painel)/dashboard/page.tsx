@@ -36,14 +36,18 @@ export default async function DashboardPage() {
           resolvidoDivergenciaEm: null,
           quantidadeBandasCliente: { not: null },
         },
-        include: { motoboy: { select: { nomeCompleto: true } }, cliente: { select: { nome: true } } },
+        include: {
+          motoboy: { select: { nomeCompleto: true } },
+          cliente: { select: { nome: true } },
+          taxaExtraItens: { orderBy: { ordem: "asc" } },
+        },
       }),
     ]);
 
   const divergencias = turnosDivergentes.filter(
     (t) =>
       t.quantidadeBandasCliente !== t.quantidadeBandas ||
-      t.quantidadeTaxasExtrasCliente !== t.quantidadeTaxasExtras
+      t.taxaExtraItens.some((item) => item.quantidade !== (item.quantidadeCliente ?? 0))
   );
 
   const porCliente = new Map<
@@ -148,9 +152,13 @@ export default async function DashboardPage() {
                 nomeMotoboy={t.motoboy.nomeCompleto}
                 nomeCliente={t.cliente.nome}
                 bandasMotoboy={t.quantidadeBandas}
-                taxasMotoboy={t.quantidadeTaxasExtras}
                 bandasCliente={t.quantidadeBandasCliente ?? 0}
-                taxasCliente={t.quantidadeTaxasExtrasCliente ?? 0}
+                taxas={t.taxaExtraItens.map((item) => ({
+                  itemId: item.id,
+                  descricao: item.descricao,
+                  motoboy: item.quantidade,
+                  cliente: item.quantidadeCliente ?? 0,
+                }))}
               />
             ))}
           </ul>

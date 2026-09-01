@@ -14,7 +14,14 @@ export default async function EncerrarPeloClientePage({
 
   const turno = await prisma.turno.findFirst({
     where: { id: Number(turnoId), clienteId: cliente.id },
-    select: { id: true, motoboy: { select: { nomeCompleto: true } } },
+    select: {
+      id: true,
+      motoboy: { select: { nomeCompleto: true } },
+      taxaExtraItens: {
+        orderBy: { ordem: "asc" },
+        select: { id: true, descricao: true },
+      },
+    },
   });
   if (!turno) notFound();
 
@@ -25,6 +32,7 @@ export default async function EncerrarPeloClientePage({
         token={token}
         turnoId={turno.id}
         nomeMotoboy={turno.motoboy.nomeCompleto}
+        taxasExtras={turno.taxaExtraItens}
       />
     </div>
   );

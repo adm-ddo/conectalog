@@ -7,13 +7,9 @@ import { atualizarValoresPadrao } from "./actions";
 export default function ValoresPadraoForm({
   valorBandaMotoboyPadrao,
   valorBandaClientePadrao,
-  valorTaxaExtraMotoboyPadrao,
-  valorTaxaExtraClientePadrao,
 }: {
   valorBandaMotoboyPadrao: number;
   valorBandaClientePadrao: number;
-  valorTaxaExtraMotoboyPadrao: number;
-  valorTaxaExtraClientePadrao: number;
 }) {
   const [state, formAction, pending] = useActionState(atualizarValoresPadrao, undefined);
 
@@ -22,7 +18,8 @@ export default function ValoresPadraoForm({
       <h2 className="text-sm font-semibold text-navy-900">Valores padrão por banda</h2>
       <p className="text-xs text-stone-500">
         Usados quando um cliente não tem valor próprio configurado. Dá pra sobrescrever por
-        cliente na página de cada um (inclusive trocar pro modelo de diária).
+        cliente na página de cada um (inclusive trocar pro modelo de diária). Taxa extra não tem
+        padrão — cada cliente define suas próprias faixas na página dele.
       </p>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -35,16 +32,6 @@ export default function ValoresPadraoForm({
           name="valorBandaClientePadrao"
           label="Banda — cooperativa cobra do cliente"
           defaultValue={valorBandaClientePadrao}
-        />
-        <CampoMoeda
-          name="valorTaxaExtraMotoboyPadrao"
-          label="Taxa extra — motoboy recebe"
-          defaultValue={valorTaxaExtraMotoboyPadrao}
-        />
-        <CampoMoeda
-          name="valorTaxaExtraClientePadrao"
-          label="Taxa extra — cooperativa cobra do cliente"
-          defaultValue={valorTaxaExtraClientePadrao}
         />
       </div>
 

@@ -14,8 +14,6 @@ export default async function ConfiguracoesPage() {
       logoUrl: true,
       valorBandaMotoboyPadrao: true,
       valorBandaClientePadrao: true,
-      valorTaxaExtraMotoboyPadrao: true,
-      valorTaxaExtraClientePadrao: true,
       tokenCadastroMotoboy: true,
     },
   });
@@ -32,8 +30,6 @@ export default async function ConfiguracoesPage() {
       <ValoresPadraoForm
         valorBandaMotoboyPadrao={paraNumero(empresa.valorBandaMotoboyPadrao)}
         valorBandaClientePadrao={paraNumero(empresa.valorBandaClientePadrao)}
-        valorTaxaExtraMotoboyPadrao={paraNumero(empresa.valorTaxaExtraMotoboyPadrao)}
-        valorTaxaExtraClientePadrao={paraNumero(empresa.valorTaxaExtraClientePadrao)}
       />
     </div>
   );

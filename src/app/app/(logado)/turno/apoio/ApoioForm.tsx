@@ -4,20 +4,24 @@ import { useState, useTransition } from "react";
 import ContadorStepper from "@/components/ContadorStepper";
 import { registrarApoio } from "./actions";
 
-export default function ApoioForm({
-  clientes,
-}: {
-  clientes: { id: number; nome: string }[];
-}) {
+type ClienteApoio = {
+  id: number;
+  nome: string;
+  taxasExtras: { id: number; descricao: string }[];
+};
+
+export default function ApoioForm({ clientes }: { clientes: ClienteApoio[] }) {
   const [clienteId, setClienteId] = useState<number | null>(clientes[0]?.id ?? null);
   const [bandas, setBandas] = useState(0);
-  const [taxasExtras, setTaxasExtras] = useState(0);
+  const [quantidades, setQuantidades] = useState<Record<number, number>>({});
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   if (clientes.length === 0) {
     return <p className="text-sm text-stone-600">Você não está liberado em nenhum outro cliente.</p>;
   }
+
+  const taxasDoCliente = clientes.find((c) => c.id === clienteId)?.taxasExtras ?? [];
 
   function enviar() {
     if (!clienteId) return;
@@ -26,7 +30,10 @@ export default function ApoioForm({
       const resultado = await registrarApoio({
         clienteId,
         quantidadeBandas: bandas,
-        quantidadeTaxasExtras: taxasExtras,
+        taxasExtras: taxasDoCliente.map((t) => ({
+          clienteTaxaExtraId: t.id,
+          quantidade: quantidades[t.id] ?? 0,
+        })),
       });
       if (resultado?.erro) setErro(resultado.erro);
     });
@@ -38,7 +45,10 @@ export default function ApoioForm({
         <span className="text-xs text-stone-500">Em qual cliente você deu apoio?</span>
         <select
           value={clienteId ?? ""}
-          onChange={(e) => setClienteId(Number(e.target.value))}
+          onChange={(e) => {
+            setClienteId(Number(e.target.value));
+            setQuantidades({});
+          }}
           className="border border-stone-300 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         >
           {clientes.map((c) => (
@@ -50,7 +60,14 @@ export default function ApoioForm({
       </label>
 
       <ContadorStepper label="Bandas" valor={bandas} onChange={setBandas} />
-      <ContadorStepper label="Taxas extras" valor={taxasExtras} onChange={setTaxasExtras} />
+      {taxasDoCliente.map((t) => (
+        <ContadorStepper
+          key={t.id}
+          label={t.descricao}
+          valor={quantidades[t.id] ?? 0}
+          onChange={(v) => setQuantidades((prev) => ({ ...prev, [t.id]: v }))}
+        />
+      ))}
 
       {erro && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">

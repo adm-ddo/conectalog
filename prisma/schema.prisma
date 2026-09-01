@@ -85,27 +85,28 @@ enum TurnoEscala {
 /// Tenant — a cooperativa dona das motos. Cada Empresa é um cliente pagante
 /// do ConectaLog (hoje só uma; o modelo já nasce multi-tenant pra revenda).
 model Empresa {
-  id                          Int      @id @default(autoincrement())
-  nome                        String
-  cnpj                        String?  @unique
-  logoUrl                     String?
-  /// Padrões usados quando o Cliente não tem valor próprio — cada um tem
-  /// um lado "motoboy" (o que ele recebe) e um lado "cliente" (o que a
-  /// cooperativa cobra da empresa cliente); a diferença é a margem da
-  /// cooperativa. Não existe padrão de diária — isso é sempre negociado
-  /// cliente a cliente, nunca teria um valor global que fizesse sentido.
-  valorBandaMotoboyPadrao     Decimal  @default(0) @db.Decimal(10, 2)
-  valorBandaClientePadrao     Decimal  @default(0) @db.Decimal(10, 2)
-  valorTaxaExtraMotoboyPadrao Decimal  @default(0) @db.Decimal(10, 2)
-  valorTaxaExtraClientePadrao Decimal  @default(0) @db.Decimal(10, 2)
+  id                      Int      @id @default(autoincrement())
+  nome                    String
+  cnpj                    String?  @unique
+  logoUrl                 String?
+  /// Padrão de banda usado quando o Cliente não tem valor próprio — lado
+  /// "motoboy" (o que ele recebe) e lado "cliente" (o que a cooperativa
+  /// cobra da empresa cliente); a diferença é a margem da cooperativa.
+  /// Não existe padrão de diária nem de taxa extra: diária é sempre
+  /// negociada cliente a cliente, e taxa extra virou uma lista própria de
+  /// cada Cliente (ver ClienteTaxaExtra) — não faria sentido um valor
+  /// único global quando cada empresa cliente cobra por faixas de
+  /// distância diferentes.
+  valorBandaMotoboyPadrao Decimal  @default(0) @db.Decimal(10, 2)
+  valorBandaClientePadrao Decimal  @default(0) @db.Decimal(10, 2)
   /// Link fixo de cadastro pro motoboy (/app/cadastro/[token]) — quem se
   /// cadastra por esse link já entra credenciado nesta cooperativa
   /// direto, sem precisar de aprovação. Gerado automaticamente na
   /// criação da Empresa. Modelo "descobrir e solicitar credenciamento
   /// noutra cooperativa" fica pra uma fase futura — ver conversa com o
   /// Thiago sobre o motoboy como perfil global no ConectaLog.
-  tokenCadastroMotoboy        String?  @unique
-  criadoEm                    DateTime @default(now())
+  tokenCadastroMotoboy    String?  @unique
+  criadoEm                DateTime @default(now())
 
   usuarios      Usuario[]
   clientes      Cliente[]
@@ -239,11 +240,12 @@ model Cliente {
   turnoNoiteFim    String?
   motosFixasNoite  Int[]   @default([0, 0, 0, 0, 0, 0, 0])
 
-  // Preço "por banda" normal — null herda o padrão da Empresa.
-  valorBandaMotoboy     Decimal? @db.Decimal(10, 2)
-  valorBandaCliente     Decimal? @db.Decimal(10, 2)
-  valorTaxaExtraMotoboy Decimal? @db.Decimal(10, 2)
-  valorTaxaExtraCliente Decimal? @db.Decimal(10, 2)
+  // Preço "por banda" normal — null herda o padrão da Empresa. Taxa extra
+  // não é mais um valor único: cada Cliente tem sua própria lista de
+  // faixas (ver ClienteTaxaExtra), porque cada empresa cliente cobra por
+  // faixa de distância de um jeito diferente.
+  valorBandaMotoboy Decimal? @db.Decimal(10, 2)
+  valorBandaCliente Decimal? @db.Decimal(10, 2)
 
   // Diária/franquia — opcional; null em valorDiariaMotoboy = cliente não
   // usa esse modelo, cai no "por banda" normal acima.
@@ -261,8 +263,30 @@ model Cliente {
   avaliacoes        Avaliacao[]
   ocorrencias       Ocorrencia[]
   solicitacoesApoio SolicitacaoApoio[]
+  taxasExtras       ClienteTaxaExtra[]
 
   @@index([empresaId])
+}
+
+/// Uma faixa de taxa extra do Cliente (ex.: "Taxa 1 — 6,1 a 9km", "Taxa 2
+/// — 9,1 a 12km"...) — cada cooperativa/cliente define suas próprias
+/// faixas e valores, por isso é uma lista e não um valor fixo. `ordem`
+/// decide a exibição (Taxa 1, Taxa 2...) e pode ser reordenada; a
+/// `descricao` é o texto livre que explica do que se trata a faixa.
+model ClienteTaxaExtra {
+  id           Int      @id @default(autoincrement())
+  clienteId    Int
+  ordem        Int
+  descricao    String
+  valorMotoboy Decimal  @db.Decimal(10, 2)
+  valorCliente Decimal  @db.Decimal(10, 2)
+  criadoEm     DateTime @default(now())
+
+  cliente    Cliente              @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  itensTurno TurnoTaxaExtraItem[]
+  itensApoio ApoioTaxaExtraItem[]
+
+  @@index([clienteId])
 }
 
 /// Escala manual: a cooperativa decide que Motoboy vai trabalhar em qual
@@ -389,42 +413,46 @@ model MotoboyCliente {
 }
 
 /// Um turno do motoboy num Cliente: foto+assinatura de início, foto+
-/// assinatura de recibo no fim, quantidade de bandas e taxas extras
-/// (ambos via stepper +/- na UI) informadas no fechamento. valorBandaAplicado/
-/// valorTaxaExtraAplicado são o snapshot do valor no momento do fechamento —
-/// não recalcula se o preço do Cliente mudar depois (mesmo motivo do
-/// extras-app: histórico não pode mudar retroativamente).
+/// assinatura de recibo no fim, quantidade de bandas (stepper +/- na UI)
+/// e taxas extras (uma quantidade por faixa do Cliente, ver
+/// TurnoTaxaExtraItem) informadas no fechamento. valorBandaAplicado é o
+/// snapshot do valor no momento do fechamento — não recalcula se o preço
+/// do Cliente mudar depois (mesmo motivo do extras-app: histórico não
+/// pode mudar retroativamente). quantidadeTaxasExtras/Cliente aqui são só
+/// a SOMA de todas as faixas, guardada pra exibição rápida e pra sinalizar
+/// divergência sem precisar somar os itens toda hora — o valor de
+/// verdade (pra pagamento) vem de TurnoTaxaExtraItem.
 model Turno {
-  id                     Int              @id @default(autoincrement())
-  motoboyId              Int
-  clienteId              Int
-  turnoPredefinido       TurnoPredefinido @default(LIVRE)
-  horaInicio             DateTime         @default(now())
-  horaFim                DateTime?
-  fotoInicioUrl          String
-  fotoFimUrl             String?
-  assinaturaTermoUrl     String
-  assinaturaReciboUrl    String?
-  quantidadeBandas       Int              @default(0)
-  quantidadeTaxasExtras  Int              @default(0)
-  valorBandaAplicado     Decimal?         @db.Decimal(10, 2)
-  valorTaxaExtraAplicado Decimal?         @db.Decimal(10, 2)
+  id                    Int              @id @default(autoincrement())
+  motoboyId             Int
+  clienteId             Int
+  turnoPredefinido      TurnoPredefinido @default(LIVRE)
+  horaInicio            DateTime         @default(now())
+  horaFim               DateTime?
+  fotoInicioUrl         String
+  fotoFimUrl            String?
+  assinaturaTermoUrl    String
+  assinaturaReciboUrl   String?
+  quantidadeBandas      Int              @default(0)
+  quantidadeTaxasExtras Int              @default(0)
+  valorBandaAplicado    Decimal?         @db.Decimal(10, 2)
   /// O que o MOTOBOY recebe (sempre existiu). valorCobradoCliente é o que
   /// a COOPERATIVA cobra da empresa cliente por esse turno — pode ser
   /// maior (margem da cooperativa); ver src/lib/precificacao.ts.
-  valorTotal             Decimal?         @db.Decimal(10, 2)
-  valorCobradoCliente    Decimal?         @db.Decimal(10, 2)
-  status                 StatusTurno      @default(ABERTO)
-  pagamentoId            Int?
-  criadoEm               DateTime         @default(now())
+  valorTotal            Decimal?         @db.Decimal(10, 2)
+  valorCobradoCliente   Decimal?         @db.Decimal(10, 2)
+  status                StatusTurno      @default(ABERTO)
+  pagamentoId           Int?
+  criadoEm              DateTime         @default(now())
 
   /// Contagem que o CLIENTE (restaurante) informa pelo portal ao
   /// encerrar o motoboy do lado dele — null enquanto ele não fechou.
   /// Quando os dois números não batem (quantidadeBandas do motoboy vs.
-  /// quantidadeBandasCliente), o turno fica marcado como divergente até
-  /// a cooperativa resolver manualmente (ver resolvidoDivergenciaEm) —
-  /// decisão confirmada com o Thiago: os dois têm que bater, não é o
-  /// registro de um lado que automaticamente vale mais que o outro.
+  /// quantidadeBandasCliente, ou qualquer item de taxa extra), o turno
+  /// fica marcado como divergente até a cooperativa resolver manualmente
+  /// (ver resolvidoDivergenciaEm) — decisão confirmada com o Thiago: os
+  /// dois têm que bater, não é o registro de um lado que automaticamente
+  /// vale mais que o outro.
   quantidadeBandasCliente      Int?
   quantidadeTaxasExtrasCliente Int?
   /// Preenchido quando a cooperativa resolve manualmente uma divergência
@@ -433,16 +461,46 @@ model Turno {
   /// divergências do painel.
   resolvidoDivergenciaEm       DateTime?
 
-  motoboy    Motoboy       @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
-  cliente    Cliente       @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  pagamento  Pagamento?    @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
-  apoios     Apoio[]
-  escalas    EscalaTurno[]
-  avaliacao  Avaliacao?
-  ocorrencia Ocorrencia?
+  motoboy        Motoboy              @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  cliente        Cliente              @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pagamento      Pagamento?           @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+  apoios         Apoio[]
+  escalas        EscalaTurno[]
+  avaliacao      Avaliacao?
+  ocorrencia     Ocorrencia?
+  taxaExtraItens TurnoTaxaExtraItem[]
 
   @@index([motoboyId, status])
   @@index([clienteId, status])
+}
+
+/// Quantidade de um turno numa faixa de taxa extra específica do Cliente
+/// — um TurnoTaxaExtraItem por faixa ativa do Cliente no momento em que o
+/// motoboy encerrou o turno (mesmo as com quantidade 0, pra sempre existir
+/// um "slot" que o portal do cliente possa preencher depois). Os valores
+/// aqui são snapshot (não mudam se a faixa do Cliente for editada depois).
+model TurnoTaxaExtraItem {
+  id                   Int      @id @default(autoincrement())
+  turnoId              Int
+  /// Referência à faixa de origem — só pra rastreabilidade; null se a
+  /// faixa foi apagada do Cliente depois (o snapshot abaixo continua
+  /// valendo pro histórico).
+  clienteTaxaExtraId   Int?
+  ordem                Int
+  descricao            String
+  valorMotoboyAplicado Decimal  @db.Decimal(10, 2)
+  valorClienteAplicado Decimal  @db.Decimal(10, 2)
+  /// Quantidade que o MOTOBOY informou ao encerrar o turno.
+  quantidade           Int      @default(0)
+  /// Quantidade que o CLIENTE informou pelo portal — null enquanto ele
+  /// não fechou o turno do lado dele.
+  quantidadeCliente    Int?
+  criadoEm             DateTime @default(now())
+
+  turno            Turno             @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+  clienteTaxaExtra ClienteTaxaExtra? @relation(fields: [clienteTaxaExtraId], references: [id], onDelete: SetNull)
+
+  @@index([turnoId])
 }
 
 /// Avaliação do motoboy pelo cliente (restaurante) ao encerrar o turno
@@ -515,25 +573,48 @@ model SolicitacaoApoio {
 /// Apoio: o motoboy ajuda outro Cliente durante/depois do turno principal.
 /// Sem foto/assinatura de propósito (decisão confirmada com o Thiago) —
 /// só marca o Cliente de apoio e a quantidade, pra não atrapalhar o fluxo
-/// dele no meio da correria.
+/// dele no meio da correria. Taxa extra vem da lista de faixas do Cliente
+/// de apoio (ver ApoioTaxaExtraItem) — sem lado "cliente confirma"
+/// separado, diferente do Turno principal, porque apoio não passa pelo
+/// portal do cliente.
 model Apoio {
-  id                     Int      @id @default(autoincrement())
-  turnoId                Int
-  clienteId              Int
-  quantidadeBandas       Int      @default(0)
-  quantidadeTaxasExtras  Int      @default(0)
-  valorBandaAplicado     Decimal  @db.Decimal(10, 2)
-  valorTaxaExtraAplicado Decimal  @db.Decimal(10, 2)
-  valorTotal             Decimal  @db.Decimal(10, 2)
-  valorCobradoCliente    Decimal  @default(0) @db.Decimal(10, 2)
-  pagamentoId            Int?
-  criadoEm               DateTime @default(now())
+  id                    Int      @id @default(autoincrement())
+  turnoId               Int
+  clienteId             Int
+  quantidadeBandas      Int      @default(0)
+  quantidadeTaxasExtras Int      @default(0)
+  valorBandaAplicado    Decimal  @db.Decimal(10, 2)
+  valorTotal            Decimal  @db.Decimal(10, 2)
+  valorCobradoCliente   Decimal  @default(0) @db.Decimal(10, 2)
+  pagamentoId           Int?
+  criadoEm              DateTime @default(now())
 
-  turno     Turno      @relation(fields: [turnoId], references: [id], onDelete: Cascade)
-  cliente   Cliente    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  pagamento Pagamento? @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+  turno          Turno                @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+  cliente        Cliente              @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pagamento      Pagamento?           @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+  taxaExtraItens ApoioTaxaExtraItem[]
 
   @@index([turnoId])
+}
+
+/// Quantidade de um apoio numa faixa de taxa extra do Cliente de apoio —
+/// espelha TurnoTaxaExtraItem, mas sem `quantidadeCliente` (apoio não tem
+/// confirmação pelo portal).
+model ApoioTaxaExtraItem {
+  id                   Int      @id @default(autoincrement())
+  apoioId              Int
+  clienteTaxaExtraId   Int?
+  ordem                Int
+  descricao            String
+  valorMotoboyAplicado Decimal  @db.Decimal(10, 2)
+  valorClienteAplicado Decimal  @db.Decimal(10, 2)
+  quantidade           Int      @default(0)
+  criadoEm             DateTime @default(now())
+
+  apoio            Apoio             @relation(fields: [apoioId], references: [id], onDelete: Cascade)
+  clienteTaxaExtra ClienteTaxaExtra? @relation(fields: [clienteTaxaExtraId], references: [id], onDelete: SetNull)
+
+  @@index([apoioId])
 }
 
 /// Pagamento de um período pra um motoboy — bookkeeping manual (a

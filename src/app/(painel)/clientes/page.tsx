@@ -14,8 +14,6 @@ export default async function ClientesPage() {
       select: {
         valorBandaMotoboyPadrao: true,
         valorBandaClientePadrao: true,
-        valorTaxaExtraMotoboyPadrao: true,
-        valorTaxaExtraClientePadrao: true,
       },
     }),
     prisma.cliente.findMany({

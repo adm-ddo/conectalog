@@ -10,14 +10,16 @@ export default function EncerrarPeloClienteForm({
   token,
   turnoId,
   nomeMotoboy,
+  taxasExtras,
 }: {
   token: string;
   turnoId: number;
   nomeMotoboy: string;
+  taxasExtras: { id: number; descricao: string }[];
 }) {
   const router = useRouter();
   const [bandas, setBandas] = useState(0);
-  const [taxasExtras, setTaxasExtras] = useState(0);
+  const [quantidades, setQuantidades] = useState<Record<number, number>>({});
   const [nota, setNota] = useState(0);
   const [comentario, setComentario] = useState("");
   const [houveOcorrencia, setHouveOcorrencia] = useState(false);
@@ -37,7 +39,7 @@ export default function EncerrarPeloClienteForm({
         token,
         turnoId,
         quantidadeBandas: bandas,
-        quantidadeTaxasExtras: taxasExtras,
+        taxasExtras: taxasExtras.map((t) => ({ itemId: t.id, quantidade: quantidades[t.id] ?? 0 })),
         nota,
         comentario,
         houveOcorrencia,
@@ -54,7 +56,14 @@ export default function EncerrarPeloClienteForm({
         Quantas bandas o(a) <strong>{nomeMotoboy}</strong> fez aqui hoje?
       </p>
       <ContadorStepper label="Bandas" valor={bandas} onChange={setBandas} />
-      <ContadorStepper label="Taxas extras" valor={taxasExtras} onChange={setTaxasExtras} />
+      {taxasExtras.map((t) => (
+        <ContadorStepper
+          key={t.id}
+          label={t.descricao}
+          valor={quantidades[t.id] ?? 0}
+          onChange={(v) => setQuantidades((prev) => ({ ...prev, [t.id]: v }))}
+        />
+      ))}
 
       <div className="flex flex-col gap-2">
         <span className="text-sm text-stone-600">Como foi o atendimento dele?</span>

@@ -3,8 +3,6 @@ import { paraNumero, valorEfetivo } from "@/lib/valores";
 type ClientePreco = {
   valorBandaMotoboy: unknown;
   valorBandaCliente: unknown;
-  valorTaxaExtraMotoboy: unknown;
-  valorTaxaExtraCliente: unknown;
   valorDiariaMotoboy: unknown;
   valorDiariaCliente: unknown;
   bandasIncluidasNaDiaria: number | null;
@@ -15,8 +13,16 @@ type ClientePreco = {
 type EmpresaPadrao = {
   valorBandaMotoboyPadrao: unknown;
   valorBandaClientePadrao: unknown;
-  valorTaxaExtraMotoboyPadrao: unknown;
-  valorTaxaExtraClientePadrao: unknown;
+};
+
+/** Uma faixa de taxa extra com a quantidade batida naquele turno/apoio —
+ * usada tanto pra faixa "ao vivo" (ClienteTaxaExtra) quanto pro snapshot
+ * já aplicado (TurnoTaxaExtraItem/ApoioTaxaExtraItem), por isso os valores
+ * são `unknown` (aceitam Decimal do Prisma ou number). */
+export type ItemTaxaExtraCalculo = {
+  valorMotoboy: unknown;
+  valorCliente: unknown;
+  quantidade: number;
 };
 
 export type ResultadoCalculo = {
@@ -28,23 +34,23 @@ export type ResultadoCalculo = {
  * empresa cliente por um turno (ou apoio) — dois modelos possíveis por
  * Cliente, nunca misturados no mesmo cálculo:
  *
- * (1) "Por banda" (padrão, sempre disponível): bandas × valor da banda +
- * taxas extras × valor da taxa — cada um com lado motoboy e lado
- * cliente, herdando o padrão da Empresa quando o Cliente não tem valor
- * próprio.
+ * (1) "Por banda" (padrão, sempre disponível): bandas × valor da banda,
+ * herdando o padrão da Empresa quando o Cliente não tem valor próprio.
  *
  * (2) "Diária/franquia" (liga quando o Cliente tem valorDiariaMotoboy
  * configurado): a cooperativa cobra/paga um valor fixo por dia que já
  * cobre N bandas ("bandasIncluidasNaDiaria"); bandas além disso usam uma
  * tarifa de excedente própria, diferente da tarifa "normal" do item (1).
- * Taxas extras continuam sempre pelo modelo (1), somadas por cima —
- * não existe "taxa extra" dentro da diária.
+ *
+ * Taxas extras somam por cima dos dois modelos, faixa a faixa (cada
+ * Cliente tem sua própria lista de faixas — ver ClienteTaxaExtra — não
+ * existe mais um valor único nem um padrão de Empresa pra taxa extra).
  */
 export function calcularValores(
   cliente: ClientePreco,
   empresa: EmpresaPadrao,
   quantidadeBandas: number,
-  quantidadeTaxasExtras: number
+  taxasExtras: ItemTaxaExtraCalculo[]
 ): ResultadoCalculo {
   const usaDiaria = cliente.valorDiariaMotoboy != null;
 
@@ -63,10 +69,10 @@ export function calcularValores(
     valorCliente = quantidadeBandas * vbc;
   }
 
-  const vtem = valorEfetivo(cliente.valorTaxaExtraMotoboy, empresa.valorTaxaExtraMotoboyPadrao);
-  const vtec = valorEfetivo(cliente.valorTaxaExtraCliente, empresa.valorTaxaExtraClientePadrao);
-  valorMotoboy += quantidadeTaxasExtras * vtem;
-  valorCliente += quantidadeTaxasExtras * vtec;
+  for (const item of taxasExtras) {
+    valorMotoboy += item.quantidade * paraNumero(item.valorMotoboy);
+    valorCliente += item.quantidade * paraNumero(item.valorCliente);
+  }
 
   return { valorMotoboy, valorCliente };
 }

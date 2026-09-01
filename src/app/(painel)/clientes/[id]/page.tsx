@@ -31,6 +31,7 @@ export default async function ClienteDetalhePage({
           motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
         },
       },
+      taxasExtras: { orderBy: { ordem: "asc" } },
     },
   });
   if (!cliente) notFound();
@@ -68,10 +69,11 @@ export default async function ClienteDetalhePage({
           motosFixasNoite: cliente.motosFixasNoite,
           valorBandaMotoboy: cliente.valorBandaMotoboy != null ? paraNumero(cliente.valorBandaMotoboy) : null,
           valorBandaCliente: cliente.valorBandaCliente != null ? paraNumero(cliente.valorBandaCliente) : null,
-          valorTaxaExtraMotoboy:
-            cliente.valorTaxaExtraMotoboy != null ? paraNumero(cliente.valorTaxaExtraMotoboy) : null,
-          valorTaxaExtraCliente:
-            cliente.valorTaxaExtraCliente != null ? paraNumero(cliente.valorTaxaExtraCliente) : null,
+          taxasExtras: cliente.taxasExtras.map((t) => ({
+            descricao: t.descricao,
+            valorMotoboy: paraNumero(t.valorMotoboy),
+            valorCliente: paraNumero(t.valorCliente),
+          })),
           valorDiariaMotoboy:
             cliente.valorDiariaMotoboy != null ? paraNumero(cliente.valorDiariaMotoboy) : null,
           valorDiariaCliente:

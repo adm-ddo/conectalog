@@ -32,6 +32,28 @@ function motosPorDiaSemana(formData: FormData, prefixo: "Manha" | "Noite"): numb
   return Array.from({ length: 7 }, (_, dia) => intOpcional(formData, `motosFixas${prefixo}${dia}`) ?? 0);
 }
 
+type TaxaExtraInput = { ordem: number; descricao: string; valorMotoboy: number; valorCliente: number };
+
+/** Monta a lista de faixas de taxa extra a partir dos campos dinâmicos
+ * `taxaExtra{Descricao,ValorMotoboy,ValorCliente}_${i}` do form — linhas
+ * sem descrição preenchida são ignoradas (ex.: usuário adicionou uma
+ * linha e desistiu sem apagar). */
+function parseTaxasExtras(formData: FormData): TaxaExtraInput[] {
+  const count = Number(formData.get("taxaExtraCount") ?? 0);
+  const itens: TaxaExtraInput[] = [];
+  for (let i = 0; i < count; i++) {
+    const descricao = String(formData.get(`taxaExtraDescricao_${i}`) ?? "").trim();
+    if (!descricao) continue;
+    itens.push({
+      ordem: itens.length + 1,
+      descricao,
+      valorMotoboy: decimalOpcional(formData, `taxaExtraValorMotoboy_${i}`) ?? 0,
+      valorCliente: decimalOpcional(formData, `taxaExtraValorCliente_${i}`) ?? 0,
+    });
+  }
+  return itens;
+}
+
 /** Monta os campos de preço/horário/diária comuns a criar e atualizar —
  * a diária só entra se "usarDiaria" veio marcado no form (senão os
  * campos ficam null, caindo no modelo "por banda" normal). */
@@ -53,8 +75,6 @@ function dadosComuns(formData: FormData) {
 
     valorBandaMotoboy: decimalOpcional(formData, "valorBandaMotoboy"),
     valorBandaCliente: decimalOpcional(formData, "valorBandaCliente"),
-    valorTaxaExtraMotoboy: decimalOpcional(formData, "valorTaxaExtraMotoboy"),
-    valorTaxaExtraCliente: decimalOpcional(formData, "valorTaxaExtraCliente"),
 
     valorDiariaMotoboy: usarDiaria ? decimalOpcional(formData, "valorDiariaMotoboy") : null,
     valorDiariaCliente: usarDiaria ? decimalOpcional(formData, "valorDiariaCliente") : null,
@@ -85,6 +105,7 @@ export async function criarCliente(
       nome,
       tokenPortal: randomBytes(16).toString("hex"),
       ...dadosComuns(formData),
+      taxasExtras: { create: parseTaxasExtras(formData) },
     },
   });
 
@@ -100,10 +121,29 @@ export async function atualizarCliente(
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) return { erro: "Informe o nome do cliente." };
 
-  await prisma.cliente.updateMany({
+  const cliente = await prisma.cliente.findFirst({
     where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
-    data: { nome, ...dadosComuns(formData) },
+    select: { id: true },
   });
+  if (!cliente) return { erro: "Cliente não encontrado." };
+
+  const taxasExtras = parseTaxasExtras(formData);
+
+  // Recriar a lista do zero é mais simples que casar item a item (a
+  // cooperativa pode reordenar, remover do meio, editar texto e valor ao
+  // mesmo tempo) — turnos/apoios já fechados guardam seu próprio snapshot
+  // de descrição/valor, então não perdem nada quando a faixa de origem é
+  // apagada (só o vínculo de rastreabilidade fica null).
+  await prisma.$transaction([
+    prisma.cliente.update({
+      where: { id: clienteId },
+      data: { nome, ...dadosComuns(formData) },
+    }),
+    prisma.clienteTaxaExtra.deleteMany({ where: { clienteId } }),
+    prisma.clienteTaxaExtra.createMany({
+      data: taxasExtras.map((t) => ({ ...t, clienteId })),
+    }),
+  ]);
 
   revalidatePath("/clientes");
   revalidatePath(`/clientes/${clienteId}`);

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import CampoMoeda from "@/components/CampoMoeda";
+import CampoMoedaControlado from "@/components/CampoMoedaControlado";
 
 const inputClasse =
   "border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 w-full";
@@ -31,8 +32,7 @@ export type ValoresCliente = {
   motosFixasNoite?: number[];
   valorBandaMotoboy?: number | null;
   valorBandaCliente?: number | null;
-  valorTaxaExtraMotoboy?: number | null;
-  valorTaxaExtraCliente?: number | null;
+  taxasExtras?: { descricao: string; valorMotoboy: number; valorCliente: number }[];
   valorDiariaMotoboy?: number | null;
   valorDiariaCliente?: number | null;
   bandasIncluidasNaDiaria?: number | null;
@@ -44,6 +44,7 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
   const [turnoManhaAtivo, setTurnoManhaAtivo] = useState(valores.turnoManhaAtivo ?? false);
   const [turnoNoiteAtivo, setTurnoNoiteAtivo] = useState(valores.turnoNoiteAtivo ?? false);
   const [usarDiaria, setUsarDiaria] = useState(valores.valorDiariaMotoboy != null);
+  const [taxasExtras, setTaxasExtras] = useState(valores.taxasExtras ?? []);
 
   return (
     <div className="flex flex-col gap-5">
@@ -101,19 +102,89 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
             defaultValue={valores.valorBandaCliente}
             opcional
           />
-          <CampoMoeda
-            name="valorTaxaExtraMotoboy"
-            label="Taxa extra — motoboy recebe"
-            defaultValue={valores.valorTaxaExtraMotoboy}
-            opcional
-          />
-          <CampoMoeda
-            name="valorTaxaExtraCliente"
-            label="Taxa extra — cooperativa cobra do cliente"
-            defaultValue={valores.valorTaxaExtraCliente}
-            opcional
-          />
         </div>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
+            Taxas extras
+          </span>
+          <p className="text-xs text-stone-500">
+            Cada cliente cobra taxa extra do seu jeito (por faixa de distância, por exemplo). Crie
+            quantas faixas precisar e explique do que se trata cada uma — a Taxa 1 pode ser
+            &quot;6,1 a 9km&quot;, a Taxa 2 &quot;9,1 a 12km&quot;, e assim por diante.
+          </p>
+        </div>
+
+        <input type="hidden" name="taxaExtraCount" value={taxasExtras.length} />
+
+        {taxasExtras.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {taxasExtras.map((taxa, i) => (
+              <div
+                key={i}
+                className="rounded-xl border border-stone-200 p-3 flex flex-col gap-2 sm:flex-row sm:items-end sm:gap-3"
+              >
+                <label className="flex-1 flex flex-col gap-1">
+                  <span className="text-xs text-stone-500">Taxa {i + 1} — especificação</span>
+                  <input
+                    name={`taxaExtraDescricao_${i}`}
+                    value={taxa.descricao}
+                    onChange={(e) => {
+                      const nova = [...taxasExtras];
+                      nova[i] = { ...nova[i], descricao: e.target.value };
+                      setTaxasExtras(nova);
+                    }}
+                    placeholder="ex.: 6,1 a 9km"
+                    className={inputClasse}
+                  />
+                </label>
+                <div className="w-full sm:w-40">
+                  <CampoMoedaControlado
+                    label="Motoboy recebe"
+                    valor={taxa.valorMotoboy}
+                    onChange={(v) => {
+                      const nova = [...taxasExtras];
+                      nova[i] = { ...nova[i], valorMotoboy: v };
+                      setTaxasExtras(nova);
+                    }}
+                  />
+                  <input type="hidden" name={`taxaExtraValorMotoboy_${i}`} value={taxa.valorMotoboy} />
+                </div>
+                <div className="w-full sm:w-40">
+                  <CampoMoedaControlado
+                    label="Cooperativa cobra"
+                    valor={taxa.valorCliente}
+                    onChange={(v) => {
+                      const nova = [...taxasExtras];
+                      nova[i] = { ...nova[i], valorCliente: v };
+                      setTaxasExtras(nova);
+                    }}
+                  />
+                  <input type="hidden" name={`taxaExtraValorCliente_${i}`} value={taxa.valorCliente} />
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setTaxasExtras(taxasExtras.filter((_, j) => j !== i))}
+                  className="self-start sm:self-end text-xs text-red-600 hover:underline px-1 py-2"
+                >
+                  Remover
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+
+        <button
+          type="button"
+          onClick={() =>
+            setTaxasExtras([...taxasExtras, { descricao: "", valorMotoboy: 0, valorCliente: 0 }])
+          }
+          className="self-start text-sm font-medium text-brand-700 hover:underline"
+        >
+          + Adicionar taxa {taxasExtras.length + 1}
+        </button>
       </div>
 
       <div className="flex flex-col gap-3 rounded-xl border border-stone-200 p-4">

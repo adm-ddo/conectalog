@@ -12,11 +12,17 @@ export default async function ApoioPage() {
   ]);
   if (!turnoAberto) redirect("/app/inicio");
 
+  const selecaoCliente = {
+    id: true,
+    nome: true,
+    taxasExtras: { orderBy: { ordem: "asc" as const }, select: { id: true, descricao: true } },
+  };
+
   const clientes = motoboy.livre
     ? await prisma.cliente.findMany({
         where: { empresaId: sessao.empresaId, ativo: true, id: { not: turnoAberto.clienteId } },
         orderBy: { nome: "asc" },
-        select: { id: true, nome: true },
+        select: selecaoCliente,
       })
     : await prisma.cliente.findMany({
         where: {
@@ -26,7 +32,7 @@ export default async function ApoioPage() {
           motoboysLiberados: { some: { motoboyId: sessao.motoboyId, liberado: true } },
         },
         orderBy: { nome: "asc" },
-        select: { id: true, nome: true },
+        select: selecaoCliente,
       });
 
   return (

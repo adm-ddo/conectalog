@@ -34,6 +34,7 @@ export async function iniciarTurno(dados: DadosIniciarTurno): Promise<IniciarTur
 
   const cliente = await prisma.cliente.findFirst({
     where: { id: dados.clienteId, empresaId: sessao.empresaId, ativo: true },
+    include: { taxasExtras: { orderBy: { ordem: "asc" } } },
   });
   if (!cliente) return { erro: "Cliente inválido." };
 
@@ -51,6 +52,13 @@ export async function iniciarTurno(dados: DadosIniciarTurno): Promise<IniciarTur
     uploadDataUrl(`turnos/assinatura-termo-${Date.now()}.png`, dados.assinaturaTermoDataUrl),
   ]);
 
+  // As faixas de taxa extra do Cliente viram um "slot" (quantidade 0) já
+  // no início do turno, não só no fechamento — o cliente pode encerrar e
+  // avaliar pelo portal antes do motoboy encerrar o turno dele (só
+  // precisa estar escalado/check-in feito), então o item já precisa
+  // existir pros dois lados poderem preencher a quantidade, em qualquer
+  // ordem. O preço também fica travado nesse momento (snapshot), igual
+  // já acontece com valorBandaAplicado.
   const turno = await prisma.turno.create({
     data: {
       motoboyId: sessao.motoboyId,
@@ -58,6 +66,15 @@ export async function iniciarTurno(dados: DadosIniciarTurno): Promise<IniciarTur
       turnoPredefinido: dados.turnoPredefinido,
       fotoInicioUrl,
       assinaturaTermoUrl,
+      taxaExtraItens: {
+        create: cliente.taxasExtras.map((faixa) => ({
+          clienteTaxaExtraId: faixa.id,
+          ordem: faixa.ordem,
+          descricao: faixa.descricao,
+          valorMotoboyAplicado: faixa.valorMotoboy,
+          valorClienteAplicado: faixa.valorCliente,
+        })),
+      },
     },
   });
 
