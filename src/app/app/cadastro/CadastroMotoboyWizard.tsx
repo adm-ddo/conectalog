@@ -43,6 +43,8 @@ export default function CadastroMotoboyWizard({ tokenEmpresa }: { tokenEmpresa: 
   const [cnhDataUrl, setCnhDataUrl] = useState<string | null>(null);
   const [cnhModo, setCnhModo] = useState<"foto" | "arquivo">("foto");
   const [erro, setErro] = useState<string | null>(null);
+  const [buscandoCep, setBuscandoCep] = useState(false);
+  const [erroCep, setErroCep] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function campo<K extends keyof Dados>(chave: K) {
@@ -51,6 +53,35 @@ export default function CadastroMotoboyWizard({ tokenEmpresa }: { tokenEmpresa: 
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
         setDados((d) => ({ ...d, [chave]: e.target.value })),
     };
+  }
+
+  /** Busca rua/bairro/cidade pelo CEP (ViaCEP) — mesmo padrão já usado no
+   * extras-app. Só dispara com os 8 dígitos completos; campos continuam
+   * editáveis depois, pra corrigir se vier algo errado ou incompleto. */
+  async function buscarCep(valor: string) {
+    const digitos = valor.replace(/\D/g, "");
+    if (digitos.length !== 8) return;
+
+    setBuscandoCep(true);
+    setErroCep(null);
+    try {
+      const resposta = await fetch(`https://viacep.com.br/ws/${digitos}/json/`);
+      const resultado = await resposta.json();
+      if (resultado.erro) {
+        setErroCep("CEP não encontrado.");
+        return;
+      }
+      setDados((d) => ({
+        ...d,
+        endereco: resultado.logradouro || d.endereco,
+        bairro: resultado.bairro || d.bairro,
+        cidade: resultado.localidade || d.cidade,
+      }));
+    } catch {
+      setErroCep("Não foi possível consultar o CEP agora — preencha manualmente.");
+    } finally {
+      setBuscandoCep(false);
+    }
   }
 
   function validarPasso0(): string | null {
@@ -151,6 +182,16 @@ export default function CadastroMotoboyWizard({ tokenEmpresa }: { tokenEmpresa: 
           <Campo label="E-mail">
             <input type="email" {...campo("email")} className={inputClasse} />
           </Campo>
+          <Campo label="CEP">
+            <input
+              {...campo("cep")}
+              onBlur={(e) => buscarCep(e.target.value)}
+              placeholder="00000-000"
+              className={inputClasse}
+            />
+            {buscandoCep && <span className="text-xs text-stone-500">Buscando endereço...</span>}
+            {erroCep && <span className="text-xs text-amber-600">{erroCep}</span>}
+          </Campo>
           <Campo label="Endereço">
             <input {...campo("endereco")} className={inputClasse} />
           </Campo>
@@ -170,9 +211,6 @@ export default function CadastroMotoboyWizard({ tokenEmpresa }: { tokenEmpresa: 
               <input {...campo("cidade")} className={inputClasse} />
             </Campo>
           </div>
-          <Campo label="CEP">
-            <input {...campo("cep")} className={inputClasse} />
-          </Campo>
           <Campo label="Celular">
             <input {...campo("telefoneCelular")} className={inputClasse} />
           </Campo>
