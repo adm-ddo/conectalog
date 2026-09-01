@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import ContadorStepper from "@/components/ContadorStepper";
+import CampoMoedaControlado from "@/components/CampoMoedaControlado";
 import { encerrarPeloCliente } from "./actions";
 
 export default function EncerrarPeloClienteForm({
@@ -19,11 +20,17 @@ export default function EncerrarPeloClienteForm({
   const [taxasExtras, setTaxasExtras] = useState(0);
   const [nota, setNota] = useState(0);
   const [comentario, setComentario] = useState("");
+  const [houveOcorrencia, setHouveOcorrencia] = useState(false);
+  const [descricaoOcorrencia, setDescricaoOcorrencia] = useState("");
+  const [valorDesconto, setValorDesconto] = useState(0);
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   function enviar() {
     if (nota === 0) return setErro("Selecione uma nota de 1 a 5 estrelas.");
+    if (houveOcorrencia && !descricaoOcorrencia.trim()) {
+      return setErro("Descreva o que aconteceu na ocorrência.");
+    }
     setErro(null);
     startTransition(async () => {
       const resultado = await encerrarPeloCliente({
@@ -33,6 +40,9 @@ export default function EncerrarPeloClienteForm({
         quantidadeTaxasExtras: taxasExtras,
         nota,
         comentario,
+        houveOcorrencia,
+        descricaoOcorrencia,
+        valorDesconto,
       });
       if (resultado?.erro) setErro(resultado.erro);
     });
@@ -64,16 +74,50 @@ export default function EncerrarPeloClienteForm({
       </div>
 
       <label className="flex flex-col gap-1">
-        <span className="text-xs text-stone-500">
-          Quer relatar algo? (opcional — atraso, comportamento, qualquer ocorrência)
-        </span>
+        <span className="text-xs text-stone-500">Comentário geral (opcional)</span>
         <textarea
           value={comentario}
           onChange={(e) => setComentario(e.target.value)}
-          rows={3}
+          rows={2}
           className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
         />
       </label>
+
+      <div className="flex flex-col gap-3 rounded-xl border border-red-200 bg-red-50 p-4">
+        <label className="flex items-center gap-2 text-sm font-medium text-red-800">
+          <input
+            type="checkbox"
+            checked={houveOcorrencia}
+            onChange={(e) => setHouveOcorrencia(e.target.checked)}
+            className="h-4 w-4 rounded border-stone-300 text-red-600 focus:ring-red-500"
+          />
+          Houve alguma ocorrência com esse motoboy? (pedido com problema, cobrança não feita,
+          dinheiro não devolvido, entrega que chegou errada)
+        </label>
+
+        {houveOcorrencia && (
+          <>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-red-700">O que aconteceu?</span>
+              <textarea
+                value={descricaoOcorrencia}
+                onChange={(e) => setDescricaoOcorrencia(e.target.value)}
+                rows={3}
+                className="border border-red-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+              />
+            </label>
+            <CampoMoedaControlado
+              label="Valor a descontar do motoboy (se houver)"
+              valor={valorDesconto}
+              onChange={setValorDesconto}
+            />
+            <p className="text-xs text-red-700">
+              Esse valor é abatido do que ele recebe no próximo fechamento de pagamento, e fica
+              registrado o motivo.
+            </p>
+          </>
+        )}
+      </div>
 
       {erro && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">

@@ -21,6 +21,10 @@ export default async function PagamentosPage() {
             apoios: { where: { pagamentoId: null }, select: { valorTotal: true } },
           },
         },
+        ocorrencias: {
+          where: { pagamentoId: null },
+          select: { valorDesconto: true },
+        },
       },
     }),
     prisma.pagamento.findMany({
@@ -37,7 +41,14 @@ export default async function PagamentosPage() {
         total += Number(t.valorTotal ?? 0);
         for (const a of t.apoios) total += Number(a.valorTotal);
       }
-      return { id: m.id, nome: m.nomeCompleto, total, quantidadeTurnos: m.turnos.length };
+      const descontos = m.ocorrencias.reduce((s, o) => s + Number(o.valorDesconto), 0);
+      return {
+        id: m.id,
+        nome: m.nomeCompleto,
+        total: Math.max(0, total - descontos),
+        descontos,
+        quantidadeTurnos: m.turnos.length,
+      };
     })
     .filter((p) => p.quantidadeTurnos > 0);
 
@@ -65,6 +76,7 @@ export default async function PagamentosPage() {
                 nome={p.nome}
                 quantidadeTurnos={p.quantidadeTurnos}
                 total={formatarMoeda(p.total)}
+                descontos={p.descontos > 0 ? formatarMoeda(p.descontos) : null}
               />
             ))}
           </ul>

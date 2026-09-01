@@ -191,6 +191,7 @@ model Cliente {
   apoios            Apoio[]
   escalas           EscalaTurno[]
   avaliacoes        Avaliacao[]
+  ocorrencias       Ocorrencia[]
   solicitacoesApoio SolicitacaoApoio[]
 
   @@index([empresaId])
@@ -268,6 +269,7 @@ model Motoboy {
   tokensAutenticacao TokenAutenticacaoMotoboy[]
   escalas            EscalaTurno[]
   avaliacoes         Avaliacao[]
+  ocorrencias        Ocorrencia[]
 
   @@index([empresaId])
 }
@@ -363,12 +365,13 @@ model Turno {
   /// divergências do painel.
   resolvidoDivergenciaEm       DateTime?
 
-  motoboy   Motoboy       @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
-  cliente   Cliente       @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  pagamento Pagamento?    @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
-  apoios    Apoio[]
-  escalas   EscalaTurno[]
-  avaliacao Avaliacao?
+  motoboy    Motoboy       @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  cliente    Cliente       @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pagamento  Pagamento?    @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+  apoios     Apoio[]
+  escalas    EscalaTurno[]
+  avaliacao  Avaliacao?
+  ocorrencia Ocorrencia?
 
   @@index([motoboyId, status])
   @@index([clienteId, status])
@@ -389,6 +392,31 @@ model Avaliacao {
   turno   Turno   @relation(fields: [turnoId], references: [id], onDelete: Cascade)
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+
+  @@index([motoboyId])
+}
+
+/// Ocorrência registrada pelo cliente ao encerrar o turno do motoboy —
+/// pedido com problema, cobrança não feita, dinheiro não devolvido,
+/// entrega que chegou errada por responsabilidade dele etc. A descrição
+/// é o log do motivo; valorDesconto é abatido de verdade do que o
+/// motoboy recebe (ver fecharPagamento em
+/// src/app/(painel)/pagamentos/actions.ts) — diferente da Avaliação
+/// (nota/comentário), que é só histórico e não mexe em dinheiro.
+model Ocorrencia {
+  id            Int      @id @default(autoincrement())
+  turnoId       Int      @unique
+  clienteId     Int
+  motoboyId     Int
+  descricao     String   @db.Text
+  valorDesconto Decimal  @db.Decimal(10, 2)
+  pagamentoId   Int?
+  criadoEm      DateTime @default(now())
+
+  turno     Turno      @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+  cliente   Cliente    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  motoboy   Motoboy    @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  pagamento Pagamento? @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
 
   @@index([motoboyId])
 }
@@ -454,10 +482,11 @@ model Pagamento {
   pagoEm        DateTime?
   criadoEm      DateTime        @default(now())
 
-  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
-  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  turnos  Turno[]
-  apoios  Apoio[]
+  motoboy     Motoboy      @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  empresa     Empresa      @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  turnos      Turno[]
+  apoios      Apoio[]
+  ocorrencias Ocorrencia[]
 
   @@index([motoboyId, status])
 }

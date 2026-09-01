@@ -8,11 +8,13 @@ export default function PendenciaRow({
   nome,
   quantidadeTurnos,
   total,
+  descontos,
 }: {
   motoboyId: number;
   nome: string;
   quantidadeTurnos: number;
   total: string;
+  descontos: string | null;
 }) {
   const [pending, startTransition] = useTransition();
 
@@ -22,6 +24,9 @@ export default function PendenciaRow({
         <span className="text-sm font-semibold text-navy-900 truncate">{nome}</span>
         <span className="text-xs text-stone-600">
           {quantidadeTurnos} turno{quantidadeTurnos === 1 ? "" : "s"} pra fechar · R$ {total}
+          {descontos && (
+            <span className="text-red-600"> (já descontado R$ {descontos} de ocorrência)</span>
+          )}
         </span>
       </div>
       <button

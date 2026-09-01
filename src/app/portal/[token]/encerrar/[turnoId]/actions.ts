@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { resolverClientePortal } from "@/lib/portal";
+import type { Prisma } from "@/generated/prisma/client";
 
 export type EncerrarPortalState = { erro?: string } | undefined;
 
@@ -13,6 +14,9 @@ export type DadosEncerrarPortal = {
   quantidadeTaxasExtras: number;
   nota: number;
   comentario: string;
+  houveOcorrencia: boolean;
+  descricaoOcorrencia: string;
+  valorDesconto: number;
 };
 
 /** Fechamento do turno do lado do cliente (restaurante) — bandas/taxas
@@ -38,8 +42,14 @@ export async function encerrarPeloCliente(
   if (dados.nota < 1 || dados.nota > 5) {
     return { erro: "Selecione uma nota de 1 a 5." };
   }
+  if (dados.houveOcorrencia && !dados.descricaoOcorrencia.trim()) {
+    return { erro: "Descreva o que aconteceu." };
+  }
+  if (dados.houveOcorrencia && dados.valorDesconto < 0) {
+    return { erro: "Valor de desconto inválido." };
+  }
 
-  await prisma.$transaction([
+  const operacoes: Prisma.PrismaPromise<unknown>[] = [
     prisma.turno.update({
       where: { id: turno.id },
       data: {
@@ -58,7 +68,34 @@ export async function encerrarPeloCliente(
         comentario: dados.comentario.trim() || null,
       },
     }),
-  ]);
+  ];
+
+  // Ocorrência é um log + desconto real do que o motoboy recebe — feita
+  // só quando ele já teve um problema de verdade nesse turno, então usa
+  // upsert (o cliente pode voltar e corrigir a descrição/valor antes do
+  // pagamento fechar) só quando marcado; não existe "remover ocorrência"
+  // pelo portal de propósito — se for engano, quem resolve é a
+  // cooperativa direto no painel.
+  if (dados.houveOcorrencia) {
+    operacoes.push(
+      prisma.ocorrencia.upsert({
+        where: { turnoId: turno.id },
+        update: {
+          descricao: dados.descricaoOcorrencia.trim(),
+          valorDesconto: dados.valorDesconto,
+        },
+        create: {
+          turnoId: turno.id,
+          clienteId: cliente.id,
+          motoboyId: turno.motoboyId,
+          descricao: dados.descricaoOcorrencia.trim(),
+          valorDesconto: dados.valorDesconto,
+        },
+      })
+    );
+  }
+
+  await prisma.$transaction(operacoes);
 
   redirect(`/portal/${dados.token}`);
 }

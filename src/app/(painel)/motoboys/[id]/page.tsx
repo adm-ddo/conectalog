@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
 import LiberacaoClientes from "./LiberacaoClientes";
 import ValesSection from "./ValesSection";
+import OcorrenciasSection from "./OcorrenciasSection";
 import EquipamentoSelector from "./EquipamentoSelector";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 
@@ -21,6 +22,10 @@ export default async function MotoboyDetalhePage({
       include: {
         clientesLiberados: true,
         vales: { orderBy: { data: "desc" } },
+        ocorrencias: {
+          orderBy: { criadoEm: "desc" },
+          include: { cliente: { select: { nome: true } } },
+        },
       },
     }),
     prisma.cliente.findMany({
@@ -76,6 +81,17 @@ export default async function MotoboyDetalhePage({
           id: c.id,
           nome: c.nome,
           liberado: liberadosPorClienteId.get(c.id) ?? false,
+        }))}
+      />
+
+      <OcorrenciasSection
+        ocorrencias={motoboy.ocorrencias.map((o) => ({
+          id: o.id,
+          clienteNome: o.cliente.nome,
+          descricao: o.descricao,
+          valor: formatarMoeda(o.valorDesconto),
+          data: o.criadoEm.toLocaleDateString("pt-BR"),
+          descontado: o.pagamentoId !== null,
         }))}
       />
 

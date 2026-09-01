@@ -16,28 +16,39 @@ export async function fecharPagamento(motoboyId: number) {
   });
   if (!motoboy) return;
 
-  const turnos = await prisma.turno.findMany({
-    where: { motoboyId, status: "CONCLUIDO", pagamentoId: null },
-    include: { apoios: { where: { pagamentoId: null } } },
-  });
+  const [turnos, ocorrencias] = await Promise.all([
+    prisma.turno.findMany({
+      where: { motoboyId, status: "CONCLUIDO", pagamentoId: null },
+      include: { apoios: { where: { pagamentoId: null } } },
+    }),
+    // Ocorrência pendente entra no desconto mesmo que o turno dela já
+    // tenha sido pago num ciclo anterior (o cliente pode demorar pra
+    // fechar o turno dele e relatar o problema) — o que importa é ela
+    // ainda não ter sido aplicada a nenhum pagamento.
+    prisma.ocorrencia.findMany({ where: { motoboyId, pagamentoId: null } }),
+  ]);
   if (turnos.length === 0) return;
 
-  let valorTotal = 0;
+  let valorTurnos = 0;
   let periodoInicio = turnos[0].horaInicio;
   let periodoFim = turnos[0].horaInicio;
   const turnoIds: number[] = [];
   const apoioIds: number[] = [];
 
   for (const turno of turnos) {
-    valorTotal += Number(turno.valorTotal ?? 0);
+    valorTurnos += Number(turno.valorTotal ?? 0);
     turnoIds.push(turno.id);
     if (turno.horaInicio < periodoInicio) periodoInicio = turno.horaInicio;
     if (turno.horaInicio > periodoFim) periodoFim = turno.horaInicio;
     for (const apoio of turno.apoios) {
-      valorTotal += Number(apoio.valorTotal);
+      valorTurnos += Number(apoio.valorTotal);
       apoioIds.push(apoio.id);
     }
   }
+
+  const totalDescontos = ocorrencias.reduce((soma, o) => soma + Number(o.valorDesconto), 0);
+  const valorTotal = Math.max(0, valorTurnos - totalDescontos);
+  const ocorrenciaIds = ocorrencias.map((o) => o.id);
 
   await prisma.$transaction(async (tx) => {
     const pagamento = await tx.pagamento.create({
@@ -50,6 +61,12 @@ export async function fecharPagamento(motoboyId: number) {
     if (apoioIds.length > 0) {
       await tx.apoio.updateMany({
         where: { id: { in: apoioIds } },
+        data: { pagamentoId: pagamento.id },
+      });
+    }
+    if (ocorrenciaIds.length > 0) {
+      await tx.ocorrencia.updateMany({
+        where: { id: { in: ocorrenciaIds } },
         data: { pagamentoId: pagamento.id },
       });
     }
