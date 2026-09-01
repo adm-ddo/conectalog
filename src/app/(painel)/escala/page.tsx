@@ -1,8 +1,28 @@
+import Link from "next/link";
 import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, formatarHora } from "@/lib/data";
 import EscalaRow from "./EscalaRow";
 import CandidatoRow from "./CandidatoRow";
+import ManterEscalaAnteriorBanner from "./ManterEscalaAnteriorBanner";
+import type { TurnoEscala } from "@/generated/prisma/enums";
+
+/** Dia da semana (Date.getDay(): 0=domingo...6=sábado) de uma data
+ * "YYYY-MM-DD" — pura leitura de calendário, sem conversão de fuso (não
+ * é um instante, é só "que dia da semana cai essa data"). */
+function diaSemanaDaData(data: string): number {
+  const [ano, mes, dia] = data.split("-").map(Number);
+  return new Date(ano, mes - 1, dia).getDay();
+}
+
+/** Sete dias antes, no formato "YYYY-MM-DD" — usado pra sugerir a escala
+ * da mesma data da semana passada. */
+function seteDiasAntes(data: string): string {
+  const [ano, mes, dia] = data.split("-").map(Number);
+  const anterior = new Date(ano, mes - 1, dia - 7);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${anterior.getFullYear()}-${pad(anterior.getMonth() + 1)}-${pad(anterior.getDate())}`;
+}
 
 export default async function EscalaPage({
   searchParams,
@@ -20,7 +40,6 @@ export default async function EscalaPage({
 
   const clienteId = Number(params.clienteId) || clientes[0]?.id;
   const data = params.data || dataISOBrasil();
-  const turno = params.turno === "NOITE" ? "NOITE" : "MANHA";
 
   if (!clienteId) {
     return (
@@ -31,7 +50,52 @@ export default async function EscalaPage({
     );
   }
 
-  const [escalados, candidatosBrutos] = await Promise.all([
+  const clienteSelecionado = await prisma.cliente.findFirstOrThrow({
+    where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
+    select: {
+      nome: true,
+      turnoManhaAtivo: true,
+      turnoNoiteAtivo: true,
+      motosFixasManha: true,
+      motosFixasNoite: true,
+    },
+  });
+
+  // Só oferece escolher o turno que o cliente de fato usa — se ele só tem
+  // noite, nem mostra manhã como opção (pedido do Thiago).
+  const turnosDisponiveis: TurnoEscala[] = [
+    ...(clienteSelecionado.turnoManhaAtivo ? (["MANHA"] as const) : []),
+    ...(clienteSelecionado.turnoNoiteAtivo ? (["NOITE"] as const) : []),
+  ];
+
+  if (turnosDisponiveis.length === 0) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-semibold text-navy-900">Escala</h1>
+        <p className="text-sm text-stone-500">
+          <strong>{clienteSelecionado.nome}</strong> ainda não tem nenhum turno configurado.{" "}
+          <Link href={`/clientes/${clienteId}`} className="text-brand-700 underline">
+            Configure o horário dele
+          </Link>{" "}
+          antes de montar a escala.
+        </p>
+      </div>
+    );
+  }
+
+  const turno: TurnoEscala = turnosDisponiveis.includes(params.turno as TurnoEscala)
+    ? (params.turno as TurnoEscala)
+    : turnosDisponiveis[0];
+
+  const diaSemana = diaSemanaDaData(data);
+  const motosContratadas =
+    turno === "MANHA"
+      ? clienteSelecionado.motosFixasManha[diaSemana]
+      : clienteSelecionado.motosFixasNoite[diaSemana];
+
+  const dataSemanaPassada = seteDiasAntes(data);
+
+  const [escalados, candidatosBrutos, escaladosSemanaPassada] = await Promise.all([
     prisma.escalaTurno.findMany({
       where: { clienteId, data: new Date(data), turno },
       include: {
@@ -48,6 +112,10 @@ export default async function EscalaPage({
       },
       orderBy: { nomeCompleto: "asc" },
       select: { id: true, nomeCompleto: true, tipoEquipamento: true },
+    }),
+    prisma.escalaTurno.findMany({
+      where: { clienteId, data: new Date(dataSemanaPassada), turno },
+      include: { motoboy: { select: { nomeCompleto: true } } },
     }),
   ]);
 
@@ -88,17 +156,21 @@ export default async function EscalaPage({
             className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
           />
         </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-stone-500">Turno</span>
-          <select
-            name="turno"
-            defaultValue={turno}
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
-          >
-            <option value="MANHA">Manhã</option>
-            <option value="NOITE">Noite</option>
-          </select>
-        </label>
+        {turnosDisponiveis.length > 1 ? (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-stone-500">Turno</span>
+            <select
+              name="turno"
+              defaultValue={turno}
+              className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
+            >
+              <option value="MANHA">Manhã</option>
+              <option value="NOITE">Noite</option>
+            </select>
+          </label>
+        ) : (
+          <input type="hidden" name="turno" value={turno} />
+        )}
         <button
           type="submit"
           className="rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-sm font-medium px-4 py-2 transition-colors"
@@ -107,9 +179,33 @@ export default async function EscalaPage({
         </button>
       </form>
 
+      {turnosDisponiveis.length === 1 && (
+        <p className="text-xs text-stone-500 -mt-4">
+          {clienteSelecionado.nome} só tem turno de {turno === "MANHA" ? "manhã" : "noite"}.
+        </p>
+      )}
+
+      {motosContratadas > 0 && escalados.length !== motosContratadas && (
+        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          Faltam motos: são {motosContratadas} contratadas pra esse dia e só {escalados.length}{" "}
+          {escalados.length === 1 ? "está" : "estão"} escalada
+          {escalados.length === 1 ? "" : "s"}. O cliente também vê esse número no portal dele.
+        </div>
+      )}
+
+      {escalados.length === 0 && escaladosSemanaPassada.length > 0 && (
+        <ManterEscalaAnteriorBanner
+          clienteId={clienteId}
+          turno={turno}
+          data={data}
+          nomes={escaladosSemanaPassada.map((e) => e.motoboy.nomeCompleto)}
+        />
+      )}
+
       <div className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold text-navy-900">
-          Escalados ({escalados.length})
+          Escalados ({escalados.length}
+          {motosContratadas > 0 ? ` de ${motosContratadas}` : ""})
         </h2>
         {escalados.length === 0 ? (
           <p className="text-sm text-stone-500">Ninguém escalado ainda pra esse filtro.</p>
@@ -122,9 +218,7 @@ export default async function EscalaPage({
                 nome={e.motoboy.nomeCompleto}
                 tipoEquipamento={e.motoboy.tipoEquipamento}
                 chegou={e.turnoVinculado !== null}
-                horaChegada={
-                  e.turnoVinculado ? formatarHora(e.turnoVinculado.horaInicio) : null
-                }
+                horaChegada={e.turnoVinculado ? formatarHora(e.turnoVinculado.horaInicio) : null}
               />
             ))}
           </ul>

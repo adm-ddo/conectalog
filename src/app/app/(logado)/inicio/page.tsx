@@ -4,11 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { formatarHora } from "@/lib/data";
 import { paraNumero } from "@/lib/valores";
 import EstrelasMedia from "@/components/EstrelasMedia";
+import NotificacoesBanner from "./NotificacoesBanner";
 
 export default async function InicioMotoboyPage() {
   const sessao = await requireMotoboy();
 
-  const [turnoAberto, avaliacao] = await Promise.all([
+  const [turnoAberto, avaliacao, notificacoes] = await Promise.all([
     prisma.turno.findFirst({
       where: { motoboyId: sessao.motoboyId, status: "ABERTO" },
       include: {
@@ -21,16 +22,23 @@ export default async function InicioMotoboyPage() {
       _avg: { nota: true },
       _count: { _all: true },
     }),
+    prisma.notificacao.findMany({
+      where: { motoboyId: sessao.motoboyId, lida: false },
+      orderBy: { criadoEm: "desc" },
+      select: { id: true, mensagem: true },
+    }),
   ]);
 
   const minhaNota = (
     <EstrelasMedia media={paraNumero(avaliacao._avg.nota)} total={avaliacao._count._all} />
   );
+  const avisos = <NotificacoesBanner notificacoes={notificacoes} />;
 
   if (turnoAberto) {
     const totalBandasApoios = turnoAberto.apoios.reduce((s, a) => s + a.quantidadeBandas, 0);
     return (
       <div className="flex flex-col gap-5">
+        {avisos}
         {minhaNota}
 
         <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5 flex flex-col gap-1">
@@ -78,6 +86,7 @@ export default async function InicioMotoboyPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      {avisos}
       {minhaNota}
 
       <p className="text-sm text-stone-600">

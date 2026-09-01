@@ -363,8 +363,29 @@ model Motoboy {
   escalas            EscalaTurno[]
   avaliacoes         Avaliacao[]
   ocorrencias        Ocorrencia[]
+  notificacoes       Notificacao[]
 
   @@index([empresaId])
+}
+
+enum TipoNotificacao {
+  ESCALADO
+}
+
+/// Aviso pro motoboy dentro do app (sino/lista) — hoje só "você foi
+/// escalado", pensado pra crescer (outros tipos, e futuramente também
+/// mandar por e-mail, ver comentário no cadastro de Escala).
+model Notificacao {
+  id        Int             @id @default(autoincrement())
+  motoboyId Int
+  tipo      TipoNotificacao
+  mensagem  String
+  lida      Boolean         @default(false)
+  criadoEm  DateTime        @default(now())
+
+  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+
+  @@index([motoboyId, lida])
 }
 
 /// Sessão de login do Motoboy no app — separada de Sessao (login do

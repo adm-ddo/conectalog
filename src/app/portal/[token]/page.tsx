@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
-import { dataISOBrasil } from "@/lib/data";
+import { dataISOBrasil, diaSemanaBrasil } from "@/lib/data";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
 
@@ -26,6 +26,9 @@ export default async function PortalEscalaPage({
 
   const manha = escalas.filter((e) => e.turno === "MANHA");
   const noite = escalas.filter((e) => e.turno === "NOITE");
+  const diaSemana = diaSemanaBrasil();
+  const contratadasManha = cliente.motosFixasManha[diaSemana];
+  const contratadasNoite = cliente.motosFixasNoite[diaSemana];
 
   return (
     <div className="flex flex-col gap-6">
@@ -49,8 +52,12 @@ export default async function PortalEscalaPage({
         </Link>
       </div>
 
-      <SecaoTurno token={token} titulo="Manhã" itens={manha} />
-      <SecaoTurno token={token} titulo="Noite" itens={noite} />
+      {cliente.turnoManhaAtivo && (
+        <SecaoTurno token={token} titulo="Manhã" itens={manha} contratadas={contratadasManha} />
+      )}
+      {cliente.turnoNoiteAtivo && (
+        <SecaoTurno token={token} titulo="Noite" itens={noite} contratadas={contratadasNoite} />
+      )}
     </div>
   );
 }
@@ -59,6 +66,7 @@ function SecaoTurno({
   token,
   titulo,
   itens,
+  contratadas,
 }: {
   token: string;
   titulo: string;
@@ -67,10 +75,24 @@ function SecaoTurno({
     motoboy: { nomeCompleto: string; tipoEquipamento: TipoEquipamento | null };
     turnoVinculado: { id: number; horaInicio: Date; avaliacao: { nota: number } | null } | null;
   }[];
+  contratadas: number;
 }) {
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-3">
-      <h2 className="text-sm font-semibold text-navy-900">{titulo}</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-semibold text-navy-900">{titulo}</h2>
+        {contratadas > 0 && (
+          <span
+            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+              itens.length === contratadas
+                ? "bg-brand-100 text-brand-800"
+                : "bg-amber-100 text-amber-800"
+            }`}
+          >
+            {itens.length} de {contratadas} motos
+          </span>
+        )}
+      </div>
       {itens.length === 0 ? (
         <p className="text-sm text-stone-500">Ninguém escalado pra esse turno hoje.</p>
       ) : (
