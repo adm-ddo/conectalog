@@ -3,8 +3,9 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { hashSenha } from "@/lib/senha";
-import { criarSessaoMotoboy } from "@/lib/auth-motoboy";
+import { criarTokenAutenticacaoMotoboy } from "@/lib/auth-motoboy";
 import { uploadDataUrl } from "@/lib/blob";
+import { enviarEmailVerificacaoMotoboy } from "@/lib/email";
 import type { TipoChavePix, TipoEquipamento } from "@/generated/prisma/enums";
 
 export type DadosCadastroMotoboy = {
@@ -36,9 +37,9 @@ export type CadastroState = { erro?: string } | undefined;
  * "reivindica" esse registro, completando os dados de autocadastro em
  * cima dele, em vez de criar um duplicado (cpf/email são @unique).
  *
- * Sem verificação de e-mail por enquanto (decisão combinada com o
- * Thiago) — enquanto não existe domínio próprio pra mandar e-mail
- * transacional, o motoboy já sai logado direto depois do cadastro. */
+ * Manda e-mail de verificação em vez de logar direto — mesmo padrão do
+ * extras-app (Usuario/Pessoa): só entra no app depois de clicar no link
+ * de confirmação, ver src/app/app/verificar-email/[token]/actions.ts. */
 export async function cadastrarMotoboy(
   dados: DadosCadastroMotoboy
 ): Promise<CadastroState> {
@@ -102,6 +103,7 @@ export async function cadastrarMotoboy(
     tipoChavePix: dados.tipoChavePix,
     tipoEquipamento: dados.tipoEquipamento,
     senhaHash,
+    emailVerificadoEm: null,
     fotoPerfilUrl,
     cnhFotoUrl,
   };
@@ -124,6 +126,8 @@ export async function cadastrarMotoboy(
     return { erro: "Já existe uma conta com esse CPF ou e-mail." };
   }
 
-  await criarSessaoMotoboy(motoboyId);
-  redirect("/app/inicio");
+  const token = await criarTokenAutenticacaoMotoboy(motoboyId, "VERIFICACAO_EMAIL");
+  await enviarEmailVerificacaoMotoboy(email, dados.nomeCompleto, token);
+
+  redirect("/app/cadastro/verifique-seu-email");
 }

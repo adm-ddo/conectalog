@@ -101,3 +101,41 @@ export async function criarTokenAutenticacaoMotoboy(
   });
   return token;
 }
+
+export type ResultadoTokenMotoboyValido =
+  | { valido: true; motoboyId: number; tokenId: number }
+  | { valido: false; motivo: "invalido" | "expirado" | "usado" };
+
+/** Busca e valida um token (existe, tipo bate, não expirou, não foi
+ * usado) sem marcá-lo como consumido — mesmo espírito de
+ * buscarTokenValido no extras-app (src/lib/tokenAutenticacao.ts). */
+export async function buscarTokenMotoboyValido(
+  token: string,
+  tipo: "VERIFICACAO_EMAIL" | "RECUPERACAO_SENHA"
+): Promise<ResultadoTokenMotoboyValido> {
+  const registro = await prisma.tokenAutenticacaoMotoboy.findUnique({ where: { token } });
+  if (!registro || registro.tipo !== tipo) return { valido: false, motivo: "invalido" };
+  if (registro.usadoEm !== null) return { valido: false, motivo: "usado" };
+  if (registro.expiraEm < new Date()) return { valido: false, motivo: "expirado" };
+  return { valido: true, motoboyId: registro.motoboyId, tokenId: registro.id };
+}
+
+/** Cooldown simples pra evitar spam de "reenviar" — mesmo espírito de
+ * tokenRecenteExiste no extras-app. */
+export async function tokenMotoboyRecenteExiste(
+  motoboyId: number,
+  tipo: "VERIFICACAO_EMAIL" | "RECUPERACAO_SENHA",
+  minutosCooldown: number
+): Promise<boolean> {
+  const desde = new Date(Date.now() - minutosCooldown * 60 * 1000);
+  const recente = await prisma.tokenAutenticacaoMotoboy.findFirst({
+    where: {
+      motoboyId,
+      tipo,
+      usadoEm: null,
+      criadoEm: { gte: desde },
+      expiraEm: { gt: new Date() },
+    },
+  });
+  return recente !== null;
+}

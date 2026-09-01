@@ -309,7 +309,8 @@ export default function CadastroMotoboyWizard() {
       {passo === 5 && (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-stone-600">
-            Confere se está tudo certo e toca em enviar. Depois disso você já entra direto no app.
+            Confere se está tudo certo e toca em enviar. A gente manda um link de confirmação pro
+            seu e-mail — só entra no app depois de clicar nele.
           </p>
           <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm flex flex-col gap-1">
             <p>
