@@ -32,8 +32,23 @@ export default function CameraCapture({
   useEffect(() => {
     let cancelado = false;
 
-    navigator.mediaDevices
-      ?.getUserMedia({ video: { facingMode: camera }, audio: false })
+    // getUserMedia só existe em contexto seguro (https ou localhost) —
+    // em http puro (ex.: testando pelo IP da rede local, tipo
+    // 192.168.x.x, sem https) ou dentro do navegador embutido de outro
+    // app (WhatsApp/Instagram), `navigator.mediaDevices` vem undefined.
+    // Sem essa checagem explícita, `mediaDevices?.getUserMedia(...)`
+    // encadeado com `?.` vira `undefined` inteiro (o `?.` corta a
+    // cadeia toda), o `.then/.catch` nunca roda, e a tela fica presa em
+    // "Preparando câmera..." pra sempre, sem erro nenhum aparecer — por
+    // isso a checagem também vira uma Promise rejeitada, tratada no
+    // mesmo `.catch` abaixo, em vez de um `return` síncrono com setState
+    // direto no corpo do efeito.
+    const contextoSemSuporte = !navigator.mediaDevices;
+    const pedido = contextoSemSuporte
+      ? Promise.reject(new Error("getUserMedia indisponível neste contexto"))
+      : navigator.mediaDevices.getUserMedia({ video: { facingMode: camera }, audio: false });
+
+    pedido
       .then((stream) => {
         if (cancelado) {
           stream.getTracks().forEach((t) => t.stop());
@@ -45,9 +60,12 @@ export default function CameraCapture({
         }
         setPronto(true);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("Falha ao acessar a câmera:", err);
         setErro(
-          "Não foi possível acessar a câmera. Verifique a permissão do navegador."
+          contextoSemSuporte
+            ? 'Não foi possível acessar a câmera aqui. Se você abriu esse link dentro de outro aplicativo (WhatsApp, Instagram), toque em "Abrir no navegador" e tente de novo.'
+            : "Não foi possível acessar a câmera. Verifique a permissão do navegador."
         );
       });
 
