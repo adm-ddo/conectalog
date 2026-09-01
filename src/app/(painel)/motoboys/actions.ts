@@ -7,6 +7,7 @@ import { requireEmpresa } from "@/lib/auth-empresa";
 export type MotoboyFormState = { erro?: string } | undefined;
 
 const TIPOS_CHAVE_PIX = ["CPF", "CNPJ", "EMAIL", "TELEFONE", "ALEATORIA"] as const;
+const TIPOS_EQUIPAMENTO = ["BAG", "BAU_PEQUENO", "BAU_MEDIO", "BAU_GRANDE"] as const;
 
 /** Criação manual pela cooperativa — o motoboy ainda não tem senha; ele
  * reivindica o acesso depois em /app/cadastrar-acesso (CPF + e-mail
@@ -27,6 +28,12 @@ export async function criarMotoboyManual(
   const telefoneEmergencia = String(formData.get("telefoneEmergencia") ?? "").trim();
   const chavePix = String(formData.get("chavePix") ?? "").trim();
   const tipoChavePix = String(formData.get("tipoChavePix") ?? "");
+  const tipoEquipamentoTexto = String(formData.get("tipoEquipamento") ?? "");
+  const tipoEquipamento = TIPOS_EQUIPAMENTO.includes(
+    tipoEquipamentoTexto as (typeof TIPOS_EQUIPAMENTO)[number]
+  )
+    ? (tipoEquipamentoTexto as (typeof TIPOS_EQUIPAMENTO)[number])
+    : null;
 
   if (!nomeCompleto || !cpf || !email || !dataNascimento || !endereco) {
     return { erro: "Preencha nome, CPF, e-mail, data de nascimento e endereço." };
@@ -55,9 +62,23 @@ export async function criarMotoboyManual(
       telefoneEmergencia,
       chavePix,
       tipoChavePix: tipoChavePix as (typeof TIPOS_CHAVE_PIX)[number],
+      tipoEquipamento,
     },
   });
 
+  revalidatePath("/motoboys");
+}
+
+export async function atualizarEquipamentoMotoboy(
+  motoboyId: number,
+  tipoEquipamento: (typeof TIPOS_EQUIPAMENTO)[number] | null
+) {
+  const sessao = await requireEmpresa();
+  await prisma.motoboy.updateMany({
+    where: { id: motoboyId, empresaId: sessao.empresaId },
+    data: { tipoEquipamento },
+  });
+  revalidatePath(`/motoboys/${motoboyId}`);
   revalidatePath("/motoboys");
 }
 

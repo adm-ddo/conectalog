@@ -3,6 +3,8 @@ import { requireEmpresa } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
 import DashboardAutoRefresh from "../DashboardAutoRefresh";
+import EquipamentoBadge from "@/components/EquipamentoBadge";
+import type { TipoEquipamento } from "@/generated/prisma/enums";
 
 export default async function DashboardPage() {
   const sessao = await requireEmpresa();
@@ -14,7 +16,7 @@ export default async function DashboardPage() {
       select: {
         id: true,
         horaInicio: true,
-        motoboy: { select: { nomeCompleto: true } },
+        motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
         cliente: { select: { id: true, nome: true } },
       },
     }),
@@ -24,11 +26,24 @@ export default async function DashboardPage() {
 
   const porCliente = new Map<
     number,
-    { nome: string; motoboys: { id: number; nome: string; horaInicio: Date }[] }
+    {
+      nome: string;
+      motoboys: {
+        id: number;
+        nome: string;
+        horaInicio: Date;
+        tipoEquipamento: TipoEquipamento | null;
+      }[];
+    }
   >();
   for (const t of turnosAbertos) {
     const atual = porCliente.get(t.cliente.id) ?? { nome: t.cliente.nome, motoboys: [] };
-    atual.motoboys.push({ id: t.id, nome: t.motoboy.nomeCompleto, horaInicio: t.horaInicio });
+    atual.motoboys.push({
+      id: t.id,
+      nome: t.motoboy.nomeCompleto,
+      horaInicio: t.horaInicio,
+      tipoEquipamento: t.motoboy.tipoEquipamento,
+    });
     porCliente.set(t.cliente.id, atual);
   }
 
@@ -106,8 +121,9 @@ export default async function DashboardPage() {
                 </Link>
                 <ul className="flex flex-col gap-1 pl-3 border-l-2 border-brand-200">
                   {grupo.motoboys.map((m) => (
-                    <li key={m.id} className="text-sm text-stone-600">
-                      {m.nome} — desde{" "}
+                    <li key={m.id} className="text-sm text-stone-600 flex items-center gap-2">
+                      {m.nome}
+                      <EquipamentoBadge tipo={m.tipoEquipamento} />— desde{" "}
                       {m.horaInicio.toLocaleTimeString("pt-BR", {
                         hour: "2-digit",
                         minute: "2-digit",

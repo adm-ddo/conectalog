@@ -136,6 +136,20 @@ export default function NovoMotoboyForm() {
             className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
           />
         </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-stone-500">Equipamento de entrega</label>
+          <select
+            name="tipoEquipamento"
+            defaultValue=""
+            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+          >
+            <option value="">Não informado</option>
+            <option value="BAG">Bag (mochila)</option>
+            <option value="BAU_PEQUENO">Baú pequeno</option>
+            <option value="BAU_MEDIO">Baú médio</option>
+            <option value="BAU_GRANDE">Baú grande (pizza 45cm)</option>
+          </select>
+        </div>
       </div>
 
       {state?.erro && (

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireEmpresa } from "@/lib/auth-empresa";
+import { hashSenha } from "@/lib/senha";
 
 export type ClienteFormState = { erro?: string } | undefined;
 
@@ -100,4 +101,35 @@ export async function alternarAtivoCliente(clienteId: number, ativo: boolean) {
     data: { ativo },
   });
   revalidatePath("/clientes");
+}
+
+export type AcessoPortalState = { erro?: string } | undefined;
+
+/** Cria/troca o login do portal do Cliente — configurado pela
+ * cooperativa, não é autocadastro (o cliente não escolhe o próprio
+ * usuário, quem decide é quem administra a conta dele). */
+export async function definirAcessoPortal(
+  clienteId: number,
+  _prev: AcessoPortalState,
+  formData: FormData
+): Promise<AcessoPortalState> {
+  const sessao = await requireEmpresa();
+  const loginPortal = String(formData.get("loginPortal") ?? "").trim().toLowerCase();
+  const senha = String(formData.get("senha") ?? "");
+
+  if (!loginPortal) return { erro: "Informe um login." };
+  if (senha.length < 6) return { erro: "A senha precisa ter pelo menos 6 caracteres." };
+
+  const emUso = await prisma.cliente.findFirst({
+    where: { loginPortal, NOT: { id: clienteId } },
+  });
+  if (emUso) return { erro: "Esse login já está em uso por outro cliente." };
+
+  const senhaHashPortal = await hashSenha(senha);
+  await prisma.cliente.updateMany({
+    where: { id: clienteId, empresaId: sessao.empresaId },
+    data: { loginPortal, senhaHashPortal },
+  });
+
+  revalidatePath(`/clientes/${clienteId}`);
 }

@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
 import LiberacaoClientes from "./LiberacaoClientes";
 import ValesSection from "./ValesSection";
+import EquipamentoSelector from "./EquipamentoSelector";
+import EquipamentoBadge from "@/components/EquipamentoBadge";
 
 export default async function MotoboyDetalhePage({
   params,
@@ -36,7 +38,10 @@ export default async function MotoboyDetalhePage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-navy-900">{motoboy.nomeCompleto}</h1>
+        <h1 className="text-2xl font-semibold text-navy-900 flex items-center gap-2">
+          {motoboy.nomeCompleto}
+          <EquipamentoBadge tipo={motoboy.tipoEquipamento} />
+        </h1>
         <p className="text-stone-600 mt-1 text-sm">{motoboy.email}</p>
       </div>
 
@@ -44,6 +49,7 @@ export default async function MotoboyDetalhePage({
         <p>
           <span className="text-stone-500">CPF:</span> {motoboy.cpf}
         </p>
+        <EquipamentoSelector motoboyId={motoboy.id} tipoEquipamento={motoboy.tipoEquipamento} />
         <p>
           <span className="text-stone-500">Celular:</span> {motoboy.telefoneCelular}
         </p>

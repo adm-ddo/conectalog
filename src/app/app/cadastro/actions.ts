@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { hashSenha } from "@/lib/senha";
 import { criarSessaoMotoboy } from "@/lib/auth-motoboy";
 import { uploadDataUrl } from "@/lib/blob";
-import type { TipoChavePix } from "@/generated/prisma/enums";
+import type { TipoChavePix, TipoEquipamento } from "@/generated/prisma/enums";
 
 export type DadosCadastroMotoboy = {
   nomeCompleto: string;
@@ -22,6 +22,7 @@ export type DadosCadastroMotoboy = {
   telefoneEmergencia: string;
   chavePix: string;
   tipoChavePix: TipoChavePix;
+  tipoEquipamento: TipoEquipamento;
   senha: string;
   fotoPerfilDataUrl: string;
   cnhDataUrl: string;
@@ -65,6 +66,9 @@ export async function cadastrarMotoboy(
   if (!dados.cnhDataUrl) {
     return { erro: "Falta a foto ou o anexo da CNH." };
   }
+  if (!dados.tipoEquipamento) {
+    return { erro: "Informe qual equipamento de entrega você usa." };
+  }
 
   // Nesta fase o ConectaLog atende uma cooperativa só — o cadastro
   // público do motoboy entra automaticamente nela. Quando existir mais
@@ -96,6 +100,7 @@ export async function cadastrarMotoboy(
     telefoneEmergencia: dados.telefoneEmergencia.trim(),
     chavePix: dados.chavePix.trim(),
     tipoChavePix: dados.tipoChavePix,
+    tipoEquipamento: dados.tipoEquipamento,
     senhaHash,
     fotoPerfilUrl,
     cnhFotoUrl,

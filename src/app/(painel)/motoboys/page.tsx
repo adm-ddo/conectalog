@@ -9,7 +9,15 @@ export default async function MotoboysPage() {
   const motoboys = await prisma.motoboy.findMany({
     where: { empresaId: sessao.empresaId },
     orderBy: { nomeCompleto: "asc" },
-    select: { id: true, nomeCompleto: true, email: true, ativo: true, livre: true, senhaHash: true },
+    select: {
+      id: true,
+      nomeCompleto: true,
+      email: true,
+      ativo: true,
+      livre: true,
+      senhaHash: true,
+      tipoEquipamento: true,
+    },
   });
 
   return (
@@ -36,6 +44,7 @@ export default async function MotoboysPage() {
                 ativo: m.ativo,
                 livre: m.livre,
                 temAcesso: m.senhaHash !== null,
+                tipoEquipamento: m.tipoEquipamento,
               }}
             />
           ))}

@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useTransition } from "react";
 import { alternarAtivoMotoboy } from "./actions";
+import EquipamentoBadge from "@/components/EquipamentoBadge";
+import type { TipoEquipamento } from "@/generated/prisma/enums";
 
 export default function MotoboyRow({
   motoboy,
@@ -14,15 +16,17 @@ export default function MotoboyRow({
     ativo: boolean;
     livre: boolean;
     temAcesso: boolean;
+    tipoEquipamento: TipoEquipamento | null;
   };
 }) {
   const [pending, startTransition] = useTransition();
 
   return (
     <li className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
-      <Link href={`/motoboys/${motoboy.id}`} className="min-w-0 flex flex-col">
-        <span className="text-sm font-semibold text-navy-900 truncate">
+      <Link href={`/motoboys/${motoboy.id}`} className="min-w-0 flex flex-col gap-1">
+        <span className="text-sm font-semibold text-navy-900 truncate flex items-center gap-2">
           {motoboy.nomeCompleto}
+          <EquipamentoBadge tipo={motoboy.tipoEquipamento} />
         </span>
         <span className="text-xs text-stone-500 truncate">
           {motoboy.email}

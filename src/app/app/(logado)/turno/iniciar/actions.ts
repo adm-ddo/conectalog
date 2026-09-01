@@ -51,7 +51,7 @@ export async function iniciarTurno(dados: DadosIniciarTurno): Promise<IniciarTur
     uploadDataUrl(`turnos/assinatura-termo-${Date.now()}.png`, dados.assinaturaTermoDataUrl),
   ]);
 
-  await prisma.turno.create({
+  const turno = await prisma.turno.create({
     data: {
       motoboyId: sessao.motoboyId,
       clienteId: dados.clienteId,
@@ -61,5 +61,43 @@ export async function iniciarTurno(dados: DadosIniciarTurno): Promise<IniciarTur
     },
   });
 
+  await vincularEscalaSeExistir(sessao.motoboyId, dados.clienteId, dados.turnoPredefinido, turno.id);
+
   redirect("/app/inicio");
+}
+
+/** Se a cooperativa escalou esse motoboy pra esse cliente hoje, liga a
+ * escala a esse Turno — é isso que faz o card virar verde no portal do
+ * cliente e no painel. Tenta primeiro achar a escala do mesmo turno
+ * (manhã/noite) que o motoboy escolheu; se ele entrou como "livre" ou
+ * não bateu com nenhuma, tenta qualquer escala do dia ainda sem turno
+ * vinculado (evita perder o vínculo por causa de uma pequena diferença
+ * de rótulo). Não bloqueia nada se não achar — apoio ao vivo sem escala
+ * prévia é normal e esperado. */
+async function vincularEscalaSeExistir(
+  motoboyId: number,
+  clienteId: number,
+  turnoPredefinido: TurnoPredefinido,
+  turnoId: number
+) {
+  const hoje = new Date();
+  hoje.setHours(0, 0, 0, 0);
+
+  const escala =
+    turnoPredefinido !== "LIVRE"
+      ? await prisma.escalaTurno.findFirst({
+          where: { clienteId, motoboyId, data: hoje, turno: turnoPredefinido, turnoId: null },
+        })
+      : null;
+
+  const escalaFinal =
+    escala ??
+    (await prisma.escalaTurno.findFirst({
+      where: { clienteId, motoboyId, data: hoje, turnoId: null },
+      orderBy: { turno: "asc" },
+    }));
+
+  if (escalaFinal) {
+    await prisma.escalaTurno.update({ where: { id: escalaFinal.id }, data: { turnoId } });
+  }
 }

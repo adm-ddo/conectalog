@@ -4,6 +4,8 @@ import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
 import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
 import EditarClienteForm from "./EditarClienteForm";
+import AcessoPortalForm from "./AcessoPortalForm";
+import EquipamentoBadge from "@/components/EquipamentoBadge";
 
 export default async function ClienteDetalhePage({
   params,
@@ -18,12 +20,16 @@ export default async function ClienteDetalhePage({
     include: {
       motoboysLiberados: {
         where: { liberado: true },
-        include: { motoboy: { select: { id: true, nomeCompleto: true } } },
+        include: { motoboy: { select: { id: true, nomeCompleto: true, tipoEquipamento: true } } },
       },
       turnos: {
         where: { status: "ABERTO" },
         orderBy: { horaInicio: "asc" },
-        select: { id: true, horaInicio: true, motoboy: { select: { nomeCompleto: true } } },
+        select: {
+          id: true,
+          horaInicio: true,
+          motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
+        },
       },
     },
   });
@@ -82,6 +88,8 @@ export default async function ClienteDetalhePage({
         }}
       />
 
+      <AcessoPortalForm clienteId={cliente.id} loginAtual={cliente.loginPortal} />
+
       <div className="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-navy-900 mb-3">
           Em turno agora ({cliente.turnos.length})
@@ -91,8 +99,9 @@ export default async function ClienteDetalhePage({
         ) : (
           <ul className="flex flex-col gap-1">
             {cliente.turnos.map((t) => (
-              <li key={t.id} className="text-sm text-stone-700">
-                {t.motoboy.nomeCompleto} — desde{" "}
+              <li key={t.id} className="text-sm text-stone-700 flex items-center gap-2">
+                {t.motoboy.nomeCompleto}
+                <EquipamentoBadge tipo={t.motoboy.tipoEquipamento} />— desde{" "}
                 {t.horaInicio.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
               </li>
             ))}
@@ -113,9 +122,10 @@ export default async function ClienteDetalhePage({
             {cliente.motoboysLiberados.map((mc) => (
               <li
                 key={mc.id}
-                className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700"
+                className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-700 flex items-center gap-1.5"
               >
                 {mc.motoboy.nomeCompleto}
+                <EquipamentoBadge tipo={mc.motoboy.tipoEquipamento} />
               </li>
             ))}
           </ul>

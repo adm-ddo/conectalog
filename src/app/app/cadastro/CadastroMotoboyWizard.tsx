@@ -3,10 +3,15 @@
 import { useState, useTransition } from "react";
 import CameraCapture from "@/components/CameraCapture";
 import { cadastrarMotoboy, type DadosCadastroMotoboy } from "./actions";
+import type { TipoEquipamento } from "@/generated/prisma/enums";
 
-type Dados = Omit<DadosCadastroMotoboy, "fotoPerfilDataUrl" | "cnhDataUrl" | "senha"> & {
+type Dados = Omit<
+  DadosCadastroMotoboy,
+  "fotoPerfilDataUrl" | "cnhDataUrl" | "senha" | "tipoEquipamento"
+> & {
   confirmarSenha: string;
   senha: string;
+  tipoEquipamento: TipoEquipamento | "";
 };
 
 const DADOS_INICIAIS: Dados = {
@@ -24,11 +29,12 @@ const DADOS_INICIAIS: Dados = {
   telefoneEmergencia: "",
   chavePix: "",
   tipoChavePix: "CPF",
+  tipoEquipamento: "",
   senha: "",
   confirmarSenha: "",
 };
 
-const PASSOS = ["Dados pessoais", "PIX e senha", "Sua foto", "CNH", "Enviar"] as const;
+const PASSOS = ["Dados pessoais", "PIX e senha", "Sua foto", "CNH", "Equipamento", "Enviar"] as const;
 
 export default function CadastroMotoboyWizard() {
   const [passo, setPasso] = useState(0);
@@ -85,6 +91,9 @@ export default function CadastroMotoboyWizard() {
     if (passo === 3 && !cnhDataUrl) {
       return setErro("Envie a foto da CNH pra continuar.");
     }
+    if (passo === 4 && !dados.tipoEquipamento) {
+      return setErro("Selecione qual equipamento você usa.");
+    }
     setPasso((p) => p + 1);
   }
 
@@ -102,11 +111,12 @@ export default function CadastroMotoboyWizard() {
   }
 
   function enviar() {
-    if (!fotoPerfilDataUrl || !cnhDataUrl) return;
+    if (!fotoPerfilDataUrl || !cnhDataUrl || !dados.tipoEquipamento) return;
     setErro(null);
     startTransition(async () => {
       const resultado = await cadastrarMotoboy({
         ...dados,
+        tipoEquipamento: dados.tipoEquipamento as TipoEquipamento,
         fotoPerfilDataUrl,
         cnhDataUrl,
       });
@@ -265,6 +275,38 @@ export default function CadastroMotoboyWizard() {
       )}
 
       {passo === 4 && (
+        <div className="flex flex-col gap-3">
+          <p className="text-sm text-stone-600">
+            Qual equipamento de entrega você usa? Isso aparece do seu lado em toda tela, pra
+            cooperativa e pro cliente saberem se você dá conta de pizza grande.
+          </p>
+          <div className="grid grid-cols-1 gap-2">
+            {(
+              [
+                ["BAG", "Bag (mochila nas costas)"],
+                ["BAU_PEQUENO", "Baú pequeno"],
+                ["BAU_MEDIO", "Baú médio"],
+                ["BAU_GRANDE", "Baú grande (pizza 45cm)"],
+              ] as const
+            ).map(([valor, rotulo]) => (
+              <button
+                key={valor}
+                type="button"
+                onClick={() => setDados((d) => ({ ...d, tipoEquipamento: valor }))}
+                className={`rounded-lg px-4 py-3 text-sm font-medium text-left transition-colors ${
+                  dados.tipoEquipamento === valor
+                    ? "bg-brand-600 text-white"
+                    : "bg-stone-100 text-stone-700"
+                }`}
+              >
+                {rotulo}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {passo === 5 && (
         <div className="flex flex-col gap-3">
           <p className="text-sm text-stone-600">
             Confere se está tudo certo e toca em enviar. Depois disso você já entra direto no app.

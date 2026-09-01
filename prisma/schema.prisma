@@ -65,13 +65,30 @@ enum PeriodoMeta {
   PERSONALIZADO
 }
 
+/// Equipamento de entrega que o motoboy usa — mostrado ao lado do nome
+/// dele em toda tela (painel, portal do cliente) pra quem escala saber
+/// se ele dá conta de pizza grande (baú 45cm) ou só entregas pequenas.
+enum TipoEquipamento {
+  BAG
+  BAU_PEQUENO
+  BAU_MEDIO
+  BAU_GRANDE
+}
+
+/// Turno de uma escala — só manhã/noite (diferente de TurnoPredefinido,
+/// que também tem LIVRE pro turno "avulso" fora de escala).
+enum TurnoEscala {
+  MANHA
+  NOITE
+}
+
 /// Tenant — a cooperativa dona das motos. Cada Empresa é um cliente pagante
 /// do ConectaLog (hoje só uma; o modelo já nasce multi-tenant pra revenda).
 model Empresa {
-  id                    Int      @id @default(autoincrement())
-  nome                  String
-  cnpj                  String?  @unique
-  logoUrl               String?
+  id                          Int      @id @default(autoincrement())
+  nome                        String
+  cnpj                        String?  @unique
+  logoUrl                     String?
   /// Padrões usados quando o Cliente não tem valor próprio — cada um tem
   /// um lado "motoboy" (o que ele recebe) e um lado "cliente" (o que a
   /// cooperativa cobra da empresa cliente); a diferença é a margem da
@@ -81,13 +98,13 @@ model Empresa {
   valorBandaClientePadrao     Decimal  @default(0) @db.Decimal(10, 2)
   valorTaxaExtraMotoboyPadrao Decimal  @default(0) @db.Decimal(10, 2)
   valorTaxaExtraClientePadrao Decimal  @default(0) @db.Decimal(10, 2)
-  criadoEm              DateTime @default(now())
+  criadoEm                    DateTime @default(now())
 
-  usuarios  Usuario[]
-  clientes  Cliente[]
-  motoboys  Motoboy[]
+  usuarios   Usuario[]
+  clientes   Cliente[]
+  motoboys   Motoboy[]
   pagamentos Pagamento[]
-  vales     Vale[]
+  vales      Vale[]
 }
 
 /// Login do painel (dono/gestor da cooperativa) — sistema de sessão
@@ -103,9 +120,10 @@ model Usuario {
   ativo     Boolean     @default(true)
   criadoEm  DateTime    @default(now())
 
-  empresa Empresa  @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  sessoes Sessao[]
-  vales   Vale[]
+  empresa        Empresa       @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  sessoes        Sessao[]
+  vales          Vale[]
+  escalasCriadas EscalaTurno[]
 }
 
 model Sessao {
@@ -118,10 +136,6 @@ model Sessao {
   usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
 }
 
-/// Empresa cliente atendida pela cooperativa (ex.: um restaurante que
-/// contrata a cooperativa pra fazer as entregas). valorBanda/valorTaxaExtra
-/// nulos herdam o padrão da Empresa (cooperativa) — ver
-/// src/lib/valores.ts:valorBandaEfetivo.
 /// Empresa cliente atendida pela cooperativa. Tem dois modelos de preço
 /// possíveis, configuráveis de forma independente (ver src/lib/precificacao.ts):
 /// (1) "por banda" simples — sempre disponível, usado quando não há diária;
@@ -132,12 +146,18 @@ model Sessao {
 /// recebe) e lado cliente (o que a cooperativa cobra da empresa) — a
 /// diferença é a margem da cooperativa.
 model Cliente {
-  id              Int      @id @default(autoincrement())
-  empresaId       Int
-  nome            String
-  endereco        String?
-  ativo           Boolean  @default(true)
-  criadoEm        DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  empresaId Int
+  nome      String
+  endereco  String?
+  ativo     Boolean  @default(true)
+  criadoEm  DateTime @default(now())
+
+  // Acesso do cliente ao próprio portal (ver escala do dia) — login
+  // configurado pela cooperativa, não autocadastro. null = sem acesso
+  // configurado ainda.
+  loginPortal     String? @unique
+  senhaHashPortal String?
 
   // Horários dos turnos fixos e quantidade de motos contratada em cada um
   // — usado pro alerta de "equipe incompleta" no dashboard da cooperativa.
@@ -164,49 +184,91 @@ model Cliente {
   valorBandaExcedenteMotoboy Decimal? @db.Decimal(10, 2)
   valorBandaExcedenteCliente Decimal? @db.Decimal(10, 2)
 
-  empresa          Empresa           @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa           Empresa          @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   motoboysLiberados MotoboyCliente[]
-  turnos           Turno[]
-  apoios           Apoio[]
+  turnos            Turno[]
+  apoios            Apoio[]
+  sessoesPortal     SessaoCliente[]
+  escalas           EscalaTurno[]
 
   @@index([empresaId])
+}
+
+/// Sessão de login do Cliente no portal dele — terceiro sistema de
+/// sessão isolado (além de Sessao/Usuario e SessaoMotoboy/Motoboy), pelo
+/// mesmo motivo dos outros dois: uma falha aqui nunca deve derrubar o
+/// painel da cooperativa nem o app do motoboy.
+model SessaoCliente {
+  id        Int      @id @default(autoincrement())
+  token     String   @unique
+  clienteId Int
+  expiraEm  DateTime
+  criadoEm  DateTime @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+}
+
+/// Escala manual: a cooperativa decide que Motoboy vai trabalhar em qual
+/// Cliente, em qual data/turno. turnoId é preenchido quando o motoboy de
+/// fato bate o início do turno correspondente — é isso que faz o card
+/// virar verde no portal do cliente e no painel da cooperativa.
+model EscalaTurno {
+  id                 Int         @id @default(autoincrement())
+  clienteId          Int
+  motoboyId          Int
+  data               DateTime    @db.Date
+  turno              TurnoEscala
+  turnoId            Int?
+  criadoPorUsuarioId Int
+  criadoEm           DateTime    @default(now())
+
+  cliente          Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  motoboy          Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  turnoVinculado   Turno?  @relation(fields: [turnoId], references: [id], onDelete: SetNull)
+  criadoPorUsuario Usuario @relation(fields: [criadoPorUsuarioId], references: [id])
+
+  @@unique([clienteId, motoboyId, data, turno])
+  @@index([clienteId, data])
 }
 
 /// O motoboy — cadastro próprio (Portal-like) ou criado manualmente pela
 /// cooperativa. senhaHash fica null até ele definir a senha pelo link de
 /// verificação de e-mail (mesmo fluxo do Portal do extras-app).
 model Motoboy {
-  id                        Int                  @id @default(autoincrement())
-  empresaId                 Int
-  nomeCompleto              String
-  dataNascimento            DateTime             @db.Date
-  cpf                       String               @unique
-  email                     String               @unique
-  endereco                  String
-  numero                    String?
-  complemento               String?
-  bairro                    String?
-  cidade                    String?
-  cep                       String?
-  telefoneCelular           String
-  telefoneEmergencia        String
-  chavePix                  String
-  tipoChavePix              TipoChavePix
+  id                  Int                 @id @default(autoincrement())
+  empresaId           Int
+  nomeCompleto        String
+  dataNascimento      DateTime            @db.Date
+  cpf                 String              @unique
+  email               String              @unique
+  endereco            String
+  numero              String?
+  complemento         String?
+  bairro              String?
+  cidade              String?
+  cep                 String?
+  telefoneCelular     String
+  telefoneEmergencia  String
+  chavePix            String
+  tipoChavePix        TipoChavePix
   /// Selfie tirada na hora (CameraCapture, sem upload de galeria) — mesmo
   /// motivo do extras-app: a cooperativa precisa saber que é uma foto
   /// atual de verdade, não uma foto de anos atrás.
-  fotoPerfilUrl             String?
+  fotoPerfilUrl       String?
   /// CNH aceita foto ao vivo OU anexo de arquivo — ao contrário da selfie,
   /// que é sempre ao vivo (decisão confirmada com o Thiago).
-  cnhFotoUrl                String?
-  senhaHash                 String?
-  emailVerificadoEm         DateTime?
-  frequenciaPagamento       FrequenciaPagamento  @default(SEMANAL)
+  cnhFotoUrl          String?
+  senhaHash           String?
+  emailVerificadoEm   DateTime?
+  /// Mostrado ao lado do nome dele em toda tela (painel e portal do
+  /// cliente) — null = ainda não informado.
+  tipoEquipamento     TipoEquipamento?
+  frequenciaPagamento FrequenciaPagamento @default(SEMANAL)
   /// true = pode iniciar turno em qualquer Cliente ativo da cooperativa,
   /// sem precisar de liberação individual em MotoboyCliente.
-  livre                     Boolean              @default(false)
-  ativo                     Boolean              @default(true)
-  criadoEm                  DateTime             @default(now())
+  livre               Boolean             @default(false)
+  ativo               Boolean             @default(true)
+  criadoEm            DateTime            @default(now())
 
   empresa            Empresa                    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   clientesLiberados  MotoboyCliente[]
@@ -216,6 +278,7 @@ model Motoboy {
   metas              Meta[]
   sessoes            SessaoMotoboy[]
   tokensAutenticacao TokenAutenticacaoMotoboy[]
+  escalas            EscalaTurno[]
 
   @@index([empresaId])
 }
@@ -254,11 +317,11 @@ model TokenAutenticacaoMotoboy {
 /// Thiago. Não existe linha aqui = não autorizado (a não ser que
 /// Motoboy.livre seja true).
 model MotoboyCliente {
-  id         Int      @id @default(autoincrement())
-  motoboyId  Int
-  clienteId  Int
-  liberado   Boolean  @default(true)
-  criadoEm   DateTime @default(now())
+  id        Int      @id @default(autoincrement())
+  motoboyId Int
+  clienteId Int
+  liberado  Boolean  @default(true)
+  criadoEm  DateTime @default(now())
 
   motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
@@ -273,33 +336,34 @@ model MotoboyCliente {
 /// não recalcula se o preço do Cliente mudar depois (mesmo motivo do
 /// extras-app: histórico não pode mudar retroativamente).
 model Turno {
-  id                    Int               @id @default(autoincrement())
-  motoboyId             Int
-  clienteId             Int
-  turnoPredefinido      TurnoPredefinido  @default(LIVRE)
-  horaInicio            DateTime          @default(now())
-  horaFim               DateTime?
-  fotoInicioUrl         String
-  fotoFimUrl            String?
-  assinaturaTermoUrl    String
-  assinaturaReciboUrl   String?
-  quantidadeBandas      Int               @default(0)
-  quantidadeTaxasExtras Int               @default(0)
-  valorBandaAplicado    Decimal?          @db.Decimal(10, 2)
+  id                     Int              @id @default(autoincrement())
+  motoboyId              Int
+  clienteId              Int
+  turnoPredefinido       TurnoPredefinido @default(LIVRE)
+  horaInicio             DateTime         @default(now())
+  horaFim                DateTime?
+  fotoInicioUrl          String
+  fotoFimUrl             String?
+  assinaturaTermoUrl     String
+  assinaturaReciboUrl    String?
+  quantidadeBandas       Int              @default(0)
+  quantidadeTaxasExtras  Int              @default(0)
+  valorBandaAplicado     Decimal?         @db.Decimal(10, 2)
   valorTaxaExtraAplicado Decimal?         @db.Decimal(10, 2)
   /// O que o MOTOBOY recebe (sempre existiu). valorCobradoCliente é o que
   /// a COOPERATIVA cobra da empresa cliente por esse turno — pode ser
   /// maior (margem da cooperativa); ver src/lib/precificacao.ts.
-  valorTotal            Decimal?          @db.Decimal(10, 2)
-  valorCobradoCliente   Decimal?          @db.Decimal(10, 2)
-  status                StatusTurno       @default(ABERTO)
-  pagamentoId           Int?
-  criadoEm              DateTime          @default(now())
+  valorTotal             Decimal?         @db.Decimal(10, 2)
+  valorCobradoCliente    Decimal?         @db.Decimal(10, 2)
+  status                 StatusTurno      @default(ABERTO)
+  pagamentoId            Int?
+  criadoEm               DateTime         @default(now())
 
-  motoboy   Motoboy    @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
-  cliente   Cliente    @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  pagamento Pagamento? @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+  motoboy   Motoboy       @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  cliente   Cliente       @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pagamento Pagamento?    @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
   apoios    Apoio[]
+  escalas   EscalaTurno[]
 
   @@index([motoboyId, status])
   @@index([clienteId, status])
@@ -354,20 +418,20 @@ model Pagamento {
 /// Vale (adiantamento) dado pela cooperativa a um motoboy — aparece no app
 /// dele como valor a compensar no próximo pagamento.
 model Vale {
-  id                Int      @id @default(autoincrement())
-  motoboyId         Int
-  empresaId         Int
-  valor             Decimal  @db.Decimal(10, 2)
-  data              DateTime @default(now()) @db.Date
-  observacao        String?
+  id                 Int       @id @default(autoincrement())
+  motoboyId          Int
+  empresaId          Int
+  valor              Decimal   @db.Decimal(10, 2)
+  data               DateTime  @default(now()) @db.Date
+  observacao         String?
   /// Preenchido quando a cooperativa já compensou esse vale no pagamento
   /// (manualmente — não há vínculo automático com Pagamento nesta fase).
-  descontadoEm      DateTime?
+  descontadoEm       DateTime?
   criadoPorUsuarioId Int
-  criadoEm          DateTime @default(now())
+  criadoEm           DateTime  @default(now())
 
-  motoboy         Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
-  empresa         Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  motoboy          Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  empresa          Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   criadoPorUsuario Usuario @relation(fields: [criadoPorUsuarioId], references: [id])
 
   @@index([motoboyId])
@@ -377,15 +441,15 @@ model Vale {
 /// motivacional, sem efeito em pagamento. Progresso calculado a partir de
 /// Turno+Apoio no período, não armazenado aqui.
 model Meta {
-  id             Int         @id @default(autoincrement())
-  motoboyId      Int
-  tipo           TipoMeta
-  valorAlvo      Decimal     @db.Decimal(10, 2)
-  periodoTipo    PeriodoMeta @default(SEMANAL)
-  periodoInicio  DateTime    @db.Date
-  periodoFim     DateTime    @db.Date
-  ativa          Boolean     @default(true)
-  criadoEm       DateTime    @default(now())
+  id            Int         @id @default(autoincrement())
+  motoboyId     Int
+  tipo          TipoMeta
+  valorAlvo     Decimal     @db.Decimal(10, 2)
+  periodoTipo   PeriodoMeta @default(SEMANAL)
+  periodoInicio DateTime    @db.Date
+  periodoFim    DateTime    @db.Date
+  ativa         Boolean     @default(true)
+  criadoEm      DateTime    @default(now())
 
   motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
 

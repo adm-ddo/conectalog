@@ -6,6 +6,7 @@ import { sair } from "./actions";
 
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
+  { href: "/escala", label: "Escala" },
   { href: "/clientes", label: "Clientes" },
   { href: "/motoboys", label: "Motoboys" },
   { href: "/pagamentos", label: "Pagamentos" },
