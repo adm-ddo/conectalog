@@ -1,13 +1,8 @@
 import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
+import { dataISOBrasil, formatarHora } from "@/lib/data";
 import EscalaRow from "./EscalaRow";
 import CandidatoRow from "./CandidatoRow";
-
-function hojeISO(): string {
-  const hoje = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}`;
-}
 
 export default async function EscalaPage({
   searchParams,
@@ -24,7 +19,7 @@ export default async function EscalaPage({
   });
 
   const clienteId = Number(params.clienteId) || clientes[0]?.id;
-  const data = params.data || hojeISO();
+  const data = params.data || dataISOBrasil();
   const turno = params.turno === "NOITE" ? "NOITE" : "MANHA";
 
   if (!clienteId) {
@@ -128,10 +123,7 @@ export default async function EscalaPage({
                 tipoEquipamento={e.motoboy.tipoEquipamento}
                 chegou={e.turnoVinculado !== null}
                 horaChegada={
-                  e.turnoVinculado?.horaInicio.toLocaleTimeString("pt-BR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  }) ?? null
+                  e.turnoVinculado ? formatarHora(e.turnoVinculado.horaInicio) : null
                 }
               />
             ))}

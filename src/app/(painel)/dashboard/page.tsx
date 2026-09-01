@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
+import { formatarHora } from "@/lib/data";
 import DashboardAutoRefresh from "../DashboardAutoRefresh";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import SolicitacaoApoioAlert from "./SolicitacaoApoioAlert";
@@ -95,7 +96,7 @@ export default async function DashboardPage() {
           id: s.id,
           quantidade: s.quantidade,
           clienteNome: s.cliente.nome,
-          criadoEm: s.criadoEm.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
+          criadoEm: formatarHora(s.criadoEm),
         }))}
       />
 
@@ -184,11 +185,7 @@ export default async function DashboardPage() {
                   {grupo.motoboys.map((m) => (
                     <li key={m.id} className="text-sm text-stone-600 flex items-center gap-2">
                       {m.nome}
-                      <EquipamentoBadge tipo={m.tipoEquipamento} />— desde{" "}
-                      {m.horaInicio.toLocaleTimeString("pt-BR", {
-                        hour: "2-digit",
-                        minute: "2-digit",
-                      })}
+                      <EquipamentoBadge tipo={m.tipoEquipamento} />— desde {formatarHora(m.horaInicio)}
                     </li>
                   ))}
                 </ul>

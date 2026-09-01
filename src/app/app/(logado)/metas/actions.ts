@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireMotoboy } from "@/lib/auth-motoboy";
+import { dataISOBrasil, instanteBrasil } from "@/lib/data";
 import type { TipoMeta, PeriodoMeta } from "@/generated/prisma/enums";
 
 export type MetaState = { erro?: string } | undefined;
@@ -22,21 +23,21 @@ export async function criarMeta(dados: DadosMeta): Promise<MetaState> {
     return { erro: "Informe uma meta válida, maior que zero." };
   }
 
-  const hoje = new Date();
-  hoje.setHours(0, 0, 0, 0);
-  let periodoInicio = hoje;
+  const hojeISO = dataISOBrasil();
+  let periodoInicio = instanteBrasil(hojeISO);
   let periodoFim: Date;
 
   if (dados.periodoTipo === "PERSONALIZADO") {
     if (!dados.periodoInicio || !dados.periodoFim) {
       return { erro: "Informe o início e o fim do período." };
     }
-    periodoInicio = new Date(dados.periodoInicio);
-    periodoFim = new Date(dados.periodoFim);
+    periodoInicio = instanteBrasil(dados.periodoInicio);
+    periodoFim = instanteBrasil(dados.periodoFim, 23 * 60 + 59);
+  } else if (dados.periodoTipo === "DIARIA") {
+    periodoFim = instanteBrasil(hojeISO, 23 * 60 + 59);
   } else {
     const dias = dados.periodoTipo === "SEMANAL" ? 7 : 30;
-    periodoFim = new Date(hoje);
-    periodoFim.setDate(periodoFim.getDate() + dias);
+    periodoFim = instanteBrasil(hojeISO, dias * 24 * 60);
   }
 
   if (periodoFim <= periodoInicio) {

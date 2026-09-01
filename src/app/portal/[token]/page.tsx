@@ -2,14 +2,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
+import { dataISOBrasil } from "@/lib/data";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
-
-function hojeISO(): string {
-  const hoje = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${hoje.getFullYear()}-${pad(hoje.getMonth() + 1)}-${pad(hoje.getDate())}`;
-}
 
 export default async function PortalEscalaPage({
   params,
@@ -21,7 +16,7 @@ export default async function PortalEscalaPage({
   if (!cliente) notFound();
 
   const escalas = await prisma.escalaTurno.findMany({
-    where: { clienteId: cliente.id, data: new Date(hojeISO()) },
+    where: { clienteId: cliente.id, data: new Date(dataISOBrasil()) },
     include: {
       motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
       turnoVinculado: { select: { id: true, horaInicio: true, avaliacao: { select: { nota: true } } } },
@@ -38,7 +33,12 @@ export default async function PortalEscalaPage({
         <div>
           <h1 className="text-lg font-semibold text-navy-900">Escala de hoje</h1>
           <p className="text-sm text-stone-500">
-            {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "2-digit", month: "long" })}
+            {new Date().toLocaleDateString("pt-BR", {
+              weekday: "long",
+              day: "2-digit",
+              month: "long",
+              timeZone: "America/Sao_Paulo",
+            })}
           </p>
         </div>
         <Link

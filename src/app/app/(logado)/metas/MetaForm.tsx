@@ -6,7 +6,7 @@ import type { TipoMeta, PeriodoMeta } from "@/generated/prisma/enums";
 
 export default function MetaForm() {
   const [tipo, setTipo] = useState<TipoMeta>("BANDAS");
-  const [periodoTipo, setPeriodoTipo] = useState<PeriodoMeta>("SEMANAL");
+  const [periodoTipo, setPeriodoTipo] = useState<PeriodoMeta>("DIARIA");
   const [valorAlvo, setValorAlvo] = useState("");
   const [periodoInicio, setPeriodoInicio] = useState("");
   const [periodoFim, setPeriodoFim] = useState("");
@@ -29,7 +29,13 @@ export default function MetaForm() {
 
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-4">
-      <h2 className="text-sm font-semibold text-navy-900">Criar meta</h2>
+      <div>
+        <h2 className="text-sm font-semibold text-navy-900">Criar minha meta</h2>
+        <p className="text-xs text-stone-500 mt-1">
+          É a meta que você mesmo define pra você: quantas bandas quer fazer, ou quanto quer
+          faturar, no dia, na semana ou no mês.
+        </p>
+      </div>
 
       <div className="flex gap-2">
         {(["BANDAS", "VALOR"] as const).map((opcao) => (
@@ -60,7 +66,7 @@ export default function MetaForm() {
       </label>
 
       <div className="flex gap-2">
-        {(["SEMANAL", "MENSAL", "PERSONALIZADO"] as const).map((opcao) => (
+        {(["DIARIA", "SEMANAL", "MENSAL", "PERSONALIZADO"] as const).map((opcao) => (
           <button
             key={opcao}
             type="button"
@@ -69,7 +75,13 @@ export default function MetaForm() {
               periodoTipo === opcao ? "bg-brand-600 text-white" : "bg-stone-100 text-stone-600"
             }`}
           >
-            {opcao === "SEMANAL" ? "7 dias" : opcao === "MENSAL" ? "30 dias" : "Personalizado"}
+            {opcao === "DIARIA"
+              ? "Hoje"
+              : opcao === "SEMANAL"
+                ? "7 dias"
+                : opcao === "MENSAL"
+                  ? "30 dias"
+                  : "Personalizado"}
           </button>
         ))}
       </div>

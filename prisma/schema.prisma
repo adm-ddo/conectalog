@@ -60,6 +60,7 @@ enum TipoMeta {
 }
 
 enum PeriodoMeta {
+  DIARIA
   SEMANAL
   MENSAL
   PERSONALIZADO

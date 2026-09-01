@@ -20,8 +20,9 @@ export default function LiberacaoClientes({
       <div>
         <h2 className="text-sm font-semibold text-navy-900">Onde ele pode trabalhar</h2>
         <p className="text-xs text-stone-500 mt-1">
-          Marque &quot;livre&quot; pra liberar em todos os clientes ativos de uma vez, ou libere
-          cliente por cliente abaixo.
+          Marque como &quot;Gestor&quot; pra liberar em todos os clientes ativos de uma vez (pode
+          dar apoio e trabalhar em qualquer um, sempre livre), ou libere cliente por cliente
+          abaixo.
         </p>
       </div>
 
@@ -35,7 +36,7 @@ export default function LiberacaoClientes({
           }
           className="h-4 w-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
         />
-        Livre em qualquer cliente
+        Gestor — livre em qualquer cliente
       </label>
 
       {!livre && (

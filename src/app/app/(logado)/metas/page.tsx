@@ -1,6 +1,7 @@
 import { requireMotoboy } from "@/lib/auth-motoboy";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda, paraNumero } from "@/lib/valores";
+import { formatarData } from "@/lib/data";
 import { mensagemMotivacional } from "@/lib/motivacao";
 import MetaForm from "./MetaForm";
 import EncerrarMetaButton from "./EncerrarMetaButton";
@@ -42,7 +43,13 @@ export default async function MetasMotoboyPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-lg font-semibold text-navy-900">Metas</h1>
+      <div>
+        <h1 className="text-lg font-semibold text-navy-900">Minhas metas</h1>
+        <p className="text-sm text-stone-500 mt-1">
+          Metas que você mesmo definiu pra você — quantas bandas quer fazer ou quanto quer
+          faturar.
+        </p>
+      </div>
 
       {meta && (
         <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5 flex flex-col gap-3">
@@ -64,9 +71,7 @@ export default async function MetasMotoboyPage() {
             />
           </div>
           <p className="text-sm font-medium text-navy-900">{mensagemMotivacional(progresso)}</p>
-          <p className="text-xs text-stone-500">
-            Até {meta.periodoFim.toLocaleDateString("pt-BR")}
-          </p>
+          <p className="text-xs text-stone-500">Até {formatarData(meta.periodoFim)}</p>
         </div>
       )}
 

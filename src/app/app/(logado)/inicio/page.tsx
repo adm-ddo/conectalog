@@ -1,33 +1,45 @@
 import Link from "next/link";
 import { requireMotoboy } from "@/lib/auth-motoboy";
 import { prisma } from "@/lib/prisma";
+import { formatarHora } from "@/lib/data";
+import { paraNumero } from "@/lib/valores";
+import EstrelasMedia from "@/components/EstrelasMedia";
 
 export default async function InicioMotoboyPage() {
   const sessao = await requireMotoboy();
 
-  const turnoAberto = await prisma.turno.findFirst({
-    where: { motoboyId: sessao.motoboyId, status: "ABERTO" },
-    include: {
-      cliente: { select: { nome: true } },
-      apoios: { select: { id: true, quantidadeBandas: true, cliente: { select: { nome: true } } } },
-    },
-  });
+  const [turnoAberto, avaliacao] = await Promise.all([
+    prisma.turno.findFirst({
+      where: { motoboyId: sessao.motoboyId, status: "ABERTO" },
+      include: {
+        cliente: { select: { nome: true } },
+        apoios: { select: { id: true, quantidadeBandas: true, cliente: { select: { nome: true } } } },
+      },
+    }),
+    prisma.avaliacao.aggregate({
+      where: { motoboyId: sessao.motoboyId },
+      _avg: { nota: true },
+      _count: { _all: true },
+    }),
+  ]);
+
+  const minhaNota = (
+    <EstrelasMedia media={paraNumero(avaliacao._avg.nota)} total={avaliacao._count._all} />
+  );
 
   if (turnoAberto) {
     const totalBandasApoios = turnoAberto.apoios.reduce((s, a) => s + a.quantidadeBandas, 0);
     return (
       <div className="flex flex-col gap-5">
+        {minhaNota}
+
         <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5 flex flex-col gap-1">
           <span className="text-xs font-semibold text-brand-700 uppercase tracking-wide">
             Turno em andamento
           </span>
           <span className="text-lg font-semibold text-navy-900">{turnoAberto.cliente.nome}</span>
           <span className="text-sm text-stone-600">
-            Desde{" "}
-            {turnoAberto.horaInicio.toLocaleTimeString("pt-BR", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            Desde {formatarHora(turnoAberto.horaInicio)}
           </span>
         </div>
 
@@ -66,6 +78,8 @@ export default async function InicioMotoboyPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      {minhaNota}
+
       <p className="text-sm text-stone-600">
         Você não está em turno agora. Escolha onde vai trabalhar pra começar.
       </p>

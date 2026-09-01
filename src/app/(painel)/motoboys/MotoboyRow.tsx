@@ -30,7 +30,7 @@ export default function MotoboyRow({
         </span>
         <span className="text-xs text-stone-500 truncate">
           {motoboy.email}
-          {motoboy.livre && " · livre em qualquer cliente"}
+          {motoboy.livre && " · Gestor (livre em qualquer cliente)"}
           {!motoboy.temAcesso && " · ainda sem acesso ao app"}
         </span>
       </Link>

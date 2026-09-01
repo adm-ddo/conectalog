@@ -129,8 +129,12 @@ export async function cadastrarMotoboy(
       });
       motoboyId = atualizado.id;
     } else {
+      // Quem se cadastra pelo link específico da cooperativa já entra
+      // liberado em qualquer cliente dela ("livre") — o link em si já é
+      // o convite/aprovação, não faz sentido pedir liberação manual de
+      // novo depois (ver comentário no topo desta função).
       const criado = await prisma.motoboy.create({
-        data: { empresaId: empresa.id, cpf, email, ...dadosComuns },
+        data: { empresaId: empresa.id, cpf, email, livre: true, ...dadosComuns },
       });
       motoboyId = criado.id;
     }

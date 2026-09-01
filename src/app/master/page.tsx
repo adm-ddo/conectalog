@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireSuperAdmin } from "@/lib/auth-empresa";
 import { sair } from "@/app/(painel)/actions";
 import { prisma } from "@/lib/prisma";
+import { formatarData } from "@/lib/data";
 import EmpresaRow from "./EmpresaRow";
 
 export default async function MasterPage() {
@@ -67,7 +68,7 @@ export default async function MasterPage() {
               key={e.id}
               empresaId={e.id}
               nome={e.nome}
-              criadoEm={e.criadoEm.toLocaleDateString("pt-BR")}
+              criadoEm={formatarData(e.criadoEm)}
               totalMotoboys={e._count.motoboys}
               totalClientes={e._count.clientes}
             />

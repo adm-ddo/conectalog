@@ -1,5 +1,6 @@
 import { requireMaster } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
+import { formatarData } from "@/lib/data";
 import MembroRow from "./MembroRow";
 import ConviteRow from "./ConviteRow";
 import ConvidarForm from "./ConvidarForm";
@@ -49,7 +50,7 @@ export default async function EquipePage() {
               key={c.id}
               conviteId={c.id}
               email={c.email}
-              expiraEm={c.expiraEm.toLocaleDateString("pt-BR")}
+              expiraEm={formatarData(c.expiraEm)}
             />
           ))}
         </ul>

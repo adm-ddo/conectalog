@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireMotoboy } from "@/lib/auth-motoboy";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
+import { dataISOBrasil, instanteBrasil, formatarData } from "@/lib/data";
 
 const PERIODOS = {
   "7": { label: "7 dias" },
@@ -17,19 +18,22 @@ function periodoValido(valor: string | undefined): valor is ChavePeriodo {
 }
 
 /** "Mês fechado" é o mês calendário anterior inteiro (1º ao último dia) —
- * diferente dos outros, que são uma janela rolante de N dias até hoje. */
+ * diferente dos outros, que são uma janela rolante de N dias até hoje.
+ * Tudo calculado no calendário de Brasília, nunca no fuso do servidor. */
 function calcularJanela(periodo: ChavePeriodo): { desde: Date; ate: Date } {
-  const hoje = new Date();
+  const agora = new Date();
   if (periodo === "mes") {
-    const desde = new Date(hoje.getFullYear(), hoje.getMonth() - 1, 1);
-    const ate = new Date(hoje.getFullYear(), hoje.getMonth(), 0, 23, 59, 59, 999);
+    const [ano, mes] = dataISOBrasil(agora).split("-").map(Number);
+    const inicioMesAtual = instanteBrasil(`${ano}-${String(mes).padStart(2, "0")}-01`);
+    const anoAnterior = mes === 1 ? ano - 1 : ano;
+    const mesAnterior = mes === 1 ? 12 : mes - 1;
+    const desde = instanteBrasil(`${anoAnterior}-${String(mesAnterior).padStart(2, "0")}-01`);
+    const ate = new Date(inicioMesAtual.getTime() - 1);
     return { desde, ate };
   }
   const dias = { "7": 7, "15": 15, "30": 30 }[periodo];
-  const desde = new Date(hoje);
-  desde.setDate(desde.getDate() - dias);
-  desde.setHours(0, 0, 0, 0);
-  return { desde, ate: hoje };
+  const desde = instanteBrasil(dataISOBrasil(agora), -dias * 24 * 60);
+  return { desde, ate: agora };
 }
 
 export default async function RelatorioMotoboyPage({
@@ -104,9 +108,7 @@ export default async function RelatorioMotoboyPage({
             <li key={t.id} className="rounded-xl border border-stone-200 bg-white px-4 py-3">
               <div className="flex justify-between text-sm">
                 <span className="font-medium text-navy-900">{t.cliente.nome}</span>
-                <span className="text-stone-500">
-                  {t.horaInicio.toLocaleDateString("pt-BR")}
-                </span>
+                <span className="text-stone-500">{formatarData(t.horaInicio)}</span>
               </div>
               <div className="text-xs text-stone-500 mt-1">
                 {t.quantidadeBandas} bandas

@@ -2,9 +2,12 @@ import { notFound } from "next/navigation";
 import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
+import { formatarData } from "@/lib/data";
+import { paraNumero } from "@/lib/valores";
 import LiberacaoClientes from "./LiberacaoClientes";
 import ValesSection from "./ValesSection";
 import OcorrenciasSection from "./OcorrenciasSection";
+import AvaliacoesSection from "./AvaliacoesSection";
 import EquipamentoSelector from "./EquipamentoSelector";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 
@@ -16,7 +19,7 @@ export default async function MotoboyDetalhePage({
   const sessao = await requireTenant();
   const motoboyId = Number((await params).id);
 
-  const [motoboy, clientes] = await Promise.all([
+  const [motoboy, clientes, mediaAvaliacoes] = await Promise.all([
     prisma.motoboy.findFirst({
       where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
       include: {
@@ -26,12 +29,21 @@ export default async function MotoboyDetalhePage({
           orderBy: { criadoEm: "desc" },
           include: { cliente: { select: { nome: true } } },
         },
+        avaliacoes: {
+          orderBy: { criadoEm: "desc" },
+          include: { cliente: { select: { nome: true } } },
+        },
       },
     }),
     prisma.cliente.findMany({
       where: { empresaId: sessao.empresaEfetivoId, ativo: true },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
+    }),
+    prisma.avaliacao.aggregate({
+      where: { motoboyId },
+      _avg: { nota: true },
+      _count: { _all: true },
     }),
   ]);
   if (!motoboy) notFound();
@@ -84,13 +96,25 @@ export default async function MotoboyDetalhePage({
         }))}
       />
 
+      <AvaliacoesSection
+        media={paraNumero(mediaAvaliacoes._avg.nota)}
+        total={mediaAvaliacoes._count._all}
+        avaliacoes={motoboy.avaliacoes.map((a) => ({
+          id: a.id,
+          nota: a.nota,
+          comentario: a.comentario,
+          clienteNome: a.cliente.nome,
+          data: formatarData(a.criadoEm),
+        }))}
+      />
+
       <OcorrenciasSection
         ocorrencias={motoboy.ocorrencias.map((o) => ({
           id: o.id,
           clienteNome: o.cliente.nome,
           descricao: o.descricao,
           valor: formatarMoeda(o.valorDesconto),
-          data: o.criadoEm.toLocaleDateString("pt-BR"),
+          data: formatarData(o.criadoEm),
           descontado: o.pagamentoId !== null,
         }))}
       />
@@ -101,7 +125,7 @@ export default async function MotoboyDetalhePage({
           id: v.id,
           valor: formatarMoeda(v.valor),
           observacao: v.observacao,
-          data: v.data.toLocaleDateString("pt-BR"),
+          data: formatarData(v.data),
           descontado: v.descontadoEm !== null,
         }))}
       />

@@ -3,6 +3,7 @@ import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
 import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
+import { formatarHora } from "@/lib/data";
 import EditarClienteForm from "./EditarClienteForm";
 import LinkPortalSection from "./LinkPortalSection";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
@@ -104,7 +105,7 @@ export default async function ClienteDetalhePage({
               <li key={t.id} className="text-sm text-stone-700 flex items-center gap-2">
                 {t.motoboy.nomeCompleto}
                 <EquipamentoBadge tipo={t.motoboy.tipoEquipamento} />— desde{" "}
-                {t.horaInicio.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                {formatarHora(t.horaInicio)}
               </li>
             ))}
           </ul>
