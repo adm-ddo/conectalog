@@ -91,6 +91,45 @@ export async function alternarAtivoMotoboy(motoboyId: number, ativo: boolean) {
   revalidatePath("/motoboys");
 }
 
+export type ExcluirMotoboyResult = { erro?: string } | undefined;
+
+/** Exclusão de verdade (não é o mesmo que bloquear/alternarAtivoMotoboy) —
+ * só permitida quando o motoboy nunca trabalhou de fato, porque todo
+ * relacionamento dele (turnos, pagamentos, vales...) é onDelete: Cascade
+ * no schema. Excluir alguém com histórico apagaria pagamento e turno de
+ * verdade — nesse caso a cooperativa deve bloquear em vez de excluir. */
+export async function excluirMotoboy(motoboyId: number): Promise<ExcluirMotoboyResult> {
+  const sessao = await requireTenant();
+
+  const motoboy = await prisma.motoboy.findFirst({
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
+    select: {
+      _count: {
+        select: {
+          turnos: true,
+          pagamentos: true,
+          vales: true,
+          avaliacoes: true,
+          ocorrencias: true,
+          descontosAssiduidade: true,
+        },
+      },
+    },
+  });
+  if (!motoboy) return { erro: "Motoboy não encontrado." };
+
+  const temHistorico = Object.values(motoboy._count).some((n) => n > 0);
+  if (temHistorico) {
+    return {
+      erro:
+        "Esse motoboy já tem turnos, pagamentos ou outros registros — excluir apagaria esse histórico. Bloqueie em vez de excluir.",
+    };
+  }
+
+  await prisma.motoboy.delete({ where: { id: motoboyId } });
+  revalidatePath("/motoboys");
+}
+
 export async function alternarLivreMotoboy(motoboyId: number, livre: boolean) {
   const sessao = await requireTenant();
   await prisma.motoboy.updateMany({
