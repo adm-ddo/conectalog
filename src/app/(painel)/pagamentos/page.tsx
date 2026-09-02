@@ -53,6 +53,10 @@ export default async function PagamentosPage() {
           where: { descontadoEm: null },
           select: { valor: true },
         },
+        descontosAssiduidade: {
+          where: { pagamentoId: null },
+          select: { valorDesconto: true },
+        },
       },
     }),
     prisma.pagamento.findMany({
@@ -95,7 +99,8 @@ export default async function PagamentosPage() {
 
       const descontoOcorrencias = m.ocorrencias.reduce((s, o) => s + Number(o.valorDesconto), 0);
       const descontoVales = m.vales.reduce((s, v) => s + Number(v.valor), 0);
-      const descontosPendentes = descontoOcorrencias + descontoVales;
+      const descontoAssiduidade = m.descontosAssiduidade.reduce((s, d) => s + Number(d.valorDesconto), 0);
+      const descontosPendentes = descontoOcorrencias + descontoVales + descontoAssiduidade;
 
       return {
         id: m.id,

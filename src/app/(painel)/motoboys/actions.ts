@@ -100,6 +100,17 @@ export async function alternarLivreMotoboy(motoboyId: number, livre: boolean) {
   revalidatePath(`/motoboys/${motoboyId}`);
 }
 
+/** Liga/desliga o desconto automático de atraso pra esse motoboy (ver
+ * Empresa.toleranciaAtrasoMinutos e DescontoAssiduidade). */
+export async function alternarDescontoAssiduidade(motoboyId: number, ativo: boolean) {
+  const sessao = await requireTenant();
+  await prisma.motoboy.updateMany({
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
+    data: { descontoAssiduidadeAtivo: ativo },
+  });
+  revalidatePath(`/motoboys/${motoboyId}`);
+}
+
 /** Liga/desliga a autorização de um motoboy pra um cliente específico —
  * decisão confirmada com o Thiago: aqui é sempre explícito, nunca
  * automático (diferente do vínculo aberto do extras-app). */
@@ -141,10 +152,14 @@ export async function criarVale(
   const sessao = await requireTenant();
 
   const valor = Number(String(formData.get("valor") ?? "").replace(",", "."));
+  const dataTexto = String(formData.get("data") ?? "").trim();
   const observacao = String(formData.get("observacao") ?? "").trim() || null;
 
   if (!Number.isFinite(valor) || valor <= 0) {
     return { erro: "Informe um valor válido." };
+  }
+  if (!dataTexto) {
+    return { erro: "Informe a data do vale." };
   }
 
   const motoboy = await prisma.motoboy.findFirst({
@@ -157,6 +172,7 @@ export async function criarVale(
       motoboyId,
       empresaId: sessao.empresaEfetivoId,
       valor,
+      data: new Date(dataTexto),
       observacao,
       criadoPorUsuarioId: sessao.usuarioId,
     },

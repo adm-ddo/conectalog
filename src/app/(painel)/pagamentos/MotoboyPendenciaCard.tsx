@@ -35,7 +35,7 @@ export default function MotoboyPendenciaCard({
 
       {descontosPendentes && (
         <p className="text-xs text-red-600">
-          Desconto pendente de {descontosPendentes} (ocorrência/vale) — entra no próximo
+          Desconto pendente de {descontosPendentes} (ocorrência/vale/atraso) — entra no próximo
           fechamento abaixo.
         </p>
       )}

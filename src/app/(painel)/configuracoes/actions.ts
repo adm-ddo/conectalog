@@ -64,6 +64,41 @@ export async function atualizarValoresPadrao(
   revalidatePath("/configuracoes");
 }
 
+export async function atualizarConfigAssiduidade(
+  _prev: ConfigState,
+  formData: FormData
+): Promise<ConfigState> {
+  const sessao = await requireMaster();
+
+  const toleranciaTexto = String(formData.get("toleranciaAtrasoMinutos") ?? "").trim();
+  const tolerancia = Number(toleranciaTexto);
+  const valorManha = decimal(formData, "valorDescontoAtrasoManha");
+  const valorTarde = decimal(formData, "valorDescontoAtrasoTarde");
+  const valorNoite = decimal(formData, "valorDescontoAtrasoNoite");
+
+  if (
+    !Number.isInteger(tolerancia) ||
+    tolerancia < 0 ||
+    valorManha === null ||
+    valorTarde === null ||
+    valorNoite === null
+  ) {
+    return { erro: "Preencha todos os valores com números válidos." };
+  }
+
+  await prisma.empresa.update({
+    where: { id: sessao.empresaEfetivoId },
+    data: {
+      toleranciaAtrasoMinutos: tolerancia,
+      valorDescontoAtrasoManha: valorManha,
+      valorDescontoAtrasoTarde: valorTarde,
+      valorDescontoAtrasoNoite: valorNoite,
+    },
+  });
+
+  revalidatePath("/configuracoes");
+}
+
 export async function regenerarTokenCadastroMotoboy() {
   const sessao = await requireMaster();
   await prisma.empresa.update({

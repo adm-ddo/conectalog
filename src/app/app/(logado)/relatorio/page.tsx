@@ -47,18 +47,29 @@ export default async function RelatorioMotoboyPage({
 
   const { desde, ate } = calcularJanela(periodo);
 
-  const turnos = await prisma.turno.findMany({
-    where: {
-      motoboyId: sessao.motoboyId,
-      status: { in: ["CONCLUIDO", "PAGO"] },
-      horaInicio: { gte: desde, lte: ate },
-    },
-    orderBy: { horaInicio: "desc" },
-    include: {
-      cliente: { select: { nome: true } },
-      apoios: { select: { quantidadeBandas: true, valorTotal: true, cliente: { select: { nome: true } } } },
-    },
-  });
+  const [turnos, vales, descontosAssiduidade] = await Promise.all([
+    prisma.turno.findMany({
+      where: {
+        motoboyId: sessao.motoboyId,
+        status: { in: ["CONCLUIDO", "PAGO"] },
+        horaInicio: { gte: desde, lte: ate },
+      },
+      orderBy: { horaInicio: "desc" },
+      include: {
+        cliente: { select: { nome: true } },
+        apoios: { select: { quantidadeBandas: true, valorTotal: true, cliente: { select: { nome: true } } } },
+      },
+    }),
+    prisma.vale.findMany({
+      where: { motoboyId: sessao.motoboyId, data: { gte: desde, lte: ate } },
+      orderBy: { data: "desc" },
+    }),
+    prisma.descontoAssiduidade.findMany({
+      where: { motoboyId: sessao.motoboyId, criadoEm: { gte: desde, lte: ate } },
+      orderBy: { criadoEm: "desc" },
+      include: { turno: { select: { cliente: { select: { nome: true } } } } },
+    }),
+  ]);
 
   let totalBandas = 0;
   let totalValor = 0;
@@ -99,6 +110,52 @@ export default async function RelatorioMotoboyPage({
           <span className="font-bold text-brand-700">R$ {formatarMoeda(totalValor)}</span>
         </div>
       </div>
+
+      {vales.length > 0 && (
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-navy-900">Vales</h2>
+          <ul className="flex flex-col gap-2">
+            {vales.map((v) => (
+              <li key={v.id} className="flex items-center justify-between gap-3 text-sm">
+                <div className="flex flex-col">
+                  <span className="text-navy-900">
+                    R$ {formatarMoeda(v.valor)} — {formatarData(v.data)}
+                  </span>
+                  {v.observacao && <span className="text-xs text-stone-500">{v.observacao}</span>}
+                </div>
+                <span
+                  className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold ${
+                    v.descontadoEm
+                      ? "bg-stone-100 text-stone-600"
+                      : "bg-amber-100 text-amber-800"
+                  }`}
+                >
+                  {v.descontadoEm ? "Já descontado" : "Ainda não descontado"}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {descontosAssiduidade.length > 0 && (
+        <div className="rounded-2xl border border-amber-200 bg-white p-5 flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-amber-700">Descontos por atraso</h2>
+          <ul className="flex flex-col gap-2">
+            {descontosAssiduidade.map((d) => (
+              <li key={d.id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-navy-900">
+                  {d.turno.cliente.nome} — {formatarData(d.criadoEm)} · {d.minutosAtraso} min de
+                  atraso
+                </span>
+                <span className="shrink-0 text-amber-700 font-semibold">
+                  -R$ {formatarMoeda(d.valorDesconto)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {turnos.length === 0 ? (
         <p className="text-sm text-stone-500">Nenhum turno concluído nesse período.</p>

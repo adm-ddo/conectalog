@@ -2,6 +2,7 @@
 
 import { useActionState, useTransition } from "react";
 import { criarVale, marcarValeDescontado } from "../actions";
+import { dataISOBrasil } from "@/lib/data";
 
 export default function ValesSection({
   motoboyId,
@@ -76,6 +77,16 @@ export default function ValesSection({
             />
           </div>
           <div className="flex flex-col gap-1">
+            <label className="text-xs text-stone-500">Data do vale</label>
+            <input
+              name="data"
+              type="date"
+              defaultValue={dataISOBrasil()}
+              required
+              className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
+            />
+          </div>
+          <div className="flex flex-col gap-1 sm:col-span-2">
             <label className="text-xs text-stone-500">Observação (opcional)</label>
             <input
               name="observacao"

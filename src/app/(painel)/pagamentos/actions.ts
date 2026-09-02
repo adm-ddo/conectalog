@@ -10,12 +10,11 @@ import { requireTenant } from "@/lib/auth-empresa";
  * só o fechamento de conta. Mesmo espírito do extras-app: nunca calcula/
  * envia dinheiro sozinho.
  *
- * Todo desconto de ocorrência E de vale ainda pendente do motoboy entra
- * nesse fechamento (não só o do período do grupo): eles não são amarrados
- * a um turno específico pra fim de cobrança, então o primeiro pagamento
- * que a cooperativa fechar depois deles existirem é quem absorve o
- * desconto — mesmo comportamento que ocorrência já tinha, agora vale
- * entra igual. */
+ * Todo desconto de ocorrência, vale E atraso (assiduidade) ainda pendente
+ * do motoboy entra nesse fechamento (não só o do período do grupo): eles
+ * não são amarrados a um turno específico pra fim de cobrança, então o
+ * primeiro pagamento que a cooperativa fechar depois deles existirem é
+ * quem absorve o desconto. */
 export async function fecharPagamento(motoboyId: number, turnoIds: number[]) {
   const sessao = await requireTenant();
 
@@ -24,13 +23,14 @@ export async function fecharPagamento(motoboyId: number, turnoIds: number[]) {
   });
   if (!motoboy || turnoIds.length === 0) return;
 
-  const [turnos, ocorrencias, vales] = await Promise.all([
+  const [turnos, ocorrencias, vales, descontosAssiduidade] = await Promise.all([
     prisma.turno.findMany({
       where: { id: { in: turnoIds }, motoboyId, status: "CONCLUIDO", pagamentoId: null },
       include: { apoios: { where: { pagamentoId: null } } },
     }),
     prisma.ocorrencia.findMany({ where: { motoboyId, pagamentoId: null } }),
     prisma.vale.findMany({ where: { motoboyId, descontadoEm: null } }),
+    prisma.descontoAssiduidade.findMany({ where: { motoboyId, pagamentoId: null } }),
   ]);
   if (turnos.length === 0) return;
 
@@ -53,9 +53,11 @@ export async function fecharPagamento(motoboyId: number, turnoIds: number[]) {
 
   const totalOcorrencias = ocorrencias.reduce((soma, o) => soma + Number(o.valorDesconto), 0);
   const totalVales = vales.reduce((soma, v) => soma + Number(v.valor), 0);
-  const valorTotal = Math.max(0, valorTurnos - totalOcorrencias - totalVales);
+  const totalAssiduidade = descontosAssiduidade.reduce((soma, d) => soma + Number(d.valorDesconto), 0);
+  const valorTotal = Math.max(0, valorTurnos - totalOcorrencias - totalVales - totalAssiduidade);
   const ocorrenciaIds = ocorrencias.map((o) => o.id);
   const valeIds = vales.map((v) => v.id);
+  const descontoAssiduidadeIds = descontosAssiduidade.map((d) => d.id);
 
   await prisma.$transaction(async (tx) => {
     const pagamento = await tx.pagamento.create({
@@ -81,6 +83,12 @@ export async function fecharPagamento(motoboyId: number, turnoIds: number[]) {
       await tx.vale.updateMany({
         where: { id: { in: valeIds } },
         data: { descontadoEm: new Date() },
+      });
+    }
+    if (descontoAssiduidadeIds.length > 0) {
+      await tx.descontoAssiduidade.updateMany({
+        where: { id: { in: descontoAssiduidadeIds } },
+        data: { pagamentoId: pagamento.id },
       });
     }
   });
