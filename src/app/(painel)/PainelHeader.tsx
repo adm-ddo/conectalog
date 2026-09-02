@@ -18,10 +18,12 @@ export default function PainelHeader({
   empresaNome,
   usuarioNome,
   vendoComoSuperAdmin,
+  logoUrl,
 }: {
   empresaNome: string;
   usuarioNome: string;
   vendoComoSuperAdmin: boolean;
+  logoUrl: string | null;
 }) {
   const pathname = usePathname();
 
@@ -39,7 +41,11 @@ export default function PainelHeader({
       )}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
         <div className="flex items-center gap-6 min-w-0">
-          <Link href="/dashboard" className="font-black text-lg tracking-tight shrink-0">
+          <Link href="/dashboard" className="flex items-center gap-2 font-black text-lg tracking-tight shrink-0">
+            {logoUrl && (
+              // eslint-disable-next-line @next/next/no-img-element -- logo como data URL, next/image não se aplica aqui
+              <img src={logoUrl} alt={empresaNome} className="h-8 w-8 rounded-lg object-contain bg-white/10" />
+            )}
             Conecta<span className="text-brand-400">Log</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">

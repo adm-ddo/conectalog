@@ -4,24 +4,32 @@ import { useActionState, useState } from "react";
 import { atualizarLogo } from "./actions";
 
 // Logo fica pequeno em uso (ícone no cabeçalho) — redimensionar aqui evita
-// guardar uma foto de câmera de vários MB como data URL no banco. PNG
-// (não JPEG) porque muita logo tem fundo transparente.
+// guardar uma foto de câmera de vários MB como data URL no banco. Isso é
+// só uma otimização (best-effort): se por qualquer motivo o navegador não
+// conseguir processar a imagem (formato que o <canvas> não decodifica,
+// por exemplo), cai pro arquivo original em vez de travar o envio — o
+// tamanho já é limitado por TAMANHO_MAXIMO_BYTES de qualquer forma.
 const LADO_MAXIMO_PX = 512;
+const TAMANHO_MAXIMO_BYTES = 4 * 1024 * 1024;
 
 function redimensionar(dataUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const escala = Math.min(1, LADO_MAXIMO_PX / Math.max(img.width, img.height));
-      const canvas = document.createElement("canvas");
-      canvas.width = Math.round(img.width * escala);
-      canvas.height = Math.round(img.height * escala);
-      const ctx = canvas.getContext("2d");
-      if (!ctx) return reject(new Error("Canvas indisponível"));
-      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-      resolve(canvas.toDataURL("image/png"));
+      try {
+        const escala = Math.min(1, LADO_MAXIMO_PX / Math.max(img.width, img.height));
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.round(img.width * escala);
+        canvas.height = Math.round(img.height * escala);
+        const ctx = canvas.getContext("2d");
+        if (!ctx) return reject(new Error("Canvas indisponível"));
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL("image/png"));
+      } catch (erro) {
+        reject(erro);
+      }
     };
-    img.onerror = () => reject(new Error("Não foi possível ler a imagem"));
+    img.onerror = () => reject(new Error("Não foi possível decodificar a imagem"));
     img.src = dataUrl;
   });
 }
@@ -34,14 +42,25 @@ export default function LogoForm({ logoUrlAtual }: { logoUrlAtual: string | null
   function lerArquivo(e: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0];
     if (!arquivo) return;
+    if (arquivo.size > TAMANHO_MAXIMO_BYTES) {
+      setErroLeitura("Essa imagem é grande demais (máx. 4MB) — tente outra.");
+      return;
+    }
     setErroLeitura(null);
+
     const leitor = new FileReader();
     leitor.onload = () => {
-      redimensionar(String(leitor.result))
+      const dataUrlOriginal = String(leitor.result);
+      // Tenta redimensionar; se falhar por qualquer motivo, usa a imagem
+      // original mesmo — o importante é o upload ir adiante.
+      redimensionar(dataUrlOriginal)
         .then(setPreview)
-        .catch(() => setErroLeitura("Não foi possível processar essa imagem — tente outra."));
+        .catch((erro) => {
+          console.warn("Não foi possível redimensionar a logo, usando original:", erro);
+          setPreview(dataUrlOriginal);
+        });
     };
-    leitor.onerror = () => setErroLeitura("Não foi possível ler o arquivo.");
+    leitor.onerror = () => setErroLeitura("Não foi possível ler o arquivo — tente outra imagem.");
     leitor.readAsDataURL(arquivo);
   }
 

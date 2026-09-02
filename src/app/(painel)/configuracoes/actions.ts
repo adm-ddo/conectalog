@@ -10,12 +10,12 @@ export type ConfigState = { erro?: string } | undefined;
 // Logo fica guardado direto como data URL na coluna (texto sem limite no
 // Postgres) — o Blob Store desse projeto está configurado como privado, e
 // blob privado não dá pra abrir direto num <img src>. Diferente de foto/
-// assinatura de pessoa (que fica no Blob), logo é pequeno (já vem
-// redimensionado pelo LogoForm) e não precisa do storage separado; 2MB
-// aqui é bem mais do que qualquer logo redimensionado deveria pesar, só
-// pra barrar um data URL absurdo caso o redimensionamento no cliente
-// falhe por algum motivo.
-const TAMANHO_MAXIMO_BYTES = 2 * 1024 * 1024;
+// assinatura de pessoa (que fica no Blob), logo não precisa do storage
+// separado. O LogoForm tenta redimensionar no navegador antes de enviar,
+// mas isso é best-effort (cai pro arquivo original se o navegador não
+// conseguir processar) — por isso o limite aqui cobre o caso de vir sem
+// redimensionar (arquivo original de até 4MB, ~5,3MB já em base64).
+const TAMANHO_MAXIMO_BYTES = 6 * 1024 * 1024;
 
 export async function atualizarLogo(
   _prev: ConfigState,

@@ -10,7 +10,7 @@ export default async function PainelLayout({
   const sessao = await requireTenant();
   const empresa = await prisma.empresa.findUniqueOrThrow({
     where: { id: sessao.empresaEfetivoId },
-    select: { nome: true },
+    select: { nome: true, logoUrl: true },
   });
 
   return (
@@ -19,6 +19,7 @@ export default async function PainelLayout({
         empresaNome={empresa.nome}
         usuarioNome={sessao.nome}
         vendoComoSuperAdmin={sessao.superAdmin && sessao.empresaAtivaId !== null}
+        logoUrl={empresa.logoUrl}
       />
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">{children}</main>
     </div>
