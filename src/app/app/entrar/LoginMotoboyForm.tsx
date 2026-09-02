@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import Link from "next/link";
 import { entrarMotoboy, reenviarVerificacaoMotoboy } from "./actions";
 
 export default function LoginMotoboyForm() {
@@ -31,7 +32,12 @@ export default function LoginMotoboyForm() {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-stone-500">Senha</label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-stone-500">Senha</label>
+            <Link href="/app/recuperar-senha" className="text-xs text-brand-700 underline">
+              Esqueci minha senha
+            </Link>
+          </div>
           <input
             name="senha"
             type="password"

@@ -42,7 +42,12 @@ export default function LoginForm() {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-stone-500">Senha</label>
+          <div className="flex items-center justify-between">
+            <label className="text-xs text-stone-500">Senha</label>
+            <Link href="/recuperar-senha" className="text-xs text-brand-700 underline">
+              Esqueci minha senha
+            </Link>
+          </div>
           <input
             name="senha"
             type="password"

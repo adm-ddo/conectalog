@@ -159,6 +159,78 @@ export async function enviarEmailConviteEquipe(
   }
 }
 
+export async function enviarEmailRecuperacaoSenhaUsuario(
+  destinatario: string,
+  nome: string,
+  token: string
+): Promise<{ sucesso: boolean }> {
+  const resend = cliente();
+  if (!resend) {
+    console.warn("RESEND_API_KEY não configurada — e-mail de recuperação não enviado.");
+    return { sucesso: false };
+  }
+
+  const link = `${SITE_URL}/redefinir-senha/${token}`;
+  const html = layoutEmail({
+    titulo: `Oi, ${escaparHtml(nome.split(" ")[0] || "tudo bem")}! Vamos criar uma senha nova`,
+    paragrafos: [
+      "Recebemos um pedido pra redefinir a senha da sua conta no ConectaLog.",
+      "O link abaixo vale por 24 horas. Se não foi você quem pediu, pode ignorar este e-mail.",
+    ],
+    textoBotao: "Criar senha nova",
+    linkBotao: link,
+  });
+
+  try {
+    await resend.emails.send({
+      from: REMETENTE,
+      to: destinatario,
+      subject: "Recuperação de senha — ConectaLog",
+      html,
+    });
+    return { sucesso: true };
+  } catch (err) {
+    console.error("Falha ao enviar e-mail de recuperação de senha:", err);
+    return { sucesso: false };
+  }
+}
+
+export async function enviarEmailRecuperacaoSenhaMotoboy(
+  destinatario: string,
+  nome: string,
+  token: string
+): Promise<{ sucesso: boolean }> {
+  const resend = cliente();
+  if (!resend) {
+    console.warn("RESEND_API_KEY não configurada — e-mail de recuperação não enviado.");
+    return { sucesso: false };
+  }
+
+  const link = `${SITE_URL}/app/redefinir-senha/${token}`;
+  const html = layoutEmail({
+    titulo: `Oi, ${escaparHtml(nome.split(" ")[0] || "tudo bem")}! Vamos criar uma senha nova`,
+    paragrafos: [
+      "Recebemos um pedido pra redefinir a senha da sua conta no ConectaLog.",
+      "O link abaixo vale por 24 horas. Se não foi você quem pediu, pode ignorar este e-mail.",
+    ],
+    textoBotao: "Criar senha nova",
+    linkBotao: link,
+  });
+
+  try {
+    await resend.emails.send({
+      from: REMETENTE,
+      to: destinatario,
+      subject: "Recuperação de senha — ConectaLog",
+      html,
+    });
+    return { sucesso: true };
+  } catch (err) {
+    console.error("Falha ao enviar e-mail de recuperação de senha:", err);
+    return { sucesso: false };
+  }
+}
+
 export async function enviarEmailVerificacaoMotoboy(
   destinatario: string,
   nome: string,
