@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
-import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
+import { turnoAtivoAgora, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
 import { formatarHora } from "@/lib/data";
 import EditarClienteForm from "./EditarClienteForm";
 import LinkPortalSection from "./LinkPortalSection";
@@ -33,6 +33,7 @@ export default async function ClienteDetalhePage({
         },
       },
       taxasExtras: { orderBy: { ordem: "asc" } },
+      turnosFixos: { orderBy: { criadoEm: "asc" } },
     },
   });
   if (!cliente) notFound();
@@ -50,7 +51,7 @@ export default async function ClienteDetalhePage({
 
       {equipeIncompleta && (
         <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          Faltam motos no turno de {turnoAtual === "MANHA" ? "manhã" : "noite"}: {cliente.turnos.length}{" "}
+          Faltam motos no turno de {turnoAtual && LABEL_TURNO[turnoAtual]}: {cliente.turnos.length}{" "}
           de {contratadas} contratadas presentes agora.
         </div>
       )}
@@ -64,6 +65,10 @@ export default async function ClienteDetalhePage({
           turnoManhaInicio: cliente.turnoManhaInicio,
           turnoManhaFim: cliente.turnoManhaFim,
           motosFixasManha: cliente.motosFixasManha,
+          turnoTardeAtivo: cliente.turnoTardeAtivo,
+          turnoTardeInicio: cliente.turnoTardeInicio,
+          turnoTardeFim: cliente.turnoTardeFim,
+          motosFixasTarde: cliente.motosFixasTarde,
           turnoNoiteAtivo: cliente.turnoNoiteAtivo,
           turnoNoiteInicio: cliente.turnoNoiteInicio,
           turnoNoiteFim: cliente.turnoNoiteFim,
@@ -75,19 +80,17 @@ export default async function ClienteDetalhePage({
             valorMotoboy: paraNumero(t.valorMotoboy),
             valorCliente: paraNumero(t.valorCliente),
           })),
-          valorDiariaMotoboy:
-            cliente.valorDiariaMotoboy != null ? paraNumero(cliente.valorDiariaMotoboy) : null,
-          valorDiariaCliente:
-            cliente.valorDiariaCliente != null ? paraNumero(cliente.valorDiariaCliente) : null,
-          bandasIncluidasNaDiaria: cliente.bandasIncluidasNaDiaria,
-          valorBandaExcedenteMotoboy:
-            cliente.valorBandaExcedenteMotoboy != null
-              ? paraNumero(cliente.valorBandaExcedenteMotoboy)
-              : null,
-          valorBandaExcedenteCliente:
-            cliente.valorBandaExcedenteCliente != null
-              ? paraNumero(cliente.valorBandaExcedenteCliente)
-              : null,
+          turnosFixos: cliente.turnosFixos.map((t) => ({
+            nome: t.nome,
+            horaInicio: t.horaInicio,
+            horaFim: t.horaFim,
+            diasSemana: t.diasSemana,
+            valorGarantidoMotoboy: paraNumero(t.valorGarantidoMotoboy),
+            valorGarantidoCliente: paraNumero(t.valorGarantidoCliente),
+            bandasIncluidas: t.bandasIncluidas,
+            valorExcedenteMotoboy: paraNumero(t.valorExcedenteMotoboy),
+            valorExcedenteCliente: paraNumero(t.valorExcedenteCliente),
+          })),
         }}
       />
 

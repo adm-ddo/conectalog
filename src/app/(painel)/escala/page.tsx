@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, formatarHora } from "@/lib/data";
+import { LABEL_TURNO } from "@/lib/equipe";
 import EscalaRow from "./EscalaRow";
 import CandidatoRow from "./CandidatoRow";
 import ManterEscalaAnteriorBanner from "./ManterEscalaAnteriorBanner";
@@ -55,8 +56,10 @@ export default async function EscalaPage({
     select: {
       nome: true,
       turnoManhaAtivo: true,
+      turnoTardeAtivo: true,
       turnoNoiteAtivo: true,
       motosFixasManha: true,
+      motosFixasTarde: true,
       motosFixasNoite: true,
     },
   });
@@ -65,6 +68,7 @@ export default async function EscalaPage({
   // noite, nem mostra manhã como opção (pedido do Thiago).
   const turnosDisponiveis: TurnoEscala[] = [
     ...(clienteSelecionado.turnoManhaAtivo ? (["MANHA"] as const) : []),
+    ...(clienteSelecionado.turnoTardeAtivo ? (["TARDE"] as const) : []),
     ...(clienteSelecionado.turnoNoiteAtivo ? (["NOITE"] as const) : []),
   ];
 
@@ -91,7 +95,9 @@ export default async function EscalaPage({
   const motosContratadas =
     turno === "MANHA"
       ? clienteSelecionado.motosFixasManha[diaSemana]
-      : clienteSelecionado.motosFixasNoite[diaSemana];
+      : turno === "TARDE"
+        ? clienteSelecionado.motosFixasTarde[diaSemana]
+        : clienteSelecionado.motosFixasNoite[diaSemana];
 
   const dataSemanaPassada = seteDiasAntes(data);
 
@@ -164,8 +170,11 @@ export default async function EscalaPage({
               defaultValue={turno}
               className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
             >
-              <option value="MANHA">Manhã</option>
-              <option value="NOITE">Noite</option>
+              {turnosDisponiveis.map((t) => (
+                <option key={t} value={t}>
+                  {LABEL_TURNO[t].charAt(0).toUpperCase() + LABEL_TURNO[t].slice(1)}
+                </option>
+              ))}
             </select>
           </label>
         ) : (
@@ -181,7 +190,7 @@ export default async function EscalaPage({
 
       {turnosDisponiveis.length === 1 && (
         <p className="text-xs text-stone-500 -mt-4">
-          {clienteSelecionado.nome} só tem turno de {turno === "MANHA" ? "manhã" : "noite"}.
+          {clienteSelecionado.nome} só tem turno de {LABEL_TURNO[turno]}.
         </p>
       )}
 

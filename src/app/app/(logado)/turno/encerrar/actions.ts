@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMotoboy } from "@/lib/auth-motoboy";
 import { uploadDataUrl } from "@/lib/blob";
 import { valorEfetivo, paraNumero } from "@/lib/valores";
-import { calcularValores } from "@/lib/precificacao";
+import { calcularValores, encontrarPerfilFixo } from "@/lib/precificacao";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type EncerrarTurnoState = { erro?: string } | undefined;
@@ -25,7 +25,7 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
   // a quantidade que o motoboy informou em cada um.
   const turno = await prisma.turno.findFirst({
     where: { motoboyId: sessao.motoboyId, status: "ABERTO" },
-    include: { cliente: true, taxaExtraItens: true },
+    include: { cliente: { include: { turnosFixos: true } }, taxaExtraItens: true },
   });
   if (!turno) return { erro: "Nenhum turno em aberto." };
 
@@ -48,6 +48,7 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
   const { valorMotoboy, valorCliente } = calcularValores(
     turno.cliente,
     empresa,
+    turno.horaInicio,
     dados.quantidadeBandas,
     itensComQuantidade.map((item) => ({
       valorMotoboy: item.valorMotoboyAplicado,
@@ -55,12 +56,13 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
       quantidade: item.quantidade,
     }))
   );
-  // Snapshot informativo do valor por banda em vigor — na diária, é a
-  // tarifa de excedente (a única que de fato varia com a quantidade).
-  const valorBandaAplicado =
-    turno.cliente.valorDiariaMotoboy != null
-      ? paraNumero(turno.cliente.valorBandaExcedenteMotoboy)
-      : valorEfetivo(turno.cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);
+  // Snapshot informativo do valor por banda em vigor — no valor fixo por
+  // turno, é a tarifa de excedente do perfil que bateu (a única que de
+  // fato varia com a quantidade).
+  const perfilFixo = encontrarPerfilFixo(turno.cliente.turnosFixos, turno.horaInicio);
+  const valorBandaAplicado = perfilFixo
+    ? paraNumero(perfilFixo.valorExcedenteMotoboy)
+    : valorEfetivo(turno.cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);
 
   const [fotoFimUrl, assinaturaReciboUrl] = await Promise.all([
     uploadDataUrl(`turnos/foto-fim-${Date.now()}.jpg`, dados.fotoFimDataUrl),

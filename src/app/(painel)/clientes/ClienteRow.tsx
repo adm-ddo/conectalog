@@ -12,7 +12,6 @@ export default function ClienteRow({
     nome: string;
     endereco: string | null;
     ativo: boolean;
-    usaDiaria: boolean;
     resumoPreco: string;
     equipeIncompleta: boolean;
   };
@@ -32,7 +31,6 @@ export default function ClienteRow({
         </span>
         <span className="text-xs text-stone-500 truncate">
           {cliente.endereco || "Sem endereço"} · {cliente.resumoPreco}
-          {cliente.usaDiaria && " · diária"}
         </span>
       </Link>
       <button

@@ -19,6 +19,18 @@ const DIAS_SEMANA: { dia: number; label: string }[] = [
   { dia: 0, label: "Dom" },
 ];
 
+type TurnoFixo = {
+  nome: string;
+  horaInicio: string;
+  horaFim: string;
+  diasSemana: number[];
+  valorGarantidoMotoboy: number;
+  valorGarantidoCliente: number;
+  bandasIncluidas: number;
+  valorExcedenteMotoboy: number;
+  valorExcedenteCliente: number;
+};
+
 export type ValoresCliente = {
   nome?: string;
   endereco?: string | null;
@@ -26,6 +38,10 @@ export type ValoresCliente = {
   turnoManhaInicio?: string | null;
   turnoManhaFim?: string | null;
   motosFixasManha?: number[];
+  turnoTardeAtivo?: boolean;
+  turnoTardeInicio?: string | null;
+  turnoTardeFim?: string | null;
+  motosFixasTarde?: number[];
   turnoNoiteAtivo?: boolean;
   turnoNoiteInicio?: string | null;
   turnoNoiteFim?: string | null;
@@ -33,18 +49,15 @@ export type ValoresCliente = {
   valorBandaMotoboy?: number | null;
   valorBandaCliente?: number | null;
   taxasExtras?: { descricao: string; valorMotoboy: number; valorCliente: number }[];
-  valorDiariaMotoboy?: number | null;
-  valorDiariaCliente?: number | null;
-  bandasIncluidasNaDiaria?: number | null;
-  valorBandaExcedenteMotoboy?: number | null;
-  valorBandaExcedenteCliente?: number | null;
+  turnosFixos?: TurnoFixo[];
 };
 
 export default function CamposCliente({ valores = {} }: { valores?: ValoresCliente }) {
   const [turnoManhaAtivo, setTurnoManhaAtivo] = useState(valores.turnoManhaAtivo ?? false);
+  const [turnoTardeAtivo, setTurnoTardeAtivo] = useState(valores.turnoTardeAtivo ?? false);
   const [turnoNoiteAtivo, setTurnoNoiteAtivo] = useState(valores.turnoNoiteAtivo ?? false);
-  const [usarDiaria, setUsarDiaria] = useState(valores.valorDiariaMotoboy != null);
   const [taxasExtras, setTaxasExtras] = useState(valores.taxasExtras ?? []);
+  const [turnosFixos, setTurnosFixos] = useState(valores.turnosFixos ?? []);
 
   return (
     <div className="flex flex-col gap-5">
@@ -72,6 +85,15 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
             inicioDefault={valores.turnoManhaInicio}
             fimDefault={valores.turnoManhaFim}
             motosDefault={valores.motosFixasManha}
+          />
+          <BlocoTurno
+            titulo="Tarde"
+            prefixo="Tarde"
+            ativo={turnoTardeAtivo}
+            onAtivoChange={setTurnoTardeAtivo}
+            inicioDefault={valores.turnoTardeInicio}
+            fimDefault={valores.turnoTardeFim}
+            motosDefault={valores.motosFixasTarde}
           />
           <BlocoTurno
             titulo="Noite"
@@ -187,53 +209,211 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
         </button>
       </div>
 
-      <div className="flex flex-col gap-3 rounded-xl border border-stone-200 p-4">
-        <label className="flex items-center gap-2 text-sm font-medium text-navy-900">
-          <input
-            type="checkbox"
-            name="usarDiaria"
-            checked={usarDiaria}
-            onChange={(e) => setUsarDiaria(e.target.checked)}
-            className="h-4 w-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
-          />
-          Esse cliente paga diária (moto fixa parada por dia, com franquia de bandas)
-        </label>
+      <div className="flex flex-col gap-3">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
+            Valor fixo por turno que o motoboy recebe
+          </span>
+          <p className="text-xs text-stone-500">
+            Regra fixa, mas os valores podem mudar por perfil: um valor garantido pra até N
+            entregas naquele horário, e um valor por entrega excedente depois disso. Cada perfil
+            vale só nos dias da semana marcados — se domingo à noite paga diferente do resto da
+            semana, crie um perfil só pra domingo.
+          </p>
+        </div>
 
-        {usarDiaria && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <CampoMoeda
-              name="valorDiariaMotoboy"
-              label="Diária — motoboy recebe"
-              defaultValue={valores.valorDiariaMotoboy}
-            />
-            <CampoMoeda
-              name="valorDiariaCliente"
-              label="Diária — cooperativa cobra do cliente"
-              defaultValue={valores.valorDiariaCliente}
-            />
-            <label className="flex flex-col gap-1">
-              <span className="text-xs text-stone-500">Bandas incluídas na diária</span>
-              <input
-                name="bandasIncluidasNaDiaria"
-                type="number"
-                min="0"
-                defaultValue={valores.bandasIncluidasNaDiaria ?? ""}
-                className={inputClasse}
+        <input type="hidden" name="turnoFixoCount" value={turnosFixos.length} />
+
+        {turnosFixos.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {turnosFixos.map((perfil, i) => (
+              <BlocoTurnoFixo
+                key={i}
+                indice={i}
+                perfil={perfil}
+                onChange={(novo) => {
+                  const nova = [...turnosFixos];
+                  nova[i] = novo;
+                  setTurnosFixos(nova);
+                }}
+                onRemover={() => setTurnosFixos(turnosFixos.filter((_, j) => j !== i))}
               />
-            </label>
-            <div />
-            <CampoMoeda
-              name="valorBandaExcedenteMotoboy"
-              label="Banda excedente — motoboy recebe"
-              defaultValue={valores.valorBandaExcedenteMotoboy}
-            />
-            <CampoMoeda
-              name="valorBandaExcedenteCliente"
-              label="Banda excedente — cooperativa cobra do cliente"
-              defaultValue={valores.valorBandaExcedenteCliente}
-            />
+            ))}
           </div>
         )}
+
+        <button
+          type="button"
+          onClick={() =>
+            setTurnosFixos([
+              ...turnosFixos,
+              {
+                nome: "",
+                horaInicio: "",
+                horaFim: "",
+                diasSemana: [0, 1, 2, 3, 4, 5, 6],
+                valorGarantidoMotoboy: 0,
+                valorGarantidoCliente: 0,
+                bandasIncluidas: 0,
+                valorExcedenteMotoboy: 0,
+                valorExcedenteCliente: 0,
+              },
+            ])
+          }
+          className="self-start text-sm font-medium text-brand-700 hover:underline"
+        >
+          + Adicionar perfil de valor fixo
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BlocoTurnoFixo({
+  indice,
+  perfil,
+  onChange,
+  onRemover,
+}: {
+  indice: number;
+  perfil: TurnoFixo;
+  onChange: (novo: TurnoFixo) => void;
+  onRemover: () => void;
+}) {
+  return (
+    <div className="rounded-xl border border-stone-200 p-3 flex flex-col gap-3">
+      <div className="flex items-end gap-3">
+        <label className="flex-1 flex flex-col gap-1">
+          <span className="text-xs text-stone-500">Nome do perfil</span>
+          <input
+            name={`turnoFixoNome_${indice}`}
+            value={perfil.nome}
+            onChange={(e) => onChange({ ...perfil, nome: e.target.value })}
+            placeholder="ex.: Noite (domingo)"
+            className={inputClasse}
+          />
+        </label>
+        <button
+          type="button"
+          onClick={onRemover}
+          className="text-xs text-red-600 hover:underline px-1 py-2 shrink-0"
+        >
+          Remover
+        </button>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-stone-500">Início</span>
+          <input
+            type="time"
+            name={`turnoFixoHoraInicio_${indice}`}
+            value={perfil.horaInicio}
+            onChange={(e) => onChange({ ...perfil, horaInicio: e.target.value })}
+            className={inputClasse}
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-stone-500">Fim</span>
+          <input
+            type="time"
+            name={`turnoFixoHoraFim_${indice}`}
+            value={perfil.horaFim}
+            onChange={(e) => onChange({ ...perfil, horaFim: e.target.value })}
+            className={inputClasse}
+          />
+        </label>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-xs text-stone-500">Vale nesses dias</span>
+        <div className="flex flex-wrap gap-2">
+          {DIAS_SEMANA.map(({ dia, label }) => {
+            const marcado = perfil.diasSemana.includes(dia);
+            return (
+              <label key={dia} className="flex items-center gap-1 text-xs">
+                <input
+                  type="checkbox"
+                  name={`turnoFixoDia_${indice}_${dia}`}
+                  checked={marcado}
+                  onChange={(e) =>
+                    onChange({
+                      ...perfil,
+                      diasSemana: e.target.checked
+                        ? [...perfil.diasSemana, dia].sort()
+                        : perfil.diasSemana.filter((d) => d !== dia),
+                    })
+                  }
+                  className="h-3.5 w-3.5 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
+                />
+                {label}
+              </label>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>
+          <CampoMoedaControlado
+            label="Valor garantido — motoboy recebe"
+            valor={perfil.valorGarantidoMotoboy}
+            onChange={(v) => onChange({ ...perfil, valorGarantidoMotoboy: v })}
+          />
+          <input
+            type="hidden"
+            name={`turnoFixoValorGarantidoMotoboy_${indice}`}
+            value={perfil.valorGarantidoMotoboy}
+          />
+        </div>
+        <div>
+          <CampoMoedaControlado
+            label="Valor garantido — cooperativa cobra"
+            valor={perfil.valorGarantidoCliente}
+            onChange={(v) => onChange({ ...perfil, valorGarantidoCliente: v })}
+          />
+          <input
+            type="hidden"
+            name={`turnoFixoValorGarantidoCliente_${indice}`}
+            value={perfil.valorGarantidoCliente}
+          />
+        </div>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-stone-500">Entregas incluídas no valor garantido</span>
+          <input
+            type="number"
+            min="0"
+            name={`turnoFixoBandasIncluidas_${indice}`}
+            value={perfil.bandasIncluidas}
+            onChange={(e) => onChange({ ...perfil, bandasIncluidas: Number(e.target.value) })}
+            className={inputClasse}
+          />
+        </label>
+        <div />
+        <div>
+          <CampoMoedaControlado
+            label="Excedente — motoboy recebe por entrega"
+            valor={perfil.valorExcedenteMotoboy}
+            onChange={(v) => onChange({ ...perfil, valorExcedenteMotoboy: v })}
+          />
+          <input
+            type="hidden"
+            name={`turnoFixoValorExcedenteMotoboy_${indice}`}
+            value={perfil.valorExcedenteMotoboy}
+          />
+        </div>
+        <div>
+          <CampoMoedaControlado
+            label="Excedente — cooperativa cobra por entrega"
+            valor={perfil.valorExcedenteCliente}
+            onChange={(v) => onChange({ ...perfil, valorExcedenteCliente: v })}
+          />
+          <input
+            type="hidden"
+            name={`turnoFixoValorExcedenteCliente_${indice}`}
+            value={perfil.valorExcedenteCliente}
+          />
+        </div>
       </div>
     </div>
   );
@@ -249,7 +429,7 @@ function BlocoTurno({
   motosDefault,
 }: {
   titulo: string;
-  prefixo: "Manha" | "Noite";
+  prefixo: "Manha" | "Tarde" | "Noite";
   ativo: boolean;
   onAtivoChange: (v: boolean) => void;
   inicioDefault?: string | null;

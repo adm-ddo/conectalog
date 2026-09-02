@@ -28,7 +28,7 @@ function textoOpcional(formData: FormData, campo: string): string | null {
 /** Monta o array de 7 posições (índice = Date.getDay(), 0=domingo...
  * 6=sábado) a partir dos campos individuais `motosFixas${prefixo}${dia}`
  * do form — dia sem valor preenchido vira 0 (sem moto fixa esse dia). */
-function motosPorDiaSemana(formData: FormData, prefixo: "Manha" | "Noite"): number[] {
+function motosPorDiaSemana(formData: FormData, prefixo: "Manha" | "Tarde" | "Noite"): number[] {
   return Array.from({ length: 7 }, (_, dia) => intOpcional(formData, `motosFixas${prefixo}${dia}`) ?? 0);
 }
 
@@ -54,12 +54,47 @@ function parseTaxasExtras(formData: FormData): TaxaExtraInput[] {
   return itens;
 }
 
-/** Monta os campos de preço/horário/diária comuns a criar e atualizar —
- * a diária só entra se "usarDiaria" veio marcado no form (senão os
- * campos ficam null, caindo no modelo "por banda" normal). */
-function dadosComuns(formData: FormData) {
-  const usarDiaria = formData.get("usarDiaria") === "on";
+type TurnoFixoInput = {
+  nome: string;
+  horaInicio: string;
+  horaFim: string;
+  diasSemana: number[];
+  valorGarantidoMotoboy: number;
+  valorGarantidoCliente: number;
+  bandasIncluidas: number;
+  valorExcedenteMotoboy: number;
+  valorExcedenteCliente: number;
+};
 
+/** Monta a lista de perfis de "valor fixo por turno" a partir dos campos
+ * dinâmicos `turnoFixo{Campo}_${i}` do form — perfil sem nome preenchido
+ * é ignorado (linha adicionada e não preenchida). */
+function parseTurnosFixos(formData: FormData): TurnoFixoInput[] {
+  const count = Number(formData.get("turnoFixoCount") ?? 0);
+  const itens: TurnoFixoInput[] = [];
+  for (let i = 0; i < count; i++) {
+    const nome = String(formData.get(`turnoFixoNome_${i}`) ?? "").trim();
+    if (!nome) continue;
+    const diasSemana = Array.from({ length: 7 }, (_, dia) => dia).filter(
+      (dia) => formData.get(`turnoFixoDia_${i}_${dia}`) === "on"
+    );
+    itens.push({
+      nome,
+      horaInicio: String(formData.get(`turnoFixoHoraInicio_${i}`) ?? "").trim() || "00:00",
+      horaFim: String(formData.get(`turnoFixoHoraFim_${i}`) ?? "").trim() || "23:59",
+      diasSemana,
+      valorGarantidoMotoboy: decimalOpcional(formData, `turnoFixoValorGarantidoMotoboy_${i}`) ?? 0,
+      valorGarantidoCliente: decimalOpcional(formData, `turnoFixoValorGarantidoCliente_${i}`) ?? 0,
+      bandasIncluidas: intOpcional(formData, `turnoFixoBandasIncluidas_${i}`) ?? 0,
+      valorExcedenteMotoboy: decimalOpcional(formData, `turnoFixoValorExcedenteMotoboy_${i}`) ?? 0,
+      valorExcedenteCliente: decimalOpcional(formData, `turnoFixoValorExcedenteCliente_${i}`) ?? 0,
+    });
+  }
+  return itens;
+}
+
+/** Monta os campos de preço/horário comuns a criar e atualizar. */
+function dadosComuns(formData: FormData) {
   return {
     endereco: textoOpcional(formData, "endereco"),
 
@@ -68,6 +103,11 @@ function dadosComuns(formData: FormData) {
     turnoManhaFim: textoOpcional(formData, "turnoManhaFim"),
     motosFixasManha: motosPorDiaSemana(formData, "Manha"),
 
+    turnoTardeAtivo: formData.get("turnoTardeAtivo") === "on",
+    turnoTardeInicio: textoOpcional(formData, "turnoTardeInicio"),
+    turnoTardeFim: textoOpcional(formData, "turnoTardeFim"),
+    motosFixasTarde: motosPorDiaSemana(formData, "Tarde"),
+
     turnoNoiteAtivo: formData.get("turnoNoiteAtivo") === "on",
     turnoNoiteInicio: textoOpcional(formData, "turnoNoiteInicio"),
     turnoNoiteFim: textoOpcional(formData, "turnoNoiteFim"),
@@ -75,16 +115,6 @@ function dadosComuns(formData: FormData) {
 
     valorBandaMotoboy: decimalOpcional(formData, "valorBandaMotoboy"),
     valorBandaCliente: decimalOpcional(formData, "valorBandaCliente"),
-
-    valorDiariaMotoboy: usarDiaria ? decimalOpcional(formData, "valorDiariaMotoboy") : null,
-    valorDiariaCliente: usarDiaria ? decimalOpcional(formData, "valorDiariaCliente") : null,
-    bandasIncluidasNaDiaria: usarDiaria ? intOpcional(formData, "bandasIncluidasNaDiaria") : null,
-    valorBandaExcedenteMotoboy: usarDiaria
-      ? decimalOpcional(formData, "valorBandaExcedenteMotoboy")
-      : null,
-    valorBandaExcedenteCliente: usarDiaria
-      ? decimalOpcional(formData, "valorBandaExcedenteCliente")
-      : null,
   };
 }
 
@@ -106,6 +136,7 @@ export async function criarCliente(
       tokenPortal: randomBytes(16).toString("hex"),
       ...dadosComuns(formData),
       taxasExtras: { create: parseTaxasExtras(formData) },
+      turnosFixos: { create: parseTurnosFixos(formData) },
     },
   });
 
@@ -128,12 +159,13 @@ export async function atualizarCliente(
   if (!cliente) return { erro: "Cliente não encontrado." };
 
   const taxasExtras = parseTaxasExtras(formData);
+  const turnosFixos = parseTurnosFixos(formData);
 
-  // Recriar a lista do zero é mais simples que casar item a item (a
+  // Recriar as listas do zero é mais simples que casar item a item (a
   // cooperativa pode reordenar, remover do meio, editar texto e valor ao
   // mesmo tempo) — turnos/apoios já fechados guardam seu próprio snapshot
-  // de descrição/valor, então não perdem nada quando a faixa de origem é
-  // apagada (só o vínculo de rastreabilidade fica null).
+  // de descrição/valor, então não perdem nada quando a faixa/perfil de
+  // origem é apagado (só o vínculo de rastreabilidade fica null).
   await prisma.$transaction([
     prisma.cliente.update({
       where: { id: clienteId },
@@ -142,6 +174,10 @@ export async function atualizarCliente(
     prisma.clienteTaxaExtra.deleteMany({ where: { clienteId } }),
     prisma.clienteTaxaExtra.createMany({
       data: taxasExtras.map((t) => ({ ...t, clienteId })),
+    }),
+    prisma.clienteTurnoFixo.deleteMany({ where: { clienteId } }),
+    prisma.clienteTurnoFixo.createMany({
+      data: turnosFixos.map((t) => ({ ...t, clienteId })),
     }),
   ]);
 

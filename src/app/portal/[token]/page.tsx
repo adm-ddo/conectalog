@@ -25,9 +25,11 @@ export default async function PortalEscalaPage({
   });
 
   const manha = escalas.filter((e) => e.turno === "MANHA");
+  const tarde = escalas.filter((e) => e.turno === "TARDE");
   const noite = escalas.filter((e) => e.turno === "NOITE");
   const diaSemana = diaSemanaBrasil();
   const contratadasManha = cliente.motosFixasManha[diaSemana];
+  const contratadasTarde = cliente.motosFixasTarde[diaSemana];
   const contratadasNoite = cliente.motosFixasNoite[diaSemana];
 
   return (
@@ -54,6 +56,9 @@ export default async function PortalEscalaPage({
 
       {cliente.turnoManhaAtivo && (
         <SecaoTurno token={token} titulo="Manhã" itens={manha} contratadas={contratadasManha} />
+      )}
+      {cliente.turnoTardeAtivo && (
+        <SecaoTurno token={token} titulo="Tarde" itens={tarde} contratadas={contratadasTarde} />
       )}
       {cliente.turnoNoiteAtivo && (
         <SecaoTurno token={token} titulo="Noite" itens={noite} contratadas={contratadasNoite} />

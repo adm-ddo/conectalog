@@ -1,11 +1,14 @@
 import { minutosDesdeMeiaNoiteBrasil, diaSemanaBrasil } from "@/lib/data";
 
-export type TurnoAtual = "MANHA" | "NOITE" | null;
+export type TurnoAtual = "MANHA" | "TARDE" | "NOITE" | null;
 
 type HorariosCliente = {
   turnoManhaAtivo: boolean;
   turnoManhaInicio: string | null;
   turnoManhaFim: string | null;
+  turnoTardeAtivo: boolean;
+  turnoTardeInicio: string | null;
+  turnoTardeFim: string | null;
   turnoNoiteAtivo: boolean;
   turnoNoiteInicio: string | null;
   turnoNoiteFim: string | null;
@@ -22,11 +25,11 @@ function dentroDaJanela(agora: number, inicio: number, fim: number): boolean {
   return inicio <= fim ? agora >= inicio && agora <= fim : agora >= inicio || agora <= fim;
 }
 
-/** Qual turno (manhã/noite) está rolando agora nesse cliente, baseado no
- * horário próprio dele — cada cliente pode ter horários diferentes.
- * Usado pro alerta de "equipe incompleta": só faz sentido comparar
- * contratado x presente durante a janela em que o turno está de fato
- * ativo. Sempre calcula no horário de Brasília (nunca no fuso do
+/** Qual turno (manhã/tarde/noite) está rolando agora nesse cliente,
+ * baseado no horário próprio dele — cada cliente pode ter horários
+ * diferentes. Usado pro alerta de "equipe incompleta": só faz sentido
+ * comparar contratado x presente durante a janela em que o turno está de
+ * fato ativo. Sempre calcula no horário de Brasília (nunca no fuso do
  * servidor, que em produção é UTC). */
 export function turnoAtivoAgora(cliente: HorariosCliente, agora: Date = new Date()): TurnoAtual {
   const minutosAgora = minutosDesdeMeiaNoiteBrasil(agora);
@@ -35,6 +38,11 @@ export function turnoAtivoAgora(cliente: HorariosCliente, agora: Date = new Date
     const inicio = paraMinutos(cliente.turnoManhaInicio);
     const fim = paraMinutos(cliente.turnoManhaFim);
     if (inicio !== null && fim !== null && dentroDaJanela(minutosAgora, inicio, fim)) return "MANHA";
+  }
+  if (cliente.turnoTardeAtivo && cliente.turnoTardeInicio && cliente.turnoTardeFim) {
+    const inicio = paraMinutos(cliente.turnoTardeInicio);
+    const fim = paraMinutos(cliente.turnoTardeFim);
+    if (inicio !== null && fim !== null && dentroDaJanela(minutosAgora, inicio, fim)) return "TARDE";
   }
   if (cliente.turnoNoiteAtivo && cliente.turnoNoiteInicio && cliente.turnoNoiteFim) {
     const inicio = paraMinutos(cliente.turnoNoiteInicio);
@@ -63,16 +71,28 @@ function diaSemanaDoTurno(cliente: HorariosCliente, turno: TurnoAtual, agora: Da
   return diaHoje;
 }
 
-/** motosFixasManha/Noite: array de 7 posições, índice = Date.getDay()
- * (0=domingo...6=sábado) — cada dia da semana pode ter uma quantidade
- * de moto fixa diferente (ex.: sexta/sábado pedem mais que uma terça). */
+/** motosFixasManha/Tarde/Noite: array de 7 posições, índice =
+ * Date.getDay() (0=domingo...6=sábado) — cada dia da semana pode ter uma
+ * quantidade de moto fixa diferente (ex.: sexta/sábado pedem mais que
+ * uma terça). */
 export function motosContratadasNoTurno(
-  cliente: HorariosCliente & { motosFixasManha: number[]; motosFixasNoite: number[] },
+  cliente: HorariosCliente & {
+    motosFixasManha: number[];
+    motosFixasTarde: number[];
+    motosFixasNoite: number[];
+  },
   turno: TurnoAtual,
   agora: Date = new Date()
 ): number {
   if (turno === null) return 0;
   const diaSemana = diaSemanaDoTurno(cliente, turno, agora);
   if (turno === "MANHA") return cliente.motosFixasManha[diaSemana] ?? 0;
+  if (turno === "TARDE") return cliente.motosFixasTarde[diaSemana] ?? 0;
   return cliente.motosFixasNoite[diaSemana] ?? 0;
 }
+
+export const LABEL_TURNO: Record<Exclude<TurnoAtual, null>, string> = {
+  MANHA: "manhã",
+  TARDE: "tarde",
+  NOITE: "noite",
+};

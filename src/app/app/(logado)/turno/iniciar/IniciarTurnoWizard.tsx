@@ -66,7 +66,7 @@ export default function IniciarTurnoWizard({
           <div className="flex flex-col gap-1">
             <span className="text-xs text-stone-500">Turno</span>
             <div className="flex gap-2">
-              {(["MANHA", "NOITE", "LIVRE"] as const).map((opcao) => (
+              {(["MANHA", "TARDE", "NOITE", "LIVRE"] as const).map((opcao) => (
                 <button
                   key={opcao}
                   type="button"
@@ -77,7 +77,13 @@ export default function IniciarTurnoWizard({
                       : "bg-stone-100 text-stone-600"
                   }`}
                 >
-                  {opcao === "MANHA" ? "Manhã" : opcao === "NOITE" ? "Noite" : "Livre"}
+                  {opcao === "MANHA"
+                    ? "Manhã"
+                    : opcao === "TARDE"
+                      ? "Tarde"
+                      : opcao === "NOITE"
+                        ? "Noite"
+                        : "Livre"}
                 </button>
               ))}
             </div>

@@ -1,13 +1,24 @@
 import { paraNumero, valorEfetivo } from "@/lib/valores";
+import { diaSemanaBrasil, minutosDesdeMeiaNoiteBrasil } from "@/lib/data";
+
+/** Um perfil de "valor fixo por turno" (ClienteTurnoFixo) — cobre um
+ * horário e um conjunto de dias da semana; fora dessa janela o perfil
+ * simplesmente não se aplica. */
+export type PerfilTurnoFixo = {
+  horaInicio: string;
+  horaFim: string;
+  diasSemana: number[];
+  valorGarantidoMotoboy: unknown;
+  valorGarantidoCliente: unknown;
+  bandasIncluidas: number;
+  valorExcedenteMotoboy: unknown;
+  valorExcedenteCliente: unknown;
+};
 
 type ClientePreco = {
   valorBandaMotoboy: unknown;
   valorBandaCliente: unknown;
-  valorDiariaMotoboy: unknown;
-  valorDiariaCliente: unknown;
-  bandasIncluidasNaDiaria: number | null;
-  valorBandaExcedenteMotoboy: unknown;
-  valorBandaExcedenteCliente: unknown;
+  turnosFixos: PerfilTurnoFixo[];
 };
 
 type EmpresaPadrao = {
@@ -30,17 +41,50 @@ export type ResultadoCalculo = {
   valorCliente: number;
 };
 
+function paraMinutos(hhmm: string): number | null {
+  const partes = hhmm.split(":").map(Number);
+  if (partes.length !== 2 || partes.some(Number.isNaN)) return null;
+  return partes[0] * 60 + partes[1];
+}
+
+function dentroDaJanela(agora: number, inicio: number, fim: number): boolean {
+  return inicio <= fim ? agora >= inicio && agora <= fim : agora >= inicio || agora <= fim;
+}
+
+/** Acha, entre os perfis do Cliente, o primeiro que bate com o dia da
+ * semana E o horário de início do turno (ambos em Brasília) — é isso que
+ * decide se um turno cai no modelo "valor fixo" (ex.: "Noite — domingo")
+ * ou fica de fora e usa "por banda" normal. */
+export function encontrarPerfilFixo(
+  turnosFixos: PerfilTurnoFixo[],
+  inicioTurno: Date
+): PerfilTurnoFixo | null {
+  const diaSemana = diaSemanaBrasil(inicioTurno);
+  const minutos = minutosDesdeMeiaNoiteBrasil(inicioTurno);
+  for (const perfil of turnosFixos) {
+    if (!perfil.diasSemana.includes(diaSemana)) continue;
+    const inicio = paraMinutos(perfil.horaInicio);
+    const fim = paraMinutos(perfil.horaFim);
+    if (inicio === null || fim === null) continue;
+    if (dentroDaJanela(minutos, inicio, fim)) return perfil;
+  }
+  return null;
+}
+
 /** Calcula quanto o motoboy recebe e quanto a cooperativa cobra da
  * empresa cliente por um turno (ou apoio) — dois modelos possíveis por
  * Cliente, nunca misturados no mesmo cálculo:
  *
- * (1) "Por banda" (padrão, sempre disponível): bandas × valor da banda,
- * herdando o padrão da Empresa quando o Cliente não tem valor próprio.
+ * (1) "Por banda" (padrão): bandas × valor da banda, herdando o padrão
+ * da Empresa quando o Cliente não tem valor próprio.
  *
- * (2) "Diária/franquia" (liga quando o Cliente tem valorDiariaMotoboy
- * configurado): a cooperativa cobra/paga um valor fixo por dia que já
- * cobre N bandas ("bandasIncluidasNaDiaria"); bandas além disso usam uma
- * tarifa de excedente própria, diferente da tarifa "normal" do item (1).
+ * (2) "Valor fixo por turno" (liga quando o horário de início do turno
+ * bate com algum perfil em ClienteTurnoFixo — ver encontrarPerfilFixo):
+ * um valor garantido que já cobre N bandas; bandas além disso usam a
+ * tarifa de excedente daquele perfil, diferente da tarifa "normal" do
+ * item (1). Cada perfil vale só nos dias da semana configurados nele
+ * (ex.: um perfil "Noite" pra semana normal e outro só pro domingo, com
+ * valores diferentes).
  *
  * Taxas extras somam por cima dos dois modelos, faixa a faixa (cada
  * Cliente tem sua própria lista de faixas — ver ClienteTaxaExtra — não
@@ -49,19 +93,21 @@ export type ResultadoCalculo = {
 export function calcularValores(
   cliente: ClientePreco,
   empresa: EmpresaPadrao,
+  inicioTurno: Date,
   quantidadeBandas: number,
   taxasExtras: ItemTaxaExtraCalculo[]
 ): ResultadoCalculo {
-  const usaDiaria = cliente.valorDiariaMotoboy != null;
+  const perfil = encontrarPerfilFixo(cliente.turnosFixos, inicioTurno);
 
   let valorMotoboy: number;
   let valorCliente: number;
 
-  if (usaDiaria) {
-    const incluidas = cliente.bandasIncluidasNaDiaria ?? 0;
-    const excedentes = Math.max(0, quantidadeBandas - incluidas);
-    valorMotoboy = paraNumero(cliente.valorDiariaMotoboy) + excedentes * paraNumero(cliente.valorBandaExcedenteMotoboy);
-    valorCliente = paraNumero(cliente.valorDiariaCliente) + excedentes * paraNumero(cliente.valorBandaExcedenteCliente);
+  if (perfil) {
+    const excedentes = Math.max(0, quantidadeBandas - perfil.bandasIncluidas);
+    valorMotoboy =
+      paraNumero(perfil.valorGarantidoMotoboy) + excedentes * paraNumero(perfil.valorExcedenteMotoboy);
+    valorCliente =
+      paraNumero(perfil.valorGarantidoCliente) + excedentes * paraNumero(perfil.valorExcedenteCliente);
   } else {
     const vbm = valorEfetivo(cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);
     const vbc = valorEfetivo(cliente.valorBandaCliente, empresa.valorBandaClientePadrao);

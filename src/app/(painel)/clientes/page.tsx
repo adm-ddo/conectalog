@@ -19,7 +19,9 @@ export default async function ClientesPage() {
     prisma.cliente.findMany({
       where: { empresaId: sessao.empresaEfetivoId },
       orderBy: { nome: "asc" },
-      include: { _count: { select: { turnos: { where: { status: "ABERTO" } } } } },
+      include: {
+        _count: { select: { turnos: { where: { status: "ABERTO" } }, turnosFixos: true } },
+      },
     }),
   ]);
 
@@ -37,9 +39,9 @@ export default async function ClientesPage() {
       ) : (
         <ul className="flex flex-col gap-2">
           {clientes.map((cliente) => {
-            const usaDiaria = cliente.valorDiariaMotoboy != null;
-            const resumoPreco = usaDiaria
-              ? `diária R$ ${formatarMoeda(cliente.valorDiariaMotoboy)}`
+            const usaValorFixo = cliente._count.turnosFixos > 0;
+            const resumoPreco = usaValorFixo
+              ? `valor fixo por turno (${cliente._count.turnosFixos} perfil${cliente._count.turnosFixos === 1 ? "" : "is"})`
               : `banda R$ ${formatarMoeda(
                   valorEfetivo(cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao)
                 )}`;
@@ -58,7 +60,6 @@ export default async function ClientesPage() {
                   nome: cliente.nome,
                   endereco: cliente.endereco,
                   ativo: cliente.ativo,
-                  usaDiaria,
                   resumoPreco,
                   equipeIncompleta,
                 }}

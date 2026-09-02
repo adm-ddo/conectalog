@@ -31,7 +31,7 @@ export async function resolverDivergenciaTurno(
 
   const turno = await prisma.turno.findFirst({
     where: { id: turnoId, motoboy: { empresaId: sessao.empresaEfetivoId } },
-    include: { cliente: true, taxaExtraItens: true },
+    include: { cliente: { include: { turnosFixos: true } }, taxaExtraItens: true },
   });
   if (!turno) return;
 
@@ -43,6 +43,7 @@ export async function resolverDivergenciaTurno(
   const { valorMotoboy, valorCliente } = calcularValores(
     turno.cliente,
     empresa,
+    turno.horaInicio,
     quantidadeBandasFinal,
     turno.taxaExtraItens.map((item) => ({
       valorMotoboy: item.valorMotoboyAplicado,

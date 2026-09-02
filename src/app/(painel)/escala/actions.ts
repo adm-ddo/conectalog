@@ -3,9 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireTenant } from "@/lib/auth-empresa";
+import { LABEL_TURNO } from "@/lib/equipe";
 import type { TurnoEscala } from "@/generated/prisma/enums";
-
-const LABEL_TURNO: Record<TurnoEscala, string> = { MANHA: "manhã", NOITE: "noite" };
 
 /** Formata a data (Date @db.Date, sem fuso relevante) como dd/mm — usado
  * só na mensagem da notificação. */

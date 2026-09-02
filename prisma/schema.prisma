@@ -39,6 +39,7 @@ enum FrequenciaPagamento {
 /// bandas de manhã vs. de noite quando ele faz os dois no mesmo dia).
 enum TurnoPredefinido {
   MANHA
+  TARDE
   NOITE
   LIVRE
 }
@@ -80,6 +81,7 @@ enum TipoEquipamento {
 /// que também tem LIVRE pro turno "avulso" fora de escala).
 enum TurnoEscala {
   MANHA
+  TARDE
   NOITE
 }
 
@@ -206,11 +208,11 @@ model Sessao {
 
 /// Empresa cliente atendida pela cooperativa. Tem dois modelos de preço
 /// possíveis, configuráveis de forma independente (ver src/lib/precificacao.ts):
-/// (1) "por banda" simples — sempre disponível, usado quando não há diária;
-/// (2) "diária"/franquia — opcional (liga quando valorDiariaMotoboy não é
-/// nulo): a cooperativa cobra um fixo por moto/dia que já inclui N bandas,
-/// e bandas além da franquia usam uma tarifa própria (excedente),
-/// diferente da tarifa "normal". Cada valor tem lado motoboy (o que ele
+/// (1) "por banda" simples — sempre disponível, usado quando nenhum
+/// ClienteTurnoFixo bate com o turno; (2) "valor fixo por turno" — cada
+/// perfil em ClienteTurnoFixo cobre um horário + dias da semana com um
+/// valor garantido que já inclui N bandas, e bandas além disso usam uma
+/// tarifa de excedente própria. Cada valor tem lado motoboy (o que ele
 /// recebe) e lado cliente (o que a cooperativa cobra da empresa) — a
 /// diferença é a margem da cooperativa.
 model Cliente {
@@ -229,32 +231,28 @@ model Cliente {
 
   // Horários dos turnos fixos e quantidade de motos contratada em cada um
   // — usado pro alerta de "equipe incompleta" no dashboard da cooperativa.
-  // motosFixasManha/Noite: 7 posições, índice = Date.getDay() (0=domingo
-  // ... 6=sábado), porque a demanda de moto fixa varia por dia da semana
-  // (ex.: sexta/sábado pedem mais moto que uma terça).
+  // motosFixasManha/Tarde/Noite: 7 posições, índice = Date.getDay()
+  // (0=domingo...6=sábado), porque a demanda de moto fixa varia por dia
+  // da semana (ex.: sexta/sábado pedem mais moto que uma terça).
   turnoManhaAtivo  Boolean @default(false)
   turnoManhaInicio String?
   turnoManhaFim    String?
   motosFixasManha  Int[]   @default([0, 0, 0, 0, 0, 0, 0])
+  turnoTardeAtivo  Boolean @default(false)
+  turnoTardeInicio String?
+  turnoTardeFim    String?
+  motosFixasTarde  Int[]   @default([0, 0, 0, 0, 0, 0, 0])
   turnoNoiteAtivo  Boolean @default(false)
   turnoNoiteInicio String?
   turnoNoiteFim    String?
   motosFixasNoite  Int[]   @default([0, 0, 0, 0, 0, 0, 0])
 
-  // Preço "por banda" normal — null herda o padrão da Empresa. Taxa extra
-  // não é mais um valor único: cada Cliente tem sua própria lista de
-  // faixas (ver ClienteTaxaExtra), porque cada empresa cliente cobra por
-  // faixa de distância de um jeito diferente.
+  // Preço "por banda" normal — null herda o padrão da Empresa. Nem taxa
+  // extra nem "valor fixo por turno" são um valor único: cada Cliente tem
+  // sua própria lista (ver ClienteTaxaExtra e ClienteTurnoFixo), porque
+  // cada empresa cliente cobra de um jeito diferente.
   valorBandaMotoboy Decimal? @db.Decimal(10, 2)
   valorBandaCliente Decimal? @db.Decimal(10, 2)
-
-  // Diária/franquia — opcional; null em valorDiariaMotoboy = cliente não
-  // usa esse modelo, cai no "por banda" normal acima.
-  valorDiariaMotoboy         Decimal? @db.Decimal(10, 2)
-  valorDiariaCliente         Decimal? @db.Decimal(10, 2)
-  bandasIncluidasNaDiaria    Int?
-  valorBandaExcedenteMotoboy Decimal? @db.Decimal(10, 2)
-  valorBandaExcedenteCliente Decimal? @db.Decimal(10, 2)
 
   empresa           Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   motoboysLiberados MotoboyCliente[]
@@ -265,6 +263,7 @@ model Cliente {
   ocorrencias       Ocorrencia[]
   solicitacoesApoio SolicitacaoApoio[]
   taxasExtras       ClienteTaxaExtra[]
+  turnosFixos       ClienteTurnoFixo[]
 
   @@index([empresaId])
 }
@@ -286,6 +285,33 @@ model ClienteTaxaExtra {
   cliente    Cliente              @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   itensTurno TurnoTaxaExtraItem[]
   itensApoio ApoioTaxaExtraItem[]
+
+  @@index([clienteId])
+}
+
+/// Um perfil de "valor fixo por turno" do Cliente — cobre um horário
+/// (`horaInicio`-`horaFim`) e um conjunto de dias da semana
+/// (`diasSemana`: 0=domingo...6=sábado). Turno que bater com o horário E
+/// o dia da semana de algum perfil usa o valor garantido dele (que já
+/// inclui `bandasIncluidas` bandas, excedente cobrado à parte); turno que
+/// não bater com nenhum perfil cai no "por banda" normal do Cliente. Como
+/// é uma lista, o mesmo turno (ex.: "Noite") pode ter um perfil pros dias
+/// de semana normais e outro só pro domingo, com valores diferentes.
+model ClienteTurnoFixo {
+  id                    Int      @id @default(autoincrement())
+  clienteId             Int
+  nome                  String
+  horaInicio            String
+  horaFim               String
+  diasSemana            Int[]
+  valorGarantidoMotoboy Decimal  @db.Decimal(10, 2)
+  valorGarantidoCliente Decimal  @db.Decimal(10, 2)
+  bandasIncluidas       Int
+  valorExcedenteMotoboy Decimal  @db.Decimal(10, 2)
+  valorExcedenteCliente Decimal  @db.Decimal(10, 2)
+  criadoEm              DateTime @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 
   @@index([clienteId])
 }

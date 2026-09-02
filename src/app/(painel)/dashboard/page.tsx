@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
-import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
+import { turnoAtivoAgora, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
 import { formatarHora } from "@/lib/data";
 import DashboardAutoRefresh from "../DashboardAutoRefresh";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
@@ -133,7 +133,7 @@ export default async function DashboardPage() {
                   {c.nome}
                 </Link>{" "}
                 — {c.presentes} de {c.contratadas} motos no turno de{" "}
-                {c.turnoAtual === "MANHA" ? "manhã" : "noite"}
+                {c.turnoAtual && LABEL_TURNO[c.turnoAtual]}
               </li>
             ))}
           </ul>
