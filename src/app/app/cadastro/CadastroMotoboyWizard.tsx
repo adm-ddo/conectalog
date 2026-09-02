@@ -36,6 +36,11 @@ const DADOS_INICIAIS: Dados = {
 
 const PASSOS = ["Dados pessoais", "PIX e senha", "Sua foto", "CNH", "Equipamento", "Enviar"] as const;
 
+// Bem acima do limite de body das Server Actions (10mb, ver next.config.ts)
+// pra sobrar espaço pro base64 (~33% maior que o arquivo original) e a
+// foto de perfil que vai junto na mesma chamada.
+const TAMANHO_MAXIMO_CNH_BYTES = 6 * 1024 * 1024;
+
 export default function CadastroMotoboyWizard({ tokenEmpresa }: { tokenEmpresa: string }) {
   const [passo, setPasso] = useState(0);
   const [dados, setDados] = useState<Dados>(DADOS_INICIAIS);
@@ -136,8 +141,14 @@ export default function CadastroMotoboyWizard({ tokenEmpresa }: { tokenEmpresa: 
   function lerArquivoCnh(e: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0];
     if (!arquivo) return;
+    if (arquivo.size > TAMANHO_MAXIMO_CNH_BYTES) {
+      setErro("Esse arquivo é grande demais (máx. 6MB) — tente uma foto ou um PDF menor.");
+      return;
+    }
+    setErro(null);
     const leitor = new FileReader();
     leitor.onload = () => setCnhDataUrl(String(leitor.result));
+    leitor.onerror = () => setErro("Não foi possível ler esse arquivo — tente outro.");
     leitor.readAsDataURL(arquivo);
   }
 

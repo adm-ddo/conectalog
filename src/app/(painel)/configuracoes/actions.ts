@@ -4,9 +4,18 @@ import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { requireMaster } from "@/lib/auth-empresa";
-import { uploadDataUrlPublico } from "@/lib/blob";
 
 export type ConfigState = { erro?: string } | undefined;
+
+// Logo fica guardado direto como data URL na coluna (texto sem limite no
+// Postgres) — o Blob Store desse projeto está configurado como privado, e
+// blob privado não dá pra abrir direto num <img src>. Diferente de foto/
+// assinatura de pessoa (que fica no Blob), logo é pequeno (já vem
+// redimensionado pelo LogoForm) e não precisa do storage separado; 2MB
+// aqui é bem mais do que qualquer logo redimensionado deveria pesar, só
+// pra barrar um data URL absurdo caso o redimensionamento no cliente
+// falhe por algum motivo.
+const TAMANHO_MAXIMO_BYTES = 2 * 1024 * 1024;
 
 export async function atualizarLogo(
   _prev: ConfigState,
@@ -17,14 +26,14 @@ export async function atualizarLogo(
   if (!dataUrl.startsWith("data:image/")) {
     return { erro: "Escolha uma imagem válida." };
   }
+  if (dataUrl.length > TAMANHO_MAXIMO_BYTES) {
+    return { erro: "Essa imagem é grande demais — tente uma logo mais simples ou menor." };
+  }
 
-  const logoUrl = await uploadDataUrlPublico(
-    `empresas/${sessao.empresaEfetivoId}/logo-${Date.now()}.png`,
-    dataUrl
-  );
-  await prisma.empresa.update({ where: { id: sessao.empresaEfetivoId }, data: { logoUrl } });
+  await prisma.empresa.update({ where: { id: sessao.empresaEfetivoId }, data: { logoUrl: dataUrl } });
 
   revalidatePath("/configuracoes");
+  revalidatePath("/app", "layout");
 }
 
 function decimal(formData: FormData, campo: string): number | null {
