@@ -20,6 +20,7 @@ export default async function PainelLayout({
         usuarioNome={sessao.nome}
         vendoComoSuperAdmin={sessao.superAdmin && sessao.empresaAtivaId !== null}
         logoUrl={empresa.logoUrl}
+        ehMaster={sessao.role === "MASTER" || (sessao.superAdmin && sessao.empresaAtivaId !== null)}
       />
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">{children}</main>
     </div>

@@ -10,8 +10,8 @@ const LINKS = [
   { href: "/clientes", label: "Clientes" },
   { href: "/motoboys", label: "Motoboys" },
   { href: "/pagamentos", label: "Pagamentos" },
-  { href: "/equipe", label: "Equipe" },
-  { href: "/configuracoes", label: "Configurações" },
+  { href: "/equipe", label: "Equipe", masterOnly: true },
+  { href: "/configuracoes", label: "Configurações", masterOnly: true },
 ];
 
 export default function PainelHeader({
@@ -19,13 +19,16 @@ export default function PainelHeader({
   usuarioNome,
   vendoComoSuperAdmin,
   logoUrl,
+  ehMaster,
 }: {
   empresaNome: string;
   usuarioNome: string;
   vendoComoSuperAdmin: boolean;
   logoUrl: string | null;
+  ehMaster: boolean;
 }) {
   const pathname = usePathname();
+  const links = LINKS.filter((link) => !link.masterOnly || ehMaster);
 
   return (
     <header className="bg-navy-900 text-white">
@@ -49,7 +52,7 @@ export default function PainelHeader({
             Conecta<span className="text-brand-400">Log</span>
           </Link>
           <nav className="hidden md:flex items-center gap-1">
-            {LINKS.map((link) => {
+            {links.map((link) => {
               const ativo = pathname.startsWith(link.href);
               return (
                 <Link
