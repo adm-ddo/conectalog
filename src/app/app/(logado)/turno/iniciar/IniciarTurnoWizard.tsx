@@ -122,7 +122,7 @@ export default function IniciarTurnoWizard({
               </button>
             </div>
           ) : (
-            <CameraCapture camera="user" onCapture={(dataUrl) => setFotoInicioDataUrl(dataUrl)} />
+            <CameraCapture camera="environment" onCapture={(dataUrl) => setFotoInicioDataUrl(dataUrl)} />
           )}
         </div>
       )}
