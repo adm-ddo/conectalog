@@ -38,6 +38,7 @@ export default function LogoForm({ logoUrlAtual }: { logoUrlAtual: string | null
   const [state, formAction, pending] = useActionState(atualizarLogo, undefined);
   const [preview, setPreview] = useState<string | null>(null);
   const [erroLeitura, setErroLeitura] = useState<string | null>(null);
+  const [nomeArquivo, setNomeArquivo] = useState<string | null>(null);
 
   function lerArquivo(e: React.ChangeEvent<HTMLInputElement>) {
     const arquivo = e.target.files?.[0];
@@ -47,6 +48,7 @@ export default function LogoForm({ logoUrlAtual }: { logoUrlAtual: string | null
       return;
     }
     setErroLeitura(null);
+    setNomeArquivo(arquivo.name);
 
     const leitor = new FileReader();
     leitor.onload = () => {
@@ -80,12 +82,18 @@ export default function LogoForm({ logoUrlAtual }: { logoUrlAtual: string | null
             <span className="text-xs text-stone-400">Sem logo</span>
           )}
         </div>
-        <input
-          type="file"
-          accept="image/*"
-          onChange={lerArquivo}
-          className="text-sm text-stone-600"
-        />
+        <div className="flex flex-col gap-1.5 items-start">
+          <label className="cursor-pointer rounded-lg border border-stone-300 bg-white hover:bg-stone-50 text-navy-900 text-sm font-medium px-4 py-2 transition-colors">
+            Escolher imagem
+            <input
+              type="file"
+              accept="image/*"
+              onChange={lerArquivo}
+              className="sr-only"
+            />
+          </label>
+          {nomeArquivo && <span className="text-xs text-stone-500 truncate max-w-[200px]">{nomeArquivo}</span>}
+        </div>
       </div>
       <input type="hidden" name="logoDataUrl" value={preview ?? ""} />
 
