@@ -87,7 +87,7 @@ export default function PainelHeader({
         </div>
       </div>
       <nav className="md:hidden flex items-center gap-1 overflow-x-auto px-4 pb-2">
-        {LINKS.map((link) => {
+        {links.map((link) => {
           const ativo = pathname.startsWith(link.href);
           return (
             <Link
