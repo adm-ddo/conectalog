@@ -263,16 +263,17 @@ model Cliente {
   valorBandaMotoboy Decimal? @db.Decimal(10, 2)
   valorBandaCliente Decimal? @db.Decimal(10, 2)
 
-  empresa           Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
-  motoboysLiberados MotoboyCliente[]
-  turnos            Turno[]
-  apoios            Apoio[]
-  escalas           EscalaTurno[]
-  avaliacoes        Avaliacao[]
-  ocorrencias       Ocorrencia[]
-  solicitacoesApoio SolicitacaoApoio[]
-  taxasExtras       ClienteTaxaExtra[]
-  turnosFixos       ClienteTurnoFixo[]
+  empresa             Empresa            @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  motoboysLiberados   MotoboyCliente[]
+  turnos              Turno[]
+  apoios              Apoio[]
+  escalas             EscalaTurno[]
+  avaliacoes          Avaliacao[]
+  avaliacoesRecebidas AvaliacaoCliente[]
+  ocorrencias         Ocorrencia[]
+  solicitacoesApoio   SolicitacaoApoio[]
+  taxasExtras         ClienteTaxaExtra[]
+  turnosFixos         ClienteTurnoFixo[]
 
   @@index([empresaId])
 }
@@ -401,6 +402,7 @@ model Motoboy {
   tokensAutenticacao   TokenAutenticacaoMotoboy[]
   escalas              EscalaTurno[]
   avaliacoes           Avaliacao[]
+  avaliacoesFeitas     AvaliacaoCliente[]
   ocorrencias          Ocorrencia[]
   notificacoes         Notificacao[]
   descontosAssiduidade DescontoAssiduidade[]
@@ -529,6 +531,7 @@ model Turno {
   apoios              Apoio[]
   escalas             EscalaTurno[]
   avaliacao           Avaliacao?
+  avaliacaoCliente    AvaliacaoCliente?
   ocorrencia          Ocorrencia?
   taxaExtraItens      TurnoTaxaExtraItem[]
   descontoAssiduidade DescontoAssiduidade?
@@ -607,6 +610,26 @@ model Avaliacao {
   motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
 
   @@index([motoboyId])
+}
+
+/// Avaliação do cliente (restaurante) pelo motoboy ao encerrar o turno do
+/// lado do app dele — sentido inverso de Avaliacao (que é o cliente
+/// avaliando o motoboy). Mesmo formato: nota de 1 a 5 + comentário livre
+/// opcional, pra registrar como foi o atendimento recebido naquele turno.
+model AvaliacaoCliente {
+  id         Int      @id @default(autoincrement())
+  turnoId    Int      @unique
+  clienteId  Int
+  motoboyId  Int
+  nota       Int
+  comentario String?
+  criadoEm   DateTime @default(now())
+
+  turno   Turno   @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId])
 }
 
 /// Ocorrência registrada pelo cliente ao encerrar o turno do motoboy —

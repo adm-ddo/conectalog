@@ -129,9 +129,12 @@ export default function IniciarTurnoWizard({
 
       {passo === 2 && (
         <div className="flex flex-col gap-4">
-          <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 flex flex-col gap-2 text-sm text-stone-700">
-            {TERMO_AUTONOMO.map((paragrafo, i) => (
-              <p key={i}>{paragrafo}</p>
+          <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 flex flex-col gap-3 text-sm text-stone-700 max-h-72 overflow-y-auto">
+            {TERMO_AUTONOMO.map((secao) => (
+              <div key={secao.titulo}>
+                <p className="font-semibold text-navy-900">{secao.titulo}</p>
+                <p>{secao.texto}</p>
+              </div>
             ))}
           </div>
           <label className="flex items-center gap-2 text-sm">

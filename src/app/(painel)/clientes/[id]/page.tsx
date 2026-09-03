@@ -3,9 +3,10 @@ import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
 import { turnoAtivoAgora, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
-import { formatarHora } from "@/lib/data";
+import { formatarHora, formatarData } from "@/lib/data";
 import EditarClienteForm from "./EditarClienteForm";
 import LinkPortalSection from "./LinkPortalSection";
+import AvaliacoesRecebidasSection from "./AvaliacoesRecebidasSection";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 
 export default async function ClienteDetalhePage({
@@ -16,26 +17,39 @@ export default async function ClienteDetalhePage({
   const sessao = await requireTenant();
   const clienteId = Number((await params).id);
 
-  const cliente = await prisma.cliente.findFirst({
-    where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
-    include: {
-      motoboysLiberados: {
-        where: { liberado: true },
-        include: { motoboy: { select: { id: true, nomeCompleto: true, tipoEquipamento: true } } },
-      },
-      turnos: {
-        where: { status: "ABERTO" },
-        orderBy: { horaInicio: "asc" },
-        select: {
-          id: true,
-          horaInicio: true,
-          motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
+  const [cliente, mediaAvaliacoes, avaliacoesRecebidas] = await Promise.all([
+    prisma.cliente.findFirst({
+      where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
+      include: {
+        motoboysLiberados: {
+          where: { liberado: true },
+          include: { motoboy: { select: { id: true, nomeCompleto: true, tipoEquipamento: true } } },
         },
+        turnos: {
+          where: { status: "ABERTO" },
+          orderBy: { horaInicio: "asc" },
+          select: {
+            id: true,
+            horaInicio: true,
+            motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
+          },
+        },
+        taxasExtras: { orderBy: { ordem: "asc" } },
+        turnosFixos: { orderBy: { criadoEm: "asc" } },
       },
-      taxasExtras: { orderBy: { ordem: "asc" } },
-      turnosFixos: { orderBy: { criadoEm: "asc" } },
-    },
-  });
+    }),
+    prisma.avaliacaoCliente.aggregate({
+      where: { clienteId },
+      _avg: { nota: true },
+      _count: { _all: true },
+    }),
+    prisma.avaliacaoCliente.findMany({
+      where: { clienteId },
+      orderBy: { criadoEm: "desc" },
+      take: 20,
+      include: { motoboy: { select: { nomeCompleto: true } } },
+    }),
+  ]);
   if (!cliente) notFound();
 
   const turnoAtual = turnoAtivoAgora(cliente);
@@ -137,6 +151,18 @@ export default async function ClienteDetalhePage({
           </ul>
         )}
       </div>
+
+      <AvaliacoesRecebidasSection
+        media={paraNumero(mediaAvaliacoes._avg.nota)}
+        total={mediaAvaliacoes._count._all}
+        avaliacoes={avaliacoesRecebidas.map((a) => ({
+          id: a.id,
+          nota: a.nota,
+          comentario: a.comentario,
+          motoboyNome: a.motoboy.nomeCompleto,
+          data: formatarData(a.criadoEm),
+        }))}
+      />
     </div>
   );
 }

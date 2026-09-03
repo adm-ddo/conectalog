@@ -7,7 +7,7 @@ import { sairMotoboy } from "./actions";
 const LINKS = [
   { href: "/app/inicio", label: "Início" },
   { href: "/app/relatorio", label: "Relatório" },
-  { href: "/app/metas", label: "Metas" },
+  { href: "/app/metas", label: "Minhas metas" },
 ];
 
 export default function AppHeader({

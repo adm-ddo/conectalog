@@ -2,8 +2,6 @@
 
 import { useEffect, useRef, useState } from "react";
 
-const CONTAGEM_INICIAL = 3;
-
 // Limita o lado maior da foto e comprime como JPEG — a câmera de um celular
 // moderno captura em resolução bem maior do que o necessário só pra
 // conferir a chegada/CNH, e isso mantém o upload leve.
@@ -22,8 +20,6 @@ export default function CameraCapture({
   const streamRef = useRef<MediaStream | null>(null);
   const [erro, setErro] = useState<string | null>(null);
   const [pronto, setPronto] = useState(false);
-  const [iniciado, setIniciado] = useState(false);
-  const [contagem, setContagem] = useState(CONTAGEM_INICIAL);
   // Depois da foto tirada, alguns fluxos já mandam pro servidor aqui dentro
   // — sem isso a tela ficava parada em "Capturando..." enquanto esperava a
   // rede, parecendo travada.
@@ -99,19 +95,6 @@ export default function CameraCapture({
     }
   }
 
-  // Clicar em "Tirar foto" só começa a contagem — dá tempo da pessoa se
-  // posicionar antes da foto ser tirada sozinha.
-  useEffect(() => {
-    if (!pronto || !iniciado) return;
-    if (contagem === 0) {
-      const id = setTimeout(capturar, 0);
-      return () => clearTimeout(id);
-    }
-    const id = setTimeout(() => setContagem((c) => c - 1), 1000);
-    return () => clearTimeout(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- capturar só usa refs estáveis
-  }, [pronto, iniciado, contagem]);
-
   if (erro) {
     return (
       <p className="text-lg text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3">
@@ -131,25 +114,19 @@ export default function CameraCapture({
       />
       {!pronto ? (
         <p className="text-lg text-stone-500">Preparando câmera...</p>
-      ) : !iniciado ? (
+      ) : enviando ? (
+        <p className="text-4xl font-semibold text-navy-900 flex items-center gap-3">
+          <span className="h-7 w-7 rounded-full border-4 border-navy-900 border-t-transparent animate-spin" />
+          Enviando...
+        </p>
+      ) : (
         <button
           type="button"
-          onClick={() => setIniciado(true)}
+          onClick={capturar}
           className="rounded-xl bg-brand-600 hover:bg-brand-700 text-white text-2xl font-medium px-8 py-4 transition-colors"
         >
           Tirar foto
         </button>
-      ) : (
-        <p className="text-4xl font-semibold text-navy-900 flex items-center gap-3">
-          {enviando && (
-            <span className="h-7 w-7 rounded-full border-4 border-navy-900 border-t-transparent animate-spin" />
-          )}
-          {enviando
-            ? "Enviando..."
-            : contagem > 0
-              ? `Tirando foto em ${contagem}...`
-              : "Capturando..."}
-        </p>
       )}
     </div>
   );

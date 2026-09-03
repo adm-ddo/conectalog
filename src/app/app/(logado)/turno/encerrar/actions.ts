@@ -15,6 +15,8 @@ export type DadosEncerrarTurno = {
   taxasExtras: { itemId: number; quantidade: number }[];
   fotoFimDataUrl: string;
   assinaturaReciboDataUrl: string;
+  nota: number;
+  comentario: string;
 };
 
 export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<EncerrarTurnoState> {
@@ -42,6 +44,9 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
   }
   if (!dados.fotoFimDataUrl || !dados.assinaturaReciboDataUrl) {
     return { erro: "Falta a foto ou a assinatura do recibo." };
+  }
+  if (dados.nota < 1 || dados.nota > 5) {
+    return { erro: "Selecione uma nota de 1 a 5 pra avaliar a empresa." };
   }
 
   const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaId } });
@@ -90,6 +95,15 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
         data: { quantidade: item.quantidade },
       })
     ),
+    prisma.avaliacaoCliente.create({
+      data: {
+        turnoId: turno.id,
+        clienteId: turno.clienteId,
+        motoboyId: sessao.motoboyId,
+        nota: dados.nota,
+        comentario: dados.comentario.trim() || null,
+      },
+    }),
   ];
   await prisma.$transaction(operacoes);
 

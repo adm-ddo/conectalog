@@ -6,6 +6,7 @@ import { formatarData } from "@/lib/data";
 import { paraNumero } from "@/lib/valores";
 import { baixarComoDataUrl } from "@/lib/blob";
 import LiberacaoClientes from "./LiberacaoClientes";
+import TurnosSection from "./TurnosSection";
 import ValesSection from "./ValesSection";
 import OcorrenciasSection from "./OcorrenciasSection";
 import AvaliacoesSection from "./AvaliacoesSection";
@@ -22,7 +23,7 @@ export default async function MotoboyDetalhePage({
   const sessao = await requireTenant();
   const motoboyId = Number((await params).id);
 
-  const [motoboy, clientes, mediaAvaliacoes] = await Promise.all([
+  const [motoboy, clientes, mediaAvaliacoes, totalTurnos, turnosRecentes] = await Promise.all([
     prisma.motoboy.findFirst({
       where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
       include: {
@@ -51,6 +52,20 @@ export default async function MotoboyDetalhePage({
       where: { motoboyId },
       _avg: { nota: true },
       _count: { _all: true },
+    }),
+    prisma.turno.count({ where: { motoboyId } }),
+    prisma.turno.findMany({
+      where: { motoboyId },
+      orderBy: { horaInicio: "desc" },
+      take: 8,
+      select: {
+        id: true,
+        horaInicio: true,
+        status: true,
+        quantidadeBandas: true,
+        valorTotal: true,
+        cliente: { select: { nome: true } },
+      },
     }),
   ]);
   if (!motoboy) notFound();
@@ -160,6 +175,19 @@ export default async function MotoboyDetalhePage({
           </div>
         </div>
       </div>
+
+      <TurnosSection
+        motoboyId={motoboy.id}
+        totalTurnos={totalTurnos}
+        turnos={turnosRecentes.map((t) => ({
+          id: t.id,
+          clienteNome: t.cliente.nome,
+          data: formatarData(t.horaInicio),
+          status: t.status,
+          bandas: t.quantidadeBandas,
+          valor: formatarMoeda(t.valorTotal),
+        }))}
+      />
 
       <LiberacaoClientes
         motoboyId={motoboy.id}
