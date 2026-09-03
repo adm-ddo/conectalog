@@ -7,6 +7,7 @@ import { sair, voltarAoMaster } from "./actions";
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/escala", label: "Escala" },
+  { href: "/turnos", label: "Turnos" },
   { href: "/clientes", label: "Clientes" },
   { href: "/motoboys", label: "Motoboys" },
   { href: "/pagamentos", label: "Pagamentos" },
