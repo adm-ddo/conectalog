@@ -160,6 +160,7 @@ model Usuario {
   solicitacoesApoioRespondidas SolicitacaoApoio[]
   tokensAutenticacao           TokenAutenticacaoUsuario[]
   convitesEnviados             ConviteEquipe[]
+  divergenciasResolvidas       Turno[]                    @relation("TurnoResolvidoPor")
 }
 
 /// Token de uso único (verificação de e-mail / recuperação de senha) do
@@ -517,17 +518,33 @@ model Turno {
   /// (ver resolvidoDivergenciaEm) — decisão confirmada com o Thiago: os
   /// dois têm que bater, não é o registro de um lado que automaticamente
   /// vale mais que o outro.
-  quantidadeBandasCliente      Int?
-  quantidadeTaxasExtrasCliente Int?
+  quantidadeBandasCliente         Int?
+  quantidadeTaxasExtrasCliente    Int?
   /// Preenchido quando a cooperativa resolve manualmente uma divergência
   /// (ou confirma que os números batem) — enquanto null e os dois
   /// números existirem e forem diferentes, o turno aparece na tela de
-  /// divergências do painel.
-  resolvidoDivergenciaEm       DateTime?
+  /// divergências do painel. Uma vez preenchido, fica pra sempre (não tem
+  /// "reabrir divergência") — é o registro permanente de que a
+  /// cooperativa e o cliente entraram em acordo sobre esse turno.
+  resolvidoDivergenciaEm          DateTime?
+  /// Snapshot do que o motoboy tinha informado originalmente, tirado no
+  /// momento da resolução — depois disso quantidadeBandas passa a valer
+  /// o número combinado (usado no pagamento), então sem isso o número
+  /// original do motoboy se perderia (o do cliente já fica preservado em
+  /// quantidadeBandasCliente, que nunca é sobrescrito).
+  quantidadeBandasMotoboyOriginal Int?
+  /// Quem da cooperativa resolveu a divergência — junto com
+  /// resolvidoDivergenciaEm e observacaoDivergencia, é o registro de que
+  /// a disputa foi resolvida em comum acordo, não decidida sozinha.
+  resolvidoPorUsuarioId           Int?
+  /// Explicação livre e opcional do acordo (ex.: "cliente contou errado,
+  /// motoboy tinha razão") — só preenchido na resolução da divergência.
+  observacaoDivergencia           String?
 
   motoboy             Motoboy              @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
   cliente             Cliente              @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   pagamento           Pagamento?           @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+  resolvidoPorUsuario Usuario?             @relation("TurnoResolvidoPor", fields: [resolvidoPorUsuarioId], references: [id])
   apoios              Apoio[]
   escalas             EscalaTurno[]
   avaliacao           Avaliacao?
@@ -570,22 +587,26 @@ model DescontoAssiduidade {
 /// um "slot" que o portal do cliente possa preencher depois). Os valores
 /// aqui são snapshot (não mudam se a faixa do Cliente for editada depois).
 model TurnoTaxaExtraItem {
-  id                   Int      @id @default(autoincrement())
-  turnoId              Int
+  id                        Int      @id @default(autoincrement())
+  turnoId                   Int
   /// Referência à faixa de origem — só pra rastreabilidade; null se a
   /// faixa foi apagada do Cliente depois (o snapshot abaixo continua
   /// valendo pro histórico).
-  clienteTaxaExtraId   Int?
-  ordem                Int
-  descricao            String
-  valorMotoboyAplicado Decimal  @db.Decimal(10, 2)
-  valorClienteAplicado Decimal  @db.Decimal(10, 2)
+  clienteTaxaExtraId        Int?
+  ordem                     Int
+  descricao                 String
+  valorMotoboyAplicado      Decimal  @db.Decimal(10, 2)
+  valorClienteAplicado      Decimal  @db.Decimal(10, 2)
   /// Quantidade que o MOTOBOY informou ao encerrar o turno.
-  quantidade           Int      @default(0)
+  quantidade                Int      @default(0)
   /// Quantidade que o CLIENTE informou pelo portal — null enquanto ele
   /// não fechou o turno do lado dele.
-  quantidadeCliente    Int?
-  criadoEm             DateTime @default(now())
+  quantidadeCliente         Int?
+  /// Snapshot do que o motoboy tinha informado originalmente nessa faixa,
+  /// tirado só quando a cooperativa resolve uma divergência (ver
+  /// Turno.quantidadeBandasMotoboyOriginal — mesmo motivo).
+  quantidadeMotoboyOriginal Int?
+  criadoEm                  DateTime @default(now())
 
   turno            Turno             @relation(fields: [turnoId], references: [id], onDelete: Cascade)
   clienteTaxaExtra ClienteTaxaExtra? @relation(fields: [clienteTaxaExtraId], references: [id], onDelete: SetNull)

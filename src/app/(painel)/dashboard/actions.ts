@@ -21,11 +21,16 @@ export async function responderSolicitacaoApoio(
  * o que o cliente informou — a cooperativa entra em acordo com os dois
  * lados e define aqui a quantidade final de bandas e de cada faixa de
  * taxa extra, que passa a valer pro pagamento (recalcula valorTotal/
- * valorCobradoCliente). */
+ * valorCobradoCliente). O número original do motoboy é guardado antes de
+ * ser sobrescrito (o do cliente já fica preservado em
+ * quantidadeBandasCliente/quantidadeCliente, que nunca mudam), junto com
+ * quem resolveu e uma observação livre opcional — registro permanente de
+ * que a disputa foi resolvida em comum acordo, não decidida sozinha. */
 export async function resolverDivergenciaTurno(
   turnoId: number,
   quantidadeBandasFinal: number,
-  taxasExtrasFinais: { itemId: number; quantidade: number }[]
+  taxasExtrasFinais: { itemId: number; quantidade: number }[],
+  observacao: string
 ) {
   const sessao = await requireTenant();
 
@@ -61,16 +66,23 @@ export async function resolverDivergenciaTurno(
         quantidadeTaxasExtras: totalTaxasExtras,
         valorTotal: valorMotoboy,
         valorCobradoCliente: valorCliente,
+        quantidadeBandasMotoboyOriginal: turno.quantidadeBandas,
+        resolvidoPorUsuarioId: sessao.usuarioId,
+        observacaoDivergencia: observacao.trim() || null,
         resolvidoDivergenciaEm: new Date(),
       },
     }),
     ...itensValidos.map((t) =>
       prisma.turnoTaxaExtraItem.update({
         where: { id: t.itemId },
-        data: { quantidade: t.quantidade },
+        data: {
+          quantidade: t.quantidade,
+          quantidadeMotoboyOriginal: turno.taxaExtraItens.find((item) => item.id === t.itemId)?.quantidade ?? 0,
+        },
       })
     ),
   ]);
 
   revalidatePath("/dashboard");
+  revalidatePath(`/turnos/${turnoId}`);
 }

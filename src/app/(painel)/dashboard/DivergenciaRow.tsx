@@ -29,6 +29,7 @@ export default function DivergenciaRow({
   const [taxasFinais, setTaxasFinais] = useState<Record<number, number>>(
     Object.fromEntries(taxas.map((t) => [t.itemId, t.motoboy]))
   );
+  const [observacao, setObservacao] = useState("");
   const [pending, startTransition] = useTransition();
 
   const taxasDivergentes = taxas.filter((t) => t.motoboy !== t.cliente);
@@ -73,23 +74,34 @@ export default function DivergenciaRow({
             />
           </label>
         ))}
-        <button
-          type="button"
-          disabled={pending}
-          onClick={() =>
-            startTransition(() =>
-              resolverDivergenciaTurno(
-                turnoId,
-                bandasFinal,
-                taxas.map((t) => ({ itemId: t.itemId, quantidade: taxasFinais[t.itemId] ?? 0 }))
-              )
-            )
-          }
-          className="rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold px-4 py-2 disabled:opacity-50 transition-colors"
-        >
-          {pending ? "Salvando..." : "Confirmar acordo"}
-        </button>
       </div>
+      <label className="flex flex-col gap-1">
+        <span className="text-xs text-stone-500">Observação do acordo (opcional)</span>
+        <input
+          type="text"
+          value={observacao}
+          onChange={(e) => setObservacao(e.target.value)}
+          placeholder="Ex.: cliente contou errado, motoboy tinha razão"
+          className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm"
+        />
+      </label>
+      <button
+        type="button"
+        disabled={pending}
+        onClick={() =>
+          startTransition(() =>
+            resolverDivergenciaTurno(
+              turnoId,
+              bandasFinal,
+              taxas.map((t) => ({ itemId: t.itemId, quantidade: taxasFinais[t.itemId] ?? 0 })),
+              observacao
+            )
+          )
+        }
+        className="self-start rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold px-4 py-2 disabled:opacity-50 transition-colors"
+      >
+        {pending ? "Salvando..." : "Confirmar acordo"}
+      </button>
     </li>
   );
 }

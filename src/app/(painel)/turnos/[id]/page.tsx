@@ -29,6 +29,7 @@ export default async function TurnoDetalhePage({
       cliente: { select: { nome: true } },
       apoios: { include: { cliente: { select: { nome: true } } } },
       taxaExtraItens: { orderBy: { ordem: "asc" } },
+      resolvidoPorUsuario: { select: { nome: true } },
     },
   });
   if (!turno) notFound();
@@ -84,6 +85,29 @@ export default async function TurnoDetalhePage({
           {turno.valorCobradoCliente ? `R$ ${formatarMoeda(turno.valorCobradoCliente)}` : "—"}
         </p>
       </div>
+
+      {turno.resolvidoDivergenciaEm && turno.quantidadeBandasMotoboyOriginal !== null && (
+        <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-amber-800">Divergência resolvida</h2>
+          <p className="text-sm text-amber-800">
+            Motoboy informou {turno.quantidadeBandasMotoboyOriginal} bandas, cliente informou{" "}
+            {turno.quantidadeBandasCliente} — combinado em {turno.quantidadeBandas} bandas por{" "}
+            {turno.resolvidoPorUsuario?.nome ?? "alguém da cooperativa"} em{" "}
+            {formatarDataHora(turno.resolvidoDivergenciaEm)}.
+          </p>
+          {turno.taxaExtraItens
+            .filter((item) => item.quantidadeMotoboyOriginal !== null && item.quantidadeMotoboyOriginal !== item.quantidade)
+            .map((item) => (
+              <p key={item.id} className="text-sm text-amber-800">
+                {item.descricao}: motoboy informou {item.quantidadeMotoboyOriginal}, cliente informou{" "}
+                {item.quantidadeCliente} — combinado em {item.quantidade}.
+              </p>
+            ))}
+          {turno.observacaoDivergencia && (
+            <p className="text-sm text-amber-800 italic">“{turno.observacaoDivergencia}”</p>
+          )}
+        </div>
+      )}
 
       {turno.taxaExtraItens.length > 0 && (
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
