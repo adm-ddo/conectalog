@@ -34,6 +34,14 @@ export default async function DashboardPage() {
       prisma.turno.findMany({
         where: {
           motoboy: { empresaId: sessao.empresaEfetivoId },
+          // Só considera divergência depois que o motoboy também encerrou o
+          // turno dele (status ABERTO = quantidadeBandas ainda no padrão 0,
+          // porque o cliente pode fechar o portal antes ou depois — ver
+          // comentário em encerrarPeloCliente). Sem esse filtro, fechar o
+          // portal primeiro sempre criava uma "divergência" falsa contra o
+          // 0 provisório, e resolver isso cedo demais escondia pra sempre
+          // uma divergência de verdade contra o número final do motoboy.
+          status: { not: "ABERTO" },
           resolvidoDivergenciaEm: null,
           quantidadeBandasCliente: { not: null },
         },
