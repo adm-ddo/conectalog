@@ -44,12 +44,12 @@ export default function TurnosSection({
             <li key={t.id}>
               <Link
                 href={`/turnos/${t.id}`}
-                className="flex items-center justify-between gap-3 rounded-lg border border-stone-100 px-3 py-2 hover:border-brand-300 transition-colors"
+                className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1.5 sm:gap-3 rounded-lg border border-stone-100 px-3 py-2 hover:border-brand-300 transition-colors"
               >
-                <span className="text-sm text-navy-900">
+                <span className="text-sm text-navy-900 min-w-0 truncate">
                   {t.clienteNome} — {t.data}
                 </span>
-                <span className="flex items-center gap-2 shrink-0">
+                <span className="flex items-center gap-2 flex-wrap sm:shrink-0">
                   <span className="text-xs text-stone-500">{t.bandas} bandas</span>
                   <span className="text-sm font-medium text-navy-900">R$ {t.valor}</span>
                   <span className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${COR_STATUS[t.status]}`}>

@@ -45,7 +45,7 @@ export default function PainelHeader({
         </div>
       )}
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center justify-between gap-4">
-        <div className="flex items-center gap-6 min-w-0">
+        <div className="flex items-center gap-4 lg:gap-6 min-w-0">
           <Link href="/dashboard" className="flex items-center gap-2 font-black text-lg tracking-tight shrink-0">
             {logoUrl && (
               // eslint-disable-next-line @next/next/no-img-element -- logo como data URL, next/image não se aplica aqui
@@ -53,14 +53,14 @@ export default function PainelHeader({
             )}
             Conecta<span className="text-brand-400">Log</span>
           </Link>
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden lg:flex items-center gap-1 overflow-x-auto min-w-0">
             {links.map((link) => {
               const ativo = pathname.startsWith(link.href);
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
                     ativo
                       ? "bg-white/15 text-white"
                       : "text-navy-200 hover:bg-white/10 hover:text-white"
@@ -88,7 +88,7 @@ export default function PainelHeader({
           </form>
         </div>
       </div>
-      <nav className="md:hidden flex items-center gap-1 overflow-x-auto px-4 pb-2">
+      <nav className="lg:hidden flex items-center gap-1 overflow-x-auto px-4 pb-2">
         {links.map((link) => {
           const ativo = pathname.startsWith(link.href);
           return (
