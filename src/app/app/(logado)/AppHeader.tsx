@@ -6,6 +6,7 @@ import { sairMotoboy } from "./actions";
 
 const LINKS = [
   { href: "/app/inicio", label: "Início" },
+  { href: "/app/escala", label: "Escala" },
   { href: "/app/relatorio", label: "Relatório" },
   { href: "/app/metas", label: "Minhas metas" },
 ];
@@ -51,7 +52,7 @@ export default function AppHeader({
             <Link
               key={link.href}
               href={link.href}
-              className={`flex-1 text-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`flex-1 text-center rounded-lg px-1.5 py-1.5 text-xs sm:text-sm font-medium transition-colors ${
                 ativo ? "bg-brand-100 text-brand-800" : "text-stone-500 hover:bg-stone-100"
               }`}
             >

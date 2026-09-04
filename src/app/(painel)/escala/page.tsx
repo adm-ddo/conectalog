@@ -186,6 +186,9 @@ export default async function EscalaPage({
         >
           Ver
         </button>
+        <Link href={`/escala/semana?clienteId=${clienteId}&inicio=${data}`} className="text-sm text-brand-700 hover:underline">
+          Ver semana inteira →
+        </Link>
       </form>
 
       {turnosDisponiveis.length === 1 && (
