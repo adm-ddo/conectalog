@@ -14,6 +14,7 @@ import DescontosAssiduidadeSection from "./DescontosAssiduidadeSection";
 import DescontoAssiduidadeToggle from "./DescontoAssiduidadeToggle";
 import EquipamentoSelector from "./EquipamentoSelector";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
+import BotaoVoltar from "@/components/BotaoVoltar";
 import GestorSection from "./GestorSection";
 import FrequenciaPagamentoToggle from "./FrequenciaPagamentoToggle";
 
@@ -113,7 +114,8 @@ export default async function MotoboyDetalhePage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-navy-900 flex items-center gap-2">
+        <BotaoVoltar />
+        <h1 className="text-2xl font-semibold text-navy-900 flex items-center gap-2 mt-1">
           {motoboy.nomeCompleto}
           <EquipamentoBadge tipo={motoboy.tipoEquipamento} />
         </h1>

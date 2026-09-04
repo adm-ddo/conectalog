@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
 import EncerrarPeloClienteForm from "./EncerrarPeloClienteForm";
+import BotaoVoltar from "@/components/BotaoVoltar";
 
 export default async function EncerrarPeloClientePage({
   params,
@@ -30,9 +30,7 @@ export default async function EncerrarPeloClientePage({
   return (
     <div className="flex flex-col gap-6 w-full max-w-md mx-auto">
       <div>
-        <Link href={`/portal/${token}`} className="text-xs text-stone-500 hover:underline">
-          ← Voltar
-        </Link>
+        <BotaoVoltar />
         <h1 className="text-lg font-semibold text-navy-900 mt-1">Encerrar turno</h1>
       </div>
       <EncerrarPeloClienteForm

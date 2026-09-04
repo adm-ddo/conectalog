@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
@@ -7,6 +6,7 @@ import { formatarDataHora } from "@/lib/data";
 import { formatarMoeda } from "@/lib/valores";
 import { LABEL_TURNO } from "@/lib/equipe";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
+import BotaoVoltar from "@/components/BotaoVoltar";
 
 const LABEL_STATUS: Record<string, string> = {
   ABERTO: "Aberto",
@@ -50,9 +50,7 @@ export default async function TurnoDetalhePage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <Link href="/turnos" className="text-sm text-brand-700 hover:underline">
-          ← Voltar pros turnos
-        </Link>
+        <BotaoVoltar />
         <h1 className="text-2xl font-semibold text-navy-900 mt-2 flex items-center gap-2">
           {turno.motoboy.nomeCompleto}
           <EquipamentoBadge tipo={turno.motoboy.tipoEquipamento} />

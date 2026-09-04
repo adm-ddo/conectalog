@@ -10,6 +10,7 @@ import LinkPortalSection from "./LinkPortalSection";
 import AvaliacoesRecebidasSection from "./AvaliacoesRecebidasSection";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
+import BotaoVoltar from "@/components/BotaoVoltar";
 
 export default async function ClienteDetalhePage({
   params,
@@ -62,7 +63,8 @@ export default async function ClienteDetalhePage({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-2xl font-semibold text-navy-900">{cliente.nome}</h1>
+        <BotaoVoltar />
+        <h1 className="text-2xl font-semibold text-navy-900 mt-1">{cliente.nome}</h1>
         <p className="text-stone-600 mt-1 text-sm">{cliente.endereco || "Sem endereço"}</p>
       </div>
 

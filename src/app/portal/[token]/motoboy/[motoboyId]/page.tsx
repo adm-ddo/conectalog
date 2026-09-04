@@ -1,11 +1,11 @@
 import { notFound } from "next/navigation";
-import Link from "next/link";
 import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, inicioDoDiaBrasil } from "@/lib/data";
 import { baixarComoDataUrl } from "@/lib/blob";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import WhatsAppLink from "@/components/WhatsAppLink";
+import BotaoVoltar from "@/components/BotaoVoltar";
 
 /** Cadastro básico do motoboy (foto grande, telefone, telefone de
  * emergência) — só acessível pro cliente se esse motoboy apareceu de
@@ -56,9 +56,7 @@ export default async function PortalMotoboyPage({
 
   return (
     <div className="flex flex-col gap-6 w-full max-w-md mx-auto">
-      <Link href={`/portal/${token}`} className="text-xs text-stone-500 hover:underline self-start">
-        ← Voltar
-      </Link>
+      <BotaoVoltar />
 
       <div className="flex flex-col items-center gap-3">
         {fotoDataUrl ? (
