@@ -26,22 +26,32 @@ export default function EmpresaRow({
   function salvarNome() {
     setErro(null);
     startTransition(async () => {
-      const resultado = await renomearEmpresa(empresaId, novoNome);
-      if (resultado?.erro) {
-        setErro(resultado.erro);
-        return;
+      try {
+        const resultado = await renomearEmpresa(empresaId, novoNome);
+        if (resultado?.erro) {
+          setErro(resultado.erro);
+          return;
+        }
+        setEditando(false);
+      } catch {
+        setErro("Não deu pra renomear agora — tenta de novo.");
       }
-      setEditando(false);
     });
   }
 
   function excluir() {
     setErro(null);
     startTransition(async () => {
-      const resultado = await excluirEmpresa(empresaId);
-      if (resultado?.erro) setErro(resultado.erro);
+      try {
+        const resultado = await excluirEmpresa(empresaId);
+        if (resultado?.erro) setErro(resultado.erro);
+      } catch {
+        setErro("Não deu pra excluir agora — tenta de novo.");
+      }
     });
   }
+
+  const nomeBate = nomeDigitado.trim().toLowerCase() === nome.trim().toLowerCase();
 
   return (
     <li className="flex flex-col gap-2 rounded-xl border border-stone-200 bg-white px-4 py-3">
@@ -119,8 +129,7 @@ export default function EmpresaRow({
           <div className="flex flex-col gap-2 rounded-lg border border-red-200 bg-red-50 p-3">
             <p className="text-xs text-red-700">
               Isso apaga <strong>{nome}</strong> e tudo dela pra sempre — clientes, motoboys,
-              turnos, pagamentos, escalas. Não tem como desfazer. Digite o nome exato pra
-              confirmar.
+              turnos, pagamentos, escalas. Não tem como desfazer. Digite o nome pra confirmar.
             </p>
             <input
               autoFocus
@@ -129,10 +138,13 @@ export default function EmpresaRow({
               placeholder={nome}
               className="text-sm border border-red-300 rounded-lg px-2 py-1.5"
             />
+            {nomeDigitado.length > 0 && !nomeBate && (
+              <p className="text-xs text-red-500">Ainda não bate com &quot;{nome}&quot;.</p>
+            )}
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                disabled={pending || nomeDigitado !== nome}
+                disabled={pending || !nomeBate}
                 onClick={excluir}
                 className="rounded-lg bg-red-600 hover:bg-red-700 text-white text-xs font-semibold px-3 py-2 disabled:opacity-40 transition-colors"
               >

@@ -32,7 +32,16 @@ export type ExcluirEmpresaResult = { erro?: string } | undefined;
  * partir de Empresa. Não tem como desfazer, por isso a confirmação com o
  * nome digitado fica no componente antes de sequer chamar essa action. */
 export async function excluirEmpresa(empresaId: number): Promise<ExcluirEmpresaResult> {
-  await requireSuperAdmin();
+  const sessao = await requireSuperAdmin();
+  // A cooperativa "dona" do próprio login master nunca pode ser
+  // excluída por aqui: Usuario.empresa é onDelete: Cascade, então isso
+  // apagaria a própria conta (e a sessão atual) em cascata, trancando o
+  // superAdmin pra fora do /master pra sempre, sem forma de entrar de
+  // novo.
+  if (empresaId === sessao.empresaHomeId) {
+    return { erro: "Essa é a cooperativa do seu próprio login master — não dá pra excluir ela." };
+  }
+
   await prisma.empresa.delete({ where: { id: empresaId } });
   revalidatePath("/master");
   return;
