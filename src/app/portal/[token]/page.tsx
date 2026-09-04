@@ -144,39 +144,48 @@ function SecaoTurno({
   fotosPorMotoboy: Map<string, string>;
 }) {
   const presentes = itens.filter((e) => e.turnoVinculado).length;
+  const moto = (n: number) => `moto${n === 1 ? "" : "s"}`;
 
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-4">
-      {itens.length === 0 ? (
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-bold text-navy-900">{titulo}</h2>
-          {contratadas > 0 && (
-            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-              0 de {contratadas} motos
-            </span>
-          )}
-        </div>
-      ) : (
-        <div className="flex items-start justify-between gap-3">
-          <p className="text-base sm:text-lg text-navy-900 leading-snug">
-            Hoje no turno da <strong>{titulo}</strong> temos <strong>{itens.length}</strong> moto
-            {itens.length === 1 ? "" : "s"} escalada{itens.length === 1 ? "" : "s"} e{" "}
-            <strong>{presentes}</strong> já {presentes === 1 ? "está" : "estão"} disponíve
-            {presentes === 1 ? "l" : "is"}.
-          </p>
-          {contratadas > 0 && (
-            <span
-              className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-                itens.length === contratadas
-                  ? "bg-brand-100 text-brand-800"
-                  : "bg-amber-100 text-amber-800"
-              }`}
-            >
-              {itens.length} de {contratadas}
-            </span>
-          )}
-        </div>
-      )}
+    <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-lg font-bold text-navy-900">{titulo}</h2>
+        {contratadas > 0 && (
+          <span
+            className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+              itens.length >= contratadas
+                ? "bg-brand-100 text-brand-800"
+                : "bg-amber-100 text-amber-800"
+            }`}
+          >
+            {itens.length} de {contratadas}
+          </span>
+        )}
+      </div>
+      <p className="text-base sm:text-lg text-navy-900 leading-snug">
+        {contratadas > 0 ? (
+          <>
+            Hoje a previsão é de <strong>{contratadas}</strong> {moto(contratadas)}, sendo que temos{" "}
+            <strong>{itens.length}</strong> escalada{itens.length === 1 ? "" : "s"}
+            {itens.length > 0 && (
+              <>
+                {" "}
+                e <strong>{presentes}</strong> já {presentes === 1 ? "está" : "estão"} disponíve
+                {presentes === 1 ? "l" : "is"}
+              </>
+            )}
+            .
+          </>
+        ) : itens.length > 0 ? (
+          <>
+            Hoje temos <strong>{itens.length}</strong> {moto(itens.length)} escalada
+            {itens.length === 1 ? "" : "s"}, e <strong>{presentes}</strong> já{" "}
+            {presentes === 1 ? "está" : "estão"} disponíve{presentes === 1 ? "l" : "is"}.
+          </>
+        ) : (
+          <>Nenhuma moto configurada nem escalada pra hoje.</>
+        )}
+      </p>
       {itens.length === 0 ? (
         <p className="text-sm text-stone-500">Ninguém escalado pra esse turno hoje.</p>
       ) : (
