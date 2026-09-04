@@ -103,15 +103,31 @@ export default function CameraCapture({
     );
   }
 
+  // O guia oval só faz sentido pra selfie (câmera frontal) — pra foto de
+  // documento/local (câmera traseira) não tem rosto pra centralizar.
+  const ehSelfie = camera === "user";
+
   return (
     <div className="flex flex-col items-center gap-4">
-      <video
-        ref={videoRef}
-        autoPlay
-        playsInline
-        muted
-        className="w-full max-w-lg rounded-xl border border-stone-300 bg-stone-900 aspect-video object-cover"
-      />
+      <div className="relative w-full max-w-lg">
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          muted
+          className={`w-full rounded-xl border border-stone-300 bg-stone-900 object-cover ${
+            ehSelfie ? "aspect-[3/4]" : "aspect-video"
+          }`}
+        />
+        {ehSelfie && pronto && !enviando && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none overflow-hidden rounded-xl">
+            <div className="w-[58%] aspect-[3/4] rounded-[50%] border-2 border-white/80 shadow-[0_0_0_999px_rgba(0,0,0,0.55)]" />
+            <p className="absolute bottom-4 inset-x-4 text-center text-sm font-medium text-white drop-shadow">
+              Centralize seu rosto no oval
+            </p>
+          </div>
+        )}
+      </div>
       {!pronto ? (
         <p className="text-lg text-stone-500">Preparando câmera...</p>
       ) : enviando ? (
