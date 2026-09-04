@@ -93,6 +93,15 @@ function parseTurnosFixos(formData: FormData): TurnoFixoInput[] {
   return itens;
 }
 
+/** Perfil de valor fixo sem nenhum dia marcado nunca bate em
+ * encontrarPerfilFixo (ver src/lib/precificacao.ts) — fica salvo mas não
+ * faz nada, o que é mais confuso do que simplesmente avisar na hora. */
+function validarTurnosFixos(turnosFixos: TurnoFixoInput[]): string | null {
+  const semDias = turnosFixos.find((t) => t.diasSemana.length === 0);
+  if (semDias) return `Selecione pelo menos um dia da semana pro perfil "${semDias.nome}".`;
+  return null;
+}
+
 /** Monta os campos de preço/horário comuns a criar e atualizar. */
 function dadosComuns(formData: FormData) {
   return {
@@ -126,6 +135,10 @@ export async function criarCliente(
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) return { erro: "Informe o nome do cliente." };
 
+  const turnosFixos = parseTurnosFixos(formData);
+  const erroTurnosFixos = validarTurnosFixos(turnosFixos);
+  if (erroTurnosFixos) return { erro: erroTurnosFixos };
+
   // Já nasce com o link do portal pronto — mesmo espírito do Totem do
   // extras-app: a cooperativa recebe o link já na hora de cadastrar,
   // sem precisar de um passo separado depois.
@@ -136,7 +149,7 @@ export async function criarCliente(
       tokenPortal: randomBytes(16).toString("hex"),
       ...dadosComuns(formData),
       taxasExtras: { create: parseTaxasExtras(formData) },
-      turnosFixos: { create: parseTurnosFixos(formData) },
+      turnosFixos: { create: turnosFixos },
     },
   });
 
@@ -160,6 +173,8 @@ export async function atualizarCliente(
 
   const taxasExtras = parseTaxasExtras(formData);
   const turnosFixos = parseTurnosFixos(formData);
+  const erroTurnosFixos = validarTurnosFixos(turnosFixos);
+  if (erroTurnosFixos) return { erro: erroTurnosFixos };
 
   // Recriar as listas do zero é mais simples que casar item a item (a
   // cooperativa pode reordenar, remover do meio, editar texto e valor ao

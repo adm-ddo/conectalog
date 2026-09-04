@@ -251,7 +251,7 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
                 nome: "",
                 horaInicio: "",
                 horaFim: "",
-                diasSemana: [0, 1, 2, 3, 4, 5, 6],
+                diasSemana: [],
                 valorGarantidoMotoboy: 0,
                 valorGarantidoCliente: 0,
                 bandasIncluidas: 0,
