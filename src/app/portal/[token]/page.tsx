@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
-import { dataISOBrasil, diaSemanaBrasil } from "@/lib/data";
+import { dataISOBrasil, diaSemanaBrasil, formatarHora } from "@/lib/data";
 import { resumoDiaCliente } from "@/lib/resumoDia";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
@@ -114,16 +114,23 @@ function SecaoTurno({
               key={e.id}
               className="flex items-center justify-between gap-3 rounded-xl border border-stone-100 px-3 py-2"
             >
-              <div className="flex items-center gap-2 min-w-0">
-                <span
-                  className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                    e.turnoVinculado ? "bg-brand-500" : "bg-stone-300"
-                  }`}
-                />
-                <span className="text-sm font-medium text-navy-900 truncate">
-                  {e.motoboy.nomeCompleto}
-                </span>
-                <EquipamentoBadge tipo={e.motoboy.tipoEquipamento} />
+              <div className="flex flex-col min-w-0">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span
+                    className={`h-2.5 w-2.5 rounded-full shrink-0 ${
+                      e.turnoVinculado ? "bg-brand-500" : "bg-stone-300"
+                    }`}
+                  />
+                  <span className="text-sm font-medium text-navy-900 truncate">
+                    {e.motoboy.nomeCompleto}
+                  </span>
+                  <EquipamentoBadge tipo={e.motoboy.tipoEquipamento} />
+                </div>
+                {e.turnoVinculado && (
+                  <span className="text-xs text-stone-500 pl-[18px]">
+                    Chegou às {formatarHora(e.turnoVinculado.horaInicio)}
+                  </span>
+                )}
               </div>
               {e.turnoVinculado?.avaliacao ? (
                 <span className="text-xs text-stone-500 shrink-0">

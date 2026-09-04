@@ -94,24 +94,27 @@ export default function PainelHeader({
             })}
           </nav>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <span className="hidden sm:block text-sm text-navy-200 truncate max-w-[160px]">
             {empresaNome}
           </span>
           <span className="hidden sm:block text-navy-500">·</span>
-          <span className="text-sm text-navy-200 truncate max-w-[120px]">{usuarioNome}</span>
+          <span className="text-sm text-navy-200 truncate max-w-[70px] sm:max-w-[120px]">
+            {usuarioNome}
+          </span>
           {temContaMotoboy && (
             <Link
               href="/app/inicio"
-              className="text-sm text-navy-200 hover:text-white underline underline-offset-2 shrink-0"
+              className="text-sm text-navy-200 hover:text-white underline underline-offset-2 shrink-0 whitespace-nowrap"
             >
-              App Motoboy
+              <span className="sm:hidden">App</span>
+              <span className="hidden sm:inline">App Motoboy</span>
             </Link>
           )}
-          <form action={sair}>
+          <form action={sair} className="shrink-0">
             <button
               type="submit"
-              className="text-sm text-navy-200 hover:text-white underline underline-offset-2"
+              className="text-sm text-navy-200 hover:text-white underline underline-offset-2 whitespace-nowrap"
             >
               Sair
             </button>

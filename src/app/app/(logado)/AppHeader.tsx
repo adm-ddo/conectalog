@@ -41,17 +41,20 @@ export default function AppHeader({
             <span className="text-xs text-stone-500 truncate">Olá, {nome.split(" ")[0]}</span>
           </div>
         </div>
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 shrink-0">
           {temContaPainel && (
             <Link
               href="/dashboard"
-              className="text-xs text-brand-700 underline underline-offset-2"
+              className="text-xs text-brand-700 underline underline-offset-2 whitespace-nowrap"
             >
-              Painel da cooperativa
+              Painel
             </Link>
           )}
           <form action={sairMotoboy}>
-            <button type="submit" className="text-xs text-stone-500 underline underline-offset-2">
+            <button
+              type="submit"
+              className="text-xs text-stone-500 underline underline-offset-2 whitespace-nowrap"
+            >
               Sair
             </button>
           </form>

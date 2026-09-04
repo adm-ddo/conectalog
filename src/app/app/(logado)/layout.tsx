@@ -9,19 +9,25 @@ import AguardandoAprovacaoScreen from "./AguardandoAprovacaoScreen";
 function CabecalhoMinimo({ nome, temContaPainel }: { nome: string; temContaPainel: boolean }) {
   return (
     <header className="bg-white border-b border-stone-200">
-      <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
-        <span className="font-black text-navy-900 tracking-tight">
+      <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between gap-2">
+        <span className="font-black text-navy-900 tracking-tight shrink-0">
           Conecta<span className="text-brand-600">Log</span>
         </span>
-        <div className="flex items-center gap-3">
-          <span className="text-xs text-stone-500">Olá, {nome.split(" ")[0]}</span>
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="text-xs text-stone-500 truncate">Olá, {nome.split(" ")[0]}</span>
           {temContaPainel && (
-            <Link href="/dashboard" className="text-xs text-brand-700 underline underline-offset-2">
-              Painel da cooperativa
+            <Link
+              href="/dashboard"
+              className="text-xs text-brand-700 underline underline-offset-2 whitespace-nowrap shrink-0"
+            >
+              Painel
             </Link>
           )}
-          <form action={sairMotoboy}>
-            <button type="submit" className="text-xs text-stone-500 underline underline-offset-2">
+          <form action={sairMotoboy} className="shrink-0">
+            <button
+              type="submit"
+              className="text-xs text-stone-500 underline underline-offset-2 whitespace-nowrap"
+            >
               Sair
             </button>
           </form>
