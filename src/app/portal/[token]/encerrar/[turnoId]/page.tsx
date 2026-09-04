@@ -27,7 +27,7 @@ export default async function EncerrarPeloClientePage({
   if (!turno) notFound();
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 w-full max-w-md mx-auto">
       <div>
         <Link href={`/portal/${token}`} className="text-xs text-stone-500 hover:underline">
           ← Voltar

@@ -42,7 +42,7 @@ export default async function PortalMotoboyPage({
     : null;
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-6 w-full max-w-md mx-auto">
       <Link href={`/portal/${token}`} className="text-xs text-stone-500 hover:underline self-start">
         ← Voltar
       </Link>

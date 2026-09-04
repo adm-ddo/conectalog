@@ -88,33 +88,38 @@ export default async function PortalEscalaPage({
 
       <ResumoDiaClienteCard {...resumoDia} />
 
-      {cliente.turnoManhaAtivo && (
-        <SecaoTurno
-          token={token}
-          titulo="Manhã"
-          itens={manha}
-          contratadas={contratadasManha}
-          fotosPorMotoboy={fotosPorMotoboy}
-        />
-      )}
-      {cliente.turnoTardeAtivo && (
-        <SecaoTurno
-          token={token}
-          titulo="Tarde"
-          itens={tarde}
-          contratadas={contratadasTarde}
-          fotosPorMotoboy={fotosPorMotoboy}
-        />
-      )}
-      {cliente.turnoNoiteAtivo && (
-        <SecaoTurno
-          token={token}
-          titulo="Noite"
-          itens={noite}
-          contratadas={contratadasNoite}
-          fotosPorMotoboy={fotosPorMotoboy}
-        />
-      )}
+      {/* No celular empilha (uma coluna cabe bem numa tela alta e estreita);
+          no computador usa a largura à toa e mostra os turnos lado a lado,
+          pra não ficar uma página comprida com rolagem à toa. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+        {cliente.turnoManhaAtivo && (
+          <SecaoTurno
+            token={token}
+            titulo="Manhã"
+            itens={manha}
+            contratadas={contratadasManha}
+            fotosPorMotoboy={fotosPorMotoboy}
+          />
+        )}
+        {cliente.turnoTardeAtivo && (
+          <SecaoTurno
+            token={token}
+            titulo="Tarde"
+            itens={tarde}
+            contratadas={contratadasTarde}
+            fotosPorMotoboy={fotosPorMotoboy}
+          />
+        )}
+        {cliente.turnoNoiteAtivo && (
+          <SecaoTurno
+            token={token}
+            titulo="Noite"
+            itens={noite}
+            contratadas={contratadasNoite}
+            fotosPorMotoboy={fotosPorMotoboy}
+          />
+        )}
+      </div>
     </div>
   );
 }
