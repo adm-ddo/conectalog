@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
 import SolicitarApoioForm from "./SolicitarApoioForm";
@@ -28,7 +29,12 @@ export default async function ApoioPortalPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <h1 className="text-lg font-semibold text-navy-900">Pedir apoio</h1>
+      <div>
+        <Link href={`/portal/${token}`} className="text-xs text-stone-500 hover:underline">
+          ← Voltar
+        </Link>
+        <h1 className="text-lg font-semibold text-navy-900 mt-1">Pedir apoio</h1>
+      </div>
 
       {temPendente ? (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-sm text-amber-800">

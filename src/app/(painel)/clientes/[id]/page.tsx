@@ -4,10 +4,12 @@ import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
 import { turnoAtivoAgora, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
 import { formatarHora, formatarData } from "@/lib/data";
+import { resumoDiaCliente } from "@/lib/resumoDia";
 import EditarClienteForm from "./EditarClienteForm";
 import LinkPortalSection from "./LinkPortalSection";
 import AvaliacoesRecebidasSection from "./AvaliacoesRecebidasSection";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
+import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
 
 export default async function ClienteDetalhePage({
   params,
@@ -17,7 +19,7 @@ export default async function ClienteDetalhePage({
   const sessao = await requireTenantCompleto();
   const clienteId = Number((await params).id);
 
-  const [cliente, mediaAvaliacoes, avaliacoesRecebidas] = await Promise.all([
+  const [cliente, mediaAvaliacoes, avaliacoesRecebidas, resumoDia] = await Promise.all([
     prisma.cliente.findFirst({
       where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
       include: {
@@ -49,6 +51,7 @@ export default async function ClienteDetalhePage({
       take: 20,
       include: { motoboy: { select: { nomeCompleto: true } } },
     }),
+    resumoDiaCliente(clienteId),
   ]);
   if (!cliente) notFound();
 
@@ -69,6 +72,8 @@ export default async function ClienteDetalhePage({
           de {contratadas} contratadas presentes agora.
         </div>
       )}
+
+      <ResumoDiaClienteCard {...resumoDia} />
 
       <EditarClienteForm
         clienteId={cliente.id}

@@ -3,7 +3,9 @@ import Link from "next/link";
 import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, diaSemanaBrasil } from "@/lib/data";
+import { resumoDiaCliente } from "@/lib/resumoDia";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
+import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
 
 export default async function PortalEscalaPage({
@@ -15,14 +17,17 @@ export default async function PortalEscalaPage({
   const cliente = await resolverClientePortal(token);
   if (!cliente) notFound();
 
-  const escalas = await prisma.escalaTurno.findMany({
-    where: { clienteId: cliente.id, data: new Date(dataISOBrasil()) },
-    include: {
-      motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
-      turnoVinculado: { select: { id: true, horaInicio: true, avaliacao: { select: { nota: true } } } },
-    },
-    orderBy: [{ turno: "asc" }, { criadoEm: "asc" }],
-  });
+  const [escalas, resumoDia] = await Promise.all([
+    prisma.escalaTurno.findMany({
+      where: { clienteId: cliente.id, data: new Date(dataISOBrasil()) },
+      include: {
+        motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
+        turnoVinculado: { select: { id: true, horaInicio: true, avaliacao: { select: { nota: true } } } },
+      },
+      orderBy: [{ turno: "asc" }, { criadoEm: "asc" }],
+    }),
+    resumoDiaCliente(cliente.id),
+  ]);
 
   const manha = escalas.filter((e) => e.turno === "MANHA");
   const tarde = escalas.filter((e) => e.turno === "TARDE");
@@ -53,6 +58,8 @@ export default async function PortalEscalaPage({
           🆘 Pedir apoio
         </Link>
       </div>
+
+      <ResumoDiaClienteCard {...resumoDia} />
 
       {cliente.turnoManhaAtivo && (
         <SecaoTurno token={token} titulo="Manhã" itens={manha} contratadas={contratadasManha} />
