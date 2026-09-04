@@ -130,6 +130,7 @@ function SecaoTurno({
   titulo: string;
   itens: {
     id: number;
+    motoboyId: number;
     motoboy: {
       nomeCompleto: string;
       tipoEquipamento: TipoEquipamento | null;
@@ -141,69 +142,89 @@ function SecaoTurno({
   contratadas: number;
   fotosPorMotoboy: Map<string, string>;
 }) {
+  const presentes = itens.filter((e) => e.turnoVinculado).length;
+
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-3">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-navy-900">{titulo}</h2>
-        {contratadas > 0 && (
-          <span
-            className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-              itens.length === contratadas
-                ? "bg-brand-100 text-brand-800"
-                : "bg-amber-100 text-amber-800"
-            }`}
-          >
-            {itens.length} de {contratadas} motos
-          </span>
-        )}
-      </div>
+    <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-4">
+      {itens.length === 0 ? (
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-lg font-bold text-navy-900">{titulo}</h2>
+          {contratadas > 0 && (
+            <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
+              0 de {contratadas} motos
+            </span>
+          )}
+        </div>
+      ) : (
+        <div className="flex items-start justify-between gap-3">
+          <p className="text-base sm:text-lg text-navy-900 leading-snug">
+            Hoje no turno da <strong>{titulo}</strong> temos <strong>{itens.length}</strong> moto
+            {itens.length === 1 ? "" : "s"} escalada{itens.length === 1 ? "" : "s"} e{" "}
+            <strong>{presentes}</strong> já {presentes === 1 ? "está" : "estão"} disponíve
+            {presentes === 1 ? "l" : "is"}.
+          </p>
+          {contratadas > 0 && (
+            <span
+              className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${
+                itens.length === contratadas
+                  ? "bg-brand-100 text-brand-800"
+                  : "bg-amber-100 text-amber-800"
+              }`}
+            >
+              {itens.length} de {contratadas}
+            </span>
+          )}
+        </div>
+      )}
       {itens.length === 0 ? (
         <p className="text-sm text-stone-500">Ninguém escalado pra esse turno hoje.</p>
       ) : (
-        <ul className="flex flex-col gap-2">
+        <ul className="flex flex-col gap-3">
           {itens.map((e) => (
             <li
               key={e.id}
-              className="flex items-center justify-between gap-3 rounded-xl border border-stone-100 px-3 py-2"
+              className="flex items-start justify-between gap-3 rounded-xl border border-stone-100 px-3 py-3"
             >
-              <div className="flex items-center gap-3 min-w-0">
+              <div className="flex items-start gap-3 min-w-0">
                 <FotoMotoboy
+                  token={token}
+                  motoboyId={e.motoboyId}
                   nome={e.motoboy.nomeCompleto}
                   dataUrl={e.motoboy.fotoPerfilUrl ? fotosPorMotoboy.get(e.motoboy.fotoPerfilUrl) : undefined}
                 />
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-center gap-2 min-w-0">
+                <div className="flex flex-col min-w-0 gap-0.5">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <span
                       className={`h-2 w-2 rounded-full shrink-0 ${
                         e.turnoVinculado ? "bg-brand-500" : "bg-stone-300"
                       }`}
                     />
-                    <span className="text-sm font-medium text-navy-900 truncate">
+                    <span className="text-base font-semibold text-navy-900">
                       {e.motoboy.nomeCompleto}
                     </span>
                     <EquipamentoBadge tipo={e.motoboy.tipoEquipamento} />
                   </div>
-                  <span className="text-xs text-stone-500">{e.motoboy.telefoneCelular}</span>
+                  <span className="text-sm text-stone-500">{e.motoboy.telefoneCelular}</span>
                   {e.turnoVinculado && (
-                    <span className="text-xs text-stone-500">
+                    <span className="text-sm text-stone-500">
                       Chegou às {formatarHora(e.turnoVinculado.horaInicio)}
                     </span>
                   )}
                 </div>
               </div>
               {e.turnoVinculado?.avaliacao ? (
-                <span className="text-xs text-stone-500 shrink-0">
+                <span className="text-xs text-stone-500 shrink-0 pt-1">
                   {"★".repeat(e.turnoVinculado.avaliacao.nota)} avaliado
                 </span>
               ) : e.turnoVinculado ? (
                 <Link
                   href={`/portal/${token}/encerrar/${e.turnoVinculado.id}`}
-                  className="text-xs font-semibold text-brand-700 hover:underline shrink-0"
+                  className="text-xs font-semibold text-brand-700 hover:underline shrink-0 pt-1"
                 >
                   Encerrar e avaliar
                 </Link>
               ) : (
-                <span className="text-xs text-stone-500 shrink-0">Aguardando</span>
+                <span className="text-xs text-stone-500 shrink-0 pt-1">Aguardando</span>
               )}
             </li>
           ))}
@@ -214,25 +235,34 @@ function SecaoTurno({
 }
 
 /** Foto do motoboy, pro cliente conferir que é mesmo quem foi escalado
- * quando ele chegar. Clicável pra abrir em tamanho maior; sem foto,
- * cai num círculo com a inicial do nome (mesmo padrão do resto do
- * app quando não tem foto). */
-function FotoMotoboy({ nome, dataUrl }: { nome: string; dataUrl: string | undefined }) {
-  if (!dataUrl) {
-    return (
-      <span className="h-10 w-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-sm shrink-0">
-        {nome.slice(0, 1).toUpperCase()}
-      </span>
-    );
-  }
+ * quando ele chegar. Clicável pra abrir o cadastro básico dele (telefone,
+ * telefone de emergência); sem foto, cai num círculo com a inicial do
+ * nome (mesmo padrão do resto do app quando não tem foto). */
+function FotoMotoboy({
+  token,
+  motoboyId,
+  nome,
+  dataUrl,
+}: {
+  token: string;
+  motoboyId: number;
+  nome: string;
+  dataUrl: string | undefined;
+}) {
   return (
-    <a href={dataUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
-      {/* eslint-disable-next-line @next/next/no-img-element -- data URL baixada do Blob privado, next/image não se aplica aqui */}
-      <img
-        src={dataUrl}
-        alt={`Foto de ${nome}`}
-        className="h-10 w-10 rounded-full object-cover border border-stone-200"
-      />
-    </a>
+    <Link href={`/portal/${token}/motoboy/${motoboyId}`} className="shrink-0">
+      {dataUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element -- data URL baixada do Blob privado, next/image não se aplica aqui
+        <img
+          src={dataUrl}
+          alt={`Foto de ${nome}`}
+          className="h-12 w-12 rounded-full object-cover border border-stone-200"
+        />
+      ) : (
+        <span className="h-12 w-12 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-base">
+          {nome.slice(0, 1).toUpperCase()}
+        </span>
+      )}
+    </Link>
   );
 }
