@@ -2,13 +2,28 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
-import { dataISOBrasil, diaSemanaBrasil, formatarHora } from "@/lib/data";
+import { dataISOBrasil, diaSemanaBrasil, inicioDoDiaBrasil, formatarHora } from "@/lib/data";
 import { resumoDiaCliente } from "@/lib/resumoDia";
 import { baixarComoDataUrl } from "@/lib/blob";
+import { turnoAtivoAgora, type TurnoAtual } from "@/lib/equipe";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
 import WhatsAppLink from "@/components/WhatsAppLink";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
+
+type ItemPresenca = {
+  chave: string;
+  motoboyId: number;
+  motoboy: {
+    nomeCompleto: string;
+    tipoEquipamento: TipoEquipamento | null;
+    telefoneCelular: string;
+    fotoPerfilUrl: string | null;
+  };
+  turnoVinculado: { id: number; horaInicio: Date; avaliacao: { nota: number } | null } | null;
+  escalado: boolean;
+  balde: TurnoAtual;
+};
 
 export default async function PortalEscalaPage({
   params,
@@ -19,47 +34,99 @@ export default async function PortalEscalaPage({
   const cliente = await resolverClientePortal(token);
   if (!cliente) notFound();
 
-  const [escalas, resumoDia] = await Promise.all([
+  const selecaoMotoboy = {
+    nomeCompleto: true,
+    tipoEquipamento: true,
+    telefoneCelular: true,
+    fotoPerfilUrl: true,
+  } as const;
+
+  const [escalas, turnosHoje, resumoDia] = await Promise.all([
     prisma.escalaTurno.findMany({
       where: { clienteId: cliente.id, data: new Date(dataISOBrasil()) },
       include: {
-        motoboy: {
-          select: {
-            nomeCompleto: true,
-            tipoEquipamento: true,
-            telefoneCelular: true,
-            fotoPerfilUrl: true,
-          },
-        },
+        motoboy: { select: selecaoMotoboy },
         turnoVinculado: { select: { id: true, horaInicio: true, avaliacao: { select: { nota: true } } } },
       },
       orderBy: [{ turno: "asc" }, { criadoEm: "asc" }],
     }),
+    // Turno de verdade pode existir sem nunca ter sido escalado — motoboy
+    // "livre"/liberado pode bater o turno direto, sem passar pela escala
+    // (ver comentário em turno/iniciar/actions.ts). Sem isso, quem chega
+    // assim simplesmente não aparecia em lugar nenhum aqui no portal,
+    // mesmo já estando fisicamente no cliente.
+    prisma.turno.findMany({
+      where: { clienteId: cliente.id, horaInicio: { gte: inicioDoDiaBrasil() } },
+      select: {
+        id: true,
+        motoboyId: true,
+        horaInicio: true,
+        turnoPredefinido: true,
+        motoboy: { select: selecaoMotoboy },
+        avaliacao: { select: { nota: true } },
+      },
+    }),
     resumoDiaCliente(cliente.id),
   ]);
 
+  const itensEscalados = escalas.map((e) => ({
+    chave: `escala-${e.id}`,
+    motoboyId: e.motoboyId,
+    motoboy: e.motoboy,
+    turnoVinculado: e.turnoVinculado,
+    escalado: true,
+    // Escala sempre vem com um turno de verdade (nunca "LIVRE").
+    balde: e.turno as TurnoAtual,
+  }));
+
+  const idsTurnoJaEscalado = new Set(
+    escalas.map((e) => e.turnoVinculado?.id).filter((id): id is number => id != null)
+  );
+  const itensSemEscala = turnosHoje
+    .filter((t) => !idsTurnoJaEscalado.has(t.id))
+    .map((t) => ({
+      chave: `turno-${t.id}`,
+      motoboyId: t.motoboyId,
+      motoboy: t.motoboy,
+      turnoVinculado: { id: t.id, horaInicio: t.horaInicio, avaliacao: t.avaliacao },
+      escalado: false,
+      // Quem chegou sem escala pode ter escolhido "Livre" no app — nesse
+      // caso, descobre o balde pelo horário de chegada dele batendo com
+      // a janela configurada desse cliente (mesma lógica de "que turno
+      // está rolando agora", só que aplicada à hora que ELE chegou, não
+      // a agora).
+      balde:
+        t.turnoPredefinido !== "LIVRE"
+          ? (t.turnoPredefinido as TurnoAtual)
+          : turnoAtivoAgora(cliente, t.horaInicio),
+    }));
+
+  const todosItens: ItemPresenca[] = [...itensEscalados, ...itensSemEscala];
+  const manha = todosItens.filter((i) => i.balde === "MANHA");
+  const tarde = todosItens.filter((i) => i.balde === "TARDE");
+  const noite = todosItens.filter((i) => i.balde === "NOITE");
+  const semEscalaForaDeHorario = todosItens.filter((i) => i.balde === null && !i.escalado);
+
   // Foto de perfil fica privada no Blob — baixa aqui no servidor (já
-  // sabendo que esse motoboy está escalado pra esse cliente hoje) e
-  // embute como data URL, igual já acontece no painel da cooperativa.
-  // Serve pro cliente conferir na hora que é mesmo quem foi escalado.
+  // sabendo que esse motoboy apareceu de algum jeito pra esse cliente
+  // hoje) e embute como data URL, igual já acontece no painel da
+  // cooperativa. Serve pro cliente conferir na hora que é mesmo quem foi
+  // escalado (ou reconhecer quem chegou sem estar na escala).
   const fotosPorMotoboy = new Map<string, string>();
   await Promise.all(
-    escalas
-      .filter((e) => e.motoboy.fotoPerfilUrl)
-      .map(async (e) => {
-        if (fotosPorMotoboy.has(e.motoboy.fotoPerfilUrl!)) return;
+    todosItens
+      .filter((i) => i.motoboy.fotoPerfilUrl)
+      .map(async (i) => {
+        if (fotosPorMotoboy.has(i.motoboy.fotoPerfilUrl!)) return;
         try {
-          const dataUrl = await baixarComoDataUrl(e.motoboy.fotoPerfilUrl!);
-          fotosPorMotoboy.set(e.motoboy.fotoPerfilUrl!, dataUrl);
+          const dataUrl = await baixarComoDataUrl(i.motoboy.fotoPerfilUrl!);
+          fotosPorMotoboy.set(i.motoboy.fotoPerfilUrl!, dataUrl);
         } catch {
           // Sem foto pra mostrar — cai pro círculo com a inicial do nome.
         }
       })
   );
 
-  const manha = escalas.filter((e) => e.turno === "MANHA");
-  const tarde = escalas.filter((e) => e.turno === "TARDE");
-  const noite = escalas.filter((e) => e.turno === "NOITE");
   const diaSemana = diaSemanaBrasil();
   const contratadasManha = cliente.motosFixasManha[diaSemana];
   const contratadasTarde = cliente.motosFixasTarde[diaSemana];
@@ -120,6 +187,16 @@ export default async function PortalEscalaPage({
           fotosPorMotoboy={fotosPorMotoboy}
         />
       )}
+      {semEscalaForaDeHorario.length > 0 && (
+        <SecaoTurno
+          token={token}
+          titulo="Fora do horário"
+          itens={semEscalaForaDeHorario}
+          contratadas={0}
+          fotosPorMotoboy={fotosPorMotoboy}
+          textoPersonalizado="Chegaram sem estar escalados, fora dos turnos configurados."
+        />
+      )}
     </div>
   );
 }
@@ -130,24 +207,17 @@ function SecaoTurno({
   itens,
   contratadas,
   fotosPorMotoboy,
+  textoPersonalizado,
 }: {
   token: string;
   titulo: string;
-  itens: {
-    id: number;
-    motoboyId: number;
-    motoboy: {
-      nomeCompleto: string;
-      tipoEquipamento: TipoEquipamento | null;
-      telefoneCelular: string;
-      fotoPerfilUrl: string | null;
-    };
-    turnoVinculado: { id: number; horaInicio: Date; avaliacao: { nota: number } | null } | null;
-  }[];
+  itens: ItemPresenca[];
   contratadas: number;
   fotosPorMotoboy: Map<string, string>;
+  textoPersonalizado?: string;
 }) {
-  const presentes = itens.filter((e) => e.turnoVinculado).length;
+  const escaladas = itens.filter((i) => i.escalado).length;
+  const presentes = itens.filter((i) => i.turnoVinculado).length;
   const moto = (n: number) => `moto${n === 1 ? "" : "s"}`;
 
   return (
@@ -157,20 +227,20 @@ function SecaoTurno({
         {contratadas > 0 && (
           <span
             className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${
-              itens.length >= contratadas
-                ? "bg-brand-100 text-brand-800"
-                : "bg-amber-100 text-amber-800"
+              escaladas >= contratadas ? "bg-brand-100 text-brand-800" : "bg-amber-100 text-amber-800"
             }`}
           >
-            {itens.length} de {contratadas}
+            {escaladas} de {contratadas}
           </span>
         )}
       </div>
       <p className="text-sm sm:text-base text-navy-900 leading-snug">
-        {contratadas > 0 ? (
+        {textoPersonalizado ? (
+          textoPersonalizado
+        ) : contratadas > 0 ? (
           <>
             Hoje a previsão é de <strong>{contratadas}</strong> {moto(contratadas)}, sendo que temos{" "}
-            <strong>{itens.length}</strong> escalada{itens.length === 1 ? "" : "s"}
+            <strong>{escaladas}</strong> escalada{escaladas === 1 ? "" : "s"}
             {itens.length > 0 && (
               <>
                 {" "}
@@ -182,8 +252,8 @@ function SecaoTurno({
           </>
         ) : itens.length > 0 ? (
           <>
-            Hoje temos <strong>{itens.length}</strong> {moto(itens.length)} escalada
-            {itens.length === 1 ? "" : "s"}, e <strong>{presentes}</strong> já{" "}
+            Hoje temos <strong>{escaladas}</strong> {moto(escaladas)} escalada
+            {escaladas === 1 ? "" : "s"}, e <strong>{presentes}</strong> já{" "}
             {presentes === 1 ? "está" : "estão"} disponíve{presentes === 1 ? "l" : "is"}.
           </>
         ) : (
@@ -194,43 +264,48 @@ function SecaoTurno({
         <p className="text-sm text-stone-500">Ninguém escalado pra esse turno hoje.</p>
       ) : (
         <ul className="flex flex-col gap-1.5 overflow-x-auto">
-          {itens.map((e) => (
+          {itens.map((i) => (
             <li
-              key={e.id}
+              key={i.chave}
               className="flex items-center gap-2.5 rounded-xl border border-stone-100 px-2.5 py-1.5 w-max min-w-full"
             >
               <FotoMotoboy
                 token={token}
-                motoboyId={e.motoboyId}
-                nome={e.motoboy.nomeCompleto}
-                dataUrl={e.motoboy.fotoPerfilUrl ? fotosPorMotoboy.get(e.motoboy.fotoPerfilUrl) : undefined}
+                motoboyId={i.motoboyId}
+                nome={i.motoboy.nomeCompleto}
+                dataUrl={i.motoboy.fotoPerfilUrl ? fotosPorMotoboy.get(i.motoboy.fotoPerfilUrl) : undefined}
               />
               <span
                 className={`h-2 w-2 rounded-full shrink-0 ${
-                  e.turnoVinculado ? "bg-brand-500" : "bg-stone-300"
+                  i.turnoVinculado ? "bg-brand-500" : "bg-stone-300"
                 }`}
               />
               <span className="text-sm font-semibold text-navy-900 whitespace-nowrap">
-                {e.motoboy.nomeCompleto}
+                {i.motoboy.nomeCompleto}
               </span>
-              <EquipamentoBadge tipo={e.motoboy.tipoEquipamento} />
+              <EquipamentoBadge tipo={i.motoboy.tipoEquipamento} />
+              {!i.escalado && (
+                <span className="text-xs font-semibold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-800 whitespace-nowrap">
+                  Sem escala
+                </span>
+              )}
               <span className="text-sm text-stone-500 whitespace-nowrap flex items-center gap-1.5">
-                {e.motoboy.telefoneCelular}
-                <WhatsAppLink telefone={e.motoboy.telefoneCelular} />
+                {i.motoboy.telefoneCelular}
+                <WhatsAppLink telefone={i.motoboy.telefoneCelular} />
               </span>
-              {e.turnoVinculado && (
+              {i.turnoVinculado && (
                 <span className="text-sm text-stone-500 whitespace-nowrap">
-                  Chegou às {formatarHora(e.turnoVinculado.horaInicio)}
+                  Chegou às {formatarHora(i.turnoVinculado.horaInicio)}
                 </span>
               )}
               <span className="ml-auto shrink-0 pl-3">
-                {e.turnoVinculado?.avaliacao ? (
+                {i.turnoVinculado?.avaliacao ? (
                   <span className="text-xs text-stone-500 whitespace-nowrap">
-                    {"★".repeat(e.turnoVinculado.avaliacao.nota)} avaliado
+                    {"★".repeat(i.turnoVinculado.avaliacao.nota)} avaliado
                   </span>
-                ) : e.turnoVinculado ? (
+                ) : i.turnoVinculado ? (
                   <Link
-                    href={`/portal/${token}/encerrar/${e.turnoVinculado.id}`}
+                    href={`/portal/${token}/encerrar/${i.turnoVinculado.id}`}
                     className="text-xs font-semibold text-brand-700 hover:underline whitespace-nowrap"
                   >
                     Encerrar e avaliar
@@ -248,9 +323,10 @@ function SecaoTurno({
 }
 
 /** Foto do motoboy, pro cliente conferir que é mesmo quem foi escalado
- * quando ele chegar. Clicável pra abrir o cadastro básico dele (telefone,
- * telefone de emergência); sem foto, cai num círculo com a inicial do
- * nome (mesmo padrão do resto do app quando não tem foto). */
+ * (ou reconhecer quem chegou sem estar na escala) quando ele chegar.
+ * Clicável pra abrir o cadastro básico dele (telefone, telefone de
+ * emergência); sem foto, cai num círculo com a inicial do nome (mesmo
+ * padrão do resto do app quando não tem foto). */
 function FotoMotoboy({
   token,
   motoboyId,
