@@ -10,7 +10,9 @@ import {
 } from "@/lib/auth-motoboy";
 import { enviarEmailVerificacaoMotoboy } from "@/lib/email";
 
-export type LoginMotoboyState = { erro?: string; naoVerificado?: boolean } | undefined;
+export type LoginMotoboyState =
+  | { erro?: string; naoVerificado?: boolean; duploAcesso?: boolean }
+  | undefined;
 
 export async function entrarMotoboy(
   _prev: LoginMotoboyState,
@@ -41,6 +43,20 @@ export async function entrarMotoboy(
   // login sempre funciona a partir daqui; quem decide o que mostrar é o
   // layout de (logado), não o login em si (ver src/app/app/(logado)/layout.tsx).
   await criarSessaoMotoboy(motoboy.id);
+
+  // Mesmo e-mail também tem login de painel (senha independente) — deixa
+  // escolher pra onde ir. Não conta o login pareado de Gestor de campo
+  // (Usuario.motoboyVinculadoId), que já tem o link "Painel Gestor" fixo
+  // no cabeçalho do app — perguntar de novo aqui seria repetitivo. Filtra
+  // isso em JS, não no where do Prisma: motoboyVinculadoId é null pra
+  // quase todo mundo, e "not" no Postgres nunca bate com NULL (comparação
+  // com NULL nunca é verdadeira), então um filtro `not: motoboy.id` direto
+  // no banco deixaria de achar exatamente o caso mais comum.
+  const usuario = await prisma.usuario.findFirst({ where: { email } });
+  if (usuario && usuario.motoboyVinculadoId !== motoboy.id) {
+    return { duploAcesso: true };
+  }
+
   redirect("/app/inicio");
 }
 

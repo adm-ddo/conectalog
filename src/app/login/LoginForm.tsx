@@ -12,6 +12,30 @@ export default function LoginForm({ emailInicial }: { emailInicial?: string }) {
   );
   const [email, setEmail] = useState(emailInicial ?? "");
 
+  if (state?.duploAcesso) {
+    return (
+      <div className="flex flex-col gap-3 rounded-2xl border border-stone-200 bg-white p-6 shadow-sm w-full max-w-sm">
+        <h1 className="text-lg font-semibold text-navy-900">Pra onde você quer ir?</h1>
+        <p className="text-sm text-stone-600">
+          Esse e-mail também tem um cadastro de motoboy (senha separada da do painel). Você já
+          está logado aqui no painel da cooperativa.
+        </p>
+        <Link
+          href="/dashboard"
+          className="rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium py-2.5 text-center transition-colors"
+        >
+          Continuar no painel da cooperativa
+        </Link>
+        <Link
+          href={`/app/entrar?email=${encodeURIComponent(email)}`}
+          className="rounded-lg border border-stone-300 hover:bg-stone-50 text-navy-900 text-sm font-medium py-2.5 text-center transition-colors"
+        >
+          Entrar como motoboy
+        </Link>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-3 w-full max-w-sm">
       <form

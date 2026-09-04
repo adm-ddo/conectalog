@@ -10,7 +10,9 @@ import {
 } from "@/lib/auth-empresa";
 import { enviarEmailVerificacaoUsuario } from "@/lib/email";
 
-export type LoginState = { erro?: string; naoVerificado?: boolean } | undefined;
+export type LoginState =
+  | { erro?: string; naoVerificado?: boolean; duploAcesso?: boolean }
+  | undefined;
 
 export async function entrar(
   _prev: LoginState,
@@ -37,6 +39,16 @@ export async function entrar(
   }
 
   await criarSessaoEmpresa(usuario.id);
+
+  // Mesmo e-mail também tem cadastro de motoboy (senha independente, ver
+  // Motoboy.senhaHash) — em vez de já mandar pro dashboard, deixa a
+  // pessoa escolher pra onde ir, já que ela pode ter querido entrar
+  // como motoboy por engano nessa tela.
+  const motoboy = await prisma.motoboy.findFirst({ where: { email } });
+  if (motoboy) {
+    return { duploAcesso: true };
+  }
+
   redirect("/dashboard");
 }
 
