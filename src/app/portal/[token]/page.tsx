@@ -4,6 +4,7 @@ import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, diaSemanaBrasil, formatarHora } from "@/lib/data";
 import { resumoDiaCliente } from "@/lib/resumoDia";
+import { baixarComoDataUrl } from "@/lib/blob";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
@@ -21,13 +22,39 @@ export default async function PortalEscalaPage({
     prisma.escalaTurno.findMany({
       where: { clienteId: cliente.id, data: new Date(dataISOBrasil()) },
       include: {
-        motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
+        motoboy: {
+          select: {
+            nomeCompleto: true,
+            tipoEquipamento: true,
+            telefoneCelular: true,
+            fotoPerfilUrl: true,
+          },
+        },
         turnoVinculado: { select: { id: true, horaInicio: true, avaliacao: { select: { nota: true } } } },
       },
       orderBy: [{ turno: "asc" }, { criadoEm: "asc" }],
     }),
     resumoDiaCliente(cliente.id),
   ]);
+
+  // Foto de perfil fica privada no Blob — baixa aqui no servidor (já
+  // sabendo que esse motoboy está escalado pra esse cliente hoje) e
+  // embute como data URL, igual já acontece no painel da cooperativa.
+  // Serve pro cliente conferir na hora que é mesmo quem foi escalado.
+  const fotosPorMotoboy = new Map<string, string>();
+  await Promise.all(
+    escalas
+      .filter((e) => e.motoboy.fotoPerfilUrl)
+      .map(async (e) => {
+        if (fotosPorMotoboy.has(e.motoboy.fotoPerfilUrl!)) return;
+        try {
+          const dataUrl = await baixarComoDataUrl(e.motoboy.fotoPerfilUrl!);
+          fotosPorMotoboy.set(e.motoboy.fotoPerfilUrl!, dataUrl);
+        } catch {
+          // Sem foto pra mostrar — cai pro círculo com a inicial do nome.
+        }
+      })
+  );
 
   const manha = escalas.filter((e) => e.turno === "MANHA");
   const tarde = escalas.filter((e) => e.turno === "TARDE");
@@ -62,13 +89,31 @@ export default async function PortalEscalaPage({
       <ResumoDiaClienteCard {...resumoDia} />
 
       {cliente.turnoManhaAtivo && (
-        <SecaoTurno token={token} titulo="Manhã" itens={manha} contratadas={contratadasManha} />
+        <SecaoTurno
+          token={token}
+          titulo="Manhã"
+          itens={manha}
+          contratadas={contratadasManha}
+          fotosPorMotoboy={fotosPorMotoboy}
+        />
       )}
       {cliente.turnoTardeAtivo && (
-        <SecaoTurno token={token} titulo="Tarde" itens={tarde} contratadas={contratadasTarde} />
+        <SecaoTurno
+          token={token}
+          titulo="Tarde"
+          itens={tarde}
+          contratadas={contratadasTarde}
+          fotosPorMotoboy={fotosPorMotoboy}
+        />
       )}
       {cliente.turnoNoiteAtivo && (
-        <SecaoTurno token={token} titulo="Noite" itens={noite} contratadas={contratadasNoite} />
+        <SecaoTurno
+          token={token}
+          titulo="Noite"
+          itens={noite}
+          contratadas={contratadasNoite}
+          fotosPorMotoboy={fotosPorMotoboy}
+        />
       )}
     </div>
   );
@@ -79,15 +124,22 @@ function SecaoTurno({
   titulo,
   itens,
   contratadas,
+  fotosPorMotoboy,
 }: {
   token: string;
   titulo: string;
   itens: {
     id: number;
-    motoboy: { nomeCompleto: string; tipoEquipamento: TipoEquipamento | null };
+    motoboy: {
+      nomeCompleto: string;
+      tipoEquipamento: TipoEquipamento | null;
+      telefoneCelular: string;
+      fotoPerfilUrl: string | null;
+    };
     turnoVinculado: { id: number; horaInicio: Date; avaliacao: { nota: number } | null } | null;
   }[];
   contratadas: number;
+  fotosPorMotoboy: Map<string, string>;
 }) {
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-3">
@@ -114,23 +166,30 @@ function SecaoTurno({
               key={e.id}
               className="flex items-center justify-between gap-3 rounded-xl border border-stone-100 px-3 py-2"
             >
-              <div className="flex flex-col min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  <span
-                    className={`h-2.5 w-2.5 rounded-full shrink-0 ${
-                      e.turnoVinculado ? "bg-brand-500" : "bg-stone-300"
-                    }`}
-                  />
-                  <span className="text-sm font-medium text-navy-900 truncate">
-                    {e.motoboy.nomeCompleto}
-                  </span>
-                  <EquipamentoBadge tipo={e.motoboy.tipoEquipamento} />
+              <div className="flex items-center gap-3 min-w-0">
+                <FotoMotoboy
+                  nome={e.motoboy.nomeCompleto}
+                  dataUrl={e.motoboy.fotoPerfilUrl ? fotosPorMotoboy.get(e.motoboy.fotoPerfilUrl) : undefined}
+                />
+                <div className="flex flex-col min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <span
+                      className={`h-2 w-2 rounded-full shrink-0 ${
+                        e.turnoVinculado ? "bg-brand-500" : "bg-stone-300"
+                      }`}
+                    />
+                    <span className="text-sm font-medium text-navy-900 truncate">
+                      {e.motoboy.nomeCompleto}
+                    </span>
+                    <EquipamentoBadge tipo={e.motoboy.tipoEquipamento} />
+                  </div>
+                  <span className="text-xs text-stone-500">{e.motoboy.telefoneCelular}</span>
+                  {e.turnoVinculado && (
+                    <span className="text-xs text-stone-500">
+                      Chegou às {formatarHora(e.turnoVinculado.horaInicio)}
+                    </span>
+                  )}
                 </div>
-                {e.turnoVinculado && (
-                  <span className="text-xs text-stone-500 pl-[18px]">
-                    Chegou às {formatarHora(e.turnoVinculado.horaInicio)}
-                  </span>
-                )}
               </div>
               {e.turnoVinculado?.avaliacao ? (
                 <span className="text-xs text-stone-500 shrink-0">
@@ -151,5 +210,29 @@ function SecaoTurno({
         </ul>
       )}
     </div>
+  );
+}
+
+/** Foto do motoboy, pro cliente conferir que é mesmo quem foi escalado
+ * quando ele chegar. Clicável pra abrir em tamanho maior; sem foto,
+ * cai num círculo com a inicial do nome (mesmo padrão do resto do
+ * app quando não tem foto). */
+function FotoMotoboy({ nome, dataUrl }: { nome: string; dataUrl: string | undefined }) {
+  if (!dataUrl) {
+    return (
+      <span className="h-10 w-10 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-sm shrink-0">
+        {nome.slice(0, 1).toUpperCase()}
+      </span>
+    );
+  }
+  return (
+    <a href={dataUrl} target="_blank" rel="noopener noreferrer" className="shrink-0">
+      {/* eslint-disable-next-line @next/next/no-img-element -- data URL baixada do Blob privado, next/image não se aplica aqui */}
+      <img
+        src={dataUrl}
+        alt={`Foto de ${nome}`}
+        className="h-10 w-10 rounded-full object-cover border border-stone-200"
+      />
+    </a>
   );
 }
