@@ -64,11 +64,17 @@ export const getSessaoMotoboy = cache(
             nomeCompleto: true,
             email: true,
             ativo: true,
+            aprovadoEm: true,
           },
         },
       },
     });
-    if (!sessao || sessao.expiraEm < new Date() || !sessao.motoboy.ativo) {
+    if (
+      !sessao ||
+      sessao.expiraEm < new Date() ||
+      !sessao.motoboy.ativo ||
+      sessao.motoboy.aprovadoEm === null
+    ) {
       return null;
     }
 

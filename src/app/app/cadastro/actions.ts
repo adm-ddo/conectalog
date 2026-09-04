@@ -130,14 +130,116 @@ export async function cadastrarMotoboy(
       motoboyId = atualizado.id;
     } else {
       // Quem se cadastra pelo link específico da cooperativa já entra
-      // liberado em qualquer cliente dela ("livre") — o link em si já é
-      // o convite/aprovação, não faz sentido pedir liberação manual de
-      // novo depois (ver comentário no topo desta função).
+      // liberado em qualquer cliente dela ("livre") e já aprovado — o
+      // link em si já é o convite/aprovação, não faz sentido pedir
+      // liberação ou aprovação manual de novo depois (diferente de quem
+      // "pede vaga" sem link, ver solicitarVagaMotoboy abaixo).
       const criado = await prisma.motoboy.create({
-        data: { empresaId: empresa.id, cpf, email, livre: true, ...dadosComuns },
+        data: { empresaId: empresa.id, cpf, email, livre: true, aprovadoEm: new Date(), ...dadosComuns },
       });
       motoboyId = criado.id;
     }
+  } catch {
+    return { erro: "Já existe uma conta com esse CPF ou e-mail." };
+  }
+
+  const token = await criarTokenAutenticacaoMotoboy(motoboyId, "VERIFICACAO_EMAIL");
+  await enviarEmailVerificacaoMotoboy(email, dados.nomeCompleto, token);
+
+  redirect("/app/cadastro/verifique-seu-email");
+}
+
+export type DadosSolicitarVaga = Omit<DadosCadastroMotoboy, "tokenEmpresa"> & {
+  empresaId: number;
+};
+
+/** "Pedir vaga" sem link — o motoboy escolhe a cooperativa direto no app
+ * (ver /app/cadastro, sem token na URL). Diferente de cadastrarMotoboy
+ * (que já vem convidado/aprovado pelo link), aqui a cooperativa ainda não
+ * sabe dessa pessoa: entra com `livre: false` e `aprovadoEm: null`, e só
+ * consegue logar depois que alguém do painel aprovar (ver
+ * aprovarSolicitacaoMotoboy em motoboys/actions.ts). Continua exigindo
+ * confirmação de e-mail também — são dois cuidados independentes (e-mail
+ * é de verdade / cooperativa realmente quer essa pessoa). */
+export async function solicitarVagaMotoboy(
+  dados: DadosSolicitarVaga
+): Promise<CadastroState> {
+  const empresa = await prisma.empresa.findUnique({ where: { id: dados.empresaId } });
+  if (!empresa) {
+    return { erro: "Cooperativa inválida — escolha novamente." };
+  }
+
+  const cpf = dados.cpf.replace(/\D/g, "");
+  const email = dados.email.trim().toLowerCase();
+
+  if (
+    !dados.nomeCompleto.trim() ||
+    !dados.dataNascimento ||
+    cpf.length !== 11 ||
+    !email ||
+    !dados.endereco.trim() ||
+    !dados.telefoneCelular.trim() ||
+    !dados.telefoneEmergencia.trim() ||
+    !dados.chavePix.trim()
+  ) {
+    return { erro: "Preencha todos os dados obrigatórios." };
+  }
+  if (dados.senha.length < 6) {
+    return { erro: "A senha precisa ter pelo menos 6 caracteres." };
+  }
+  if (!dados.fotoPerfilDataUrl) {
+    return { erro: "Falta tirar a foto de perfil." };
+  }
+  if (!dados.cnhDataUrl) {
+    return { erro: "Falta a foto ou o anexo da CNH." };
+  }
+  if (!dados.tipoEquipamento) {
+    return { erro: "Informe qual equipamento de entrega você usa." };
+  }
+
+  const existente = await prisma.motoboy.findFirst({ where: { OR: [{ cpf }, { email }] } });
+  if (existente) {
+    return {
+      erro:
+        "Já existe um cadastro com esse CPF ou e-mail. Se a cooperativa já te cadastrou, peça o link de acesso a ela em vez de pedir vaga aqui.",
+    };
+  }
+
+  const senhaHash = await hashSenha(dados.senha);
+  const [fotoPerfilUrl, cnhFotoUrl] = await Promise.all([
+    uploadDataUrl(`motoboys/foto-perfil-${Date.now()}.jpg`, dados.fotoPerfilDataUrl),
+    uploadDataUrl(`motoboys/cnh-${Date.now()}.jpg`, dados.cnhDataUrl),
+  ]);
+
+  let motoboyId: number;
+  try {
+    const criado = await prisma.motoboy.create({
+      data: {
+        empresaId: empresa.id,
+        cpf,
+        email,
+        livre: false,
+        aprovadoEm: null,
+        nomeCompleto: dados.nomeCompleto.trim(),
+        dataNascimento: new Date(dados.dataNascimento),
+        endereco: dados.endereco.trim(),
+        numero: dados.numero.trim() || null,
+        complemento: dados.complemento.trim() || null,
+        bairro: dados.bairro.trim() || null,
+        cidade: dados.cidade.trim() || null,
+        cep: dados.cep.trim() || null,
+        telefoneCelular: dados.telefoneCelular.trim(),
+        telefoneEmergencia: dados.telefoneEmergencia.trim(),
+        chavePix: dados.chavePix.trim(),
+        tipoChavePix: dados.tipoChavePix,
+        tipoEquipamento: dados.tipoEquipamento,
+        senhaHash,
+        emailVerificadoEm: null,
+        fotoPerfilUrl,
+        cnhFotoUrl,
+      },
+    });
+    motoboyId = criado.id;
   } catch {
     return { erro: "Já existe uma conta com esse CPF ou e-mail." };
   }

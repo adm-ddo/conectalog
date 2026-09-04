@@ -8,10 +8,15 @@ export default async function PainelLayout({
   children: React.ReactNode;
 }) {
   const sessao = await requireTenant();
-  const empresa = await prisma.empresa.findUniqueOrThrow({
-    where: { id: sessao.empresaEfetivoId },
-    select: { nome: true, logoUrl: true },
-  });
+  const [empresa, solicitacoesPendentes] = await Promise.all([
+    prisma.empresa.findUniqueOrThrow({
+      where: { id: sessao.empresaEfetivoId },
+      select: { nome: true, logoUrl: true },
+    }),
+    prisma.motoboy.count({
+      where: { empresaId: sessao.empresaEfetivoId, aprovadoEm: null },
+    }),
+  ]);
 
   return (
     <div className="flex-1 flex flex-col bg-stone-50">
@@ -21,6 +26,7 @@ export default async function PainelLayout({
         vendoComoSuperAdmin={sessao.superAdmin && sessao.empresaAtivaId !== null}
         logoUrl={empresa.logoUrl}
         ehMaster={sessao.role === "MASTER" || (sessao.superAdmin && sessao.empresaAtivaId !== null)}
+        solicitacoesPendentes={solicitacoesPendentes}
       />
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">{children}</main>
     </div>

@@ -61,6 +61,13 @@ export default function LoginMotoboyForm() {
         </button>
       </form>
 
+      <p className="text-sm text-stone-600 text-center">
+        Ainda não tem conta?{" "}
+        <Link href="/app/cadastro" className="text-brand-700 underline font-medium">
+          Fazer cadastro
+        </Link>
+      </p>
+
       {state?.naoVerificado && (
         <form
           action={reenviarAction}

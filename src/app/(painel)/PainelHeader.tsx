@@ -22,12 +22,14 @@ export default function PainelHeader({
   vendoComoSuperAdmin,
   logoUrl,
   ehMaster,
+  solicitacoesPendentes,
 }: {
   empresaNome: string;
   usuarioNome: string;
   vendoComoSuperAdmin: boolean;
   logoUrl: string | null;
   ehMaster: boolean;
+  solicitacoesPendentes: number;
 }) {
   const pathname = usePathname();
   const links = LINKS.filter((link) => !link.masterOnly || ehMaster);
@@ -56,17 +58,23 @@ export default function PainelHeader({
           <nav className="hidden lg:flex items-center gap-1 overflow-x-auto min-w-0">
             {links.map((link) => {
               const ativo = pathname.startsWith(link.href);
+              const pendentes = link.href === "/motoboys" ? solicitacoesPendentes : 0;
               return (
                 <Link
                   key={link.href}
                   href={link.href}
-                  className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
                     ativo
                       ? "bg-white/15 text-white"
                       : "text-navy-200 hover:bg-white/10 hover:text-white"
                   }`}
                 >
                   {link.label}
+                  {pendentes > 0 && (
+                    <span className="rounded-full bg-red-500 text-white text-[10px] font-bold leading-none px-1.5 py-0.5">
+                      {pendentes}
+                    </span>
+                  )}
                 </Link>
               );
             })}
@@ -91,15 +99,21 @@ export default function PainelHeader({
       <nav className="lg:hidden flex items-center gap-1 overflow-x-auto px-4 pb-2">
         {links.map((link) => {
           const ativo = pathname.startsWith(link.href);
+          const pendentes = link.href === "/motoboys" ? solicitacoesPendentes : 0;
           return (
             <Link
               key={link.href}
               href={link.href}
-              className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+              className={`shrink-0 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors flex items-center gap-1.5 ${
                 ativo ? "bg-white/15 text-white" : "text-navy-200 hover:bg-white/10 hover:text-white"
               }`}
             >
               {link.label}
+              {pendentes > 0 && (
+                <span className="rounded-full bg-red-500 text-white text-[10px] font-bold leading-none px-1.5 py-0.5">
+                  {pendentes}
+                </span>
+              )}
             </Link>
           );
         })}

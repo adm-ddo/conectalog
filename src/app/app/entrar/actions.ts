@@ -10,7 +10,9 @@ import {
 } from "@/lib/auth-motoboy";
 import { enviarEmailVerificacaoMotoboy } from "@/lib/email";
 
-export type LoginMotoboyState = { erro?: string; naoVerificado?: boolean } | undefined;
+export type LoginMotoboyState =
+  | { erro?: string; naoVerificado?: boolean; aguardandoAprovacao?: boolean }
+  | undefined;
 
 export async function entrarMotoboy(
   _prev: LoginMotoboyState,
@@ -34,6 +36,12 @@ export async function entrarMotoboy(
     return {
       erro: "Confirme seu e-mail antes de entrar — veja o link que mandamos pra você.",
       naoVerificado: true,
+    };
+  }
+  if (motoboy.aprovadoEm === null) {
+    return {
+      erro: "Seu cadastro ainda está aguardando aprovação da cooperativa.",
+      aguardandoAprovacao: true,
     };
   }
 

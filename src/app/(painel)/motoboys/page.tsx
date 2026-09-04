@@ -1,24 +1,40 @@
 import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
+import { formatarData } from "@/lib/data";
 import MotoboyRow from "./MotoboyRow";
+import SolicitacaoRow from "./SolicitacaoRow";
 import NovoMotoboyForm from "./NovoMotoboyForm";
 
 export default async function MotoboysPage() {
   const sessao = await requireTenant();
 
-  const motoboys = await prisma.motoboy.findMany({
-    where: { empresaId: sessao.empresaEfetivoId },
-    orderBy: { nomeCompleto: "asc" },
-    select: {
-      id: true,
-      nomeCompleto: true,
-      email: true,
-      ativo: true,
-      livre: true,
-      senhaHash: true,
-      tipoEquipamento: true,
-    },
-  });
+  const [motoboys, solicitacoes] = await Promise.all([
+    prisma.motoboy.findMany({
+      where: { empresaId: sessao.empresaEfetivoId, aprovadoEm: { not: null } },
+      orderBy: { nomeCompleto: "asc" },
+      select: {
+        id: true,
+        nomeCompleto: true,
+        email: true,
+        ativo: true,
+        livre: true,
+        senhaHash: true,
+        tipoEquipamento: true,
+      },
+    }),
+    prisma.motoboy.findMany({
+      where: { empresaId: sessao.empresaEfetivoId, aprovadoEm: null },
+      orderBy: { criadoEm: "asc" },
+      select: {
+        id: true,
+        nomeCompleto: true,
+        email: true,
+        telefoneCelular: true,
+        tipoEquipamento: true,
+        criadoEm: true,
+      },
+    }),
+  ]);
 
   return (
     <div className="flex flex-col gap-6">
@@ -29,6 +45,29 @@ export default async function MotoboysPage() {
           pode cadastrar manualmente e liberar em quais clientes cada um pode trabalhar.
         </p>
       </div>
+
+      {solicitacoes.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-navy-900">
+            Pedindo pra entrar ({solicitacoes.length})
+          </h2>
+          <ul className="flex flex-col gap-2">
+            {solicitacoes.map((m) => (
+              <SolicitacaoRow
+                key={m.id}
+                motoboy={{
+                  id: m.id,
+                  nomeCompleto: m.nomeCompleto,
+                  email: m.email,
+                  telefoneCelular: m.telefoneCelular,
+                  tipoEquipamento: m.tipoEquipamento,
+                  data: formatarData(m.criadoEm),
+                }}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
 
       {motoboys.length === 0 ? (
         <p className="text-stone-500 text-sm">Nenhum motoboy cadastrado ainda.</p>

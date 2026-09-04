@@ -63,6 +63,9 @@ export async function criarMotoboyManual(
       chavePix,
       tipoChavePix: tipoChavePix as (typeof TIPOS_CHAVE_PIX)[number],
       tipoEquipamento,
+      // Cadastro manual pela própria cooperativa já é aprovação implícita
+      // — diferente de quem "pede vaga" sozinho pelo app.
+      aprovadoEm: new Date(),
     },
   });
 
@@ -127,6 +130,32 @@ export async function excluirMotoboy(motoboyId: number): Promise<ExcluirMotoboyR
   }
 
   await prisma.motoboy.delete({ where: { id: motoboyId } });
+  revalidatePath("/motoboys");
+}
+
+/** Aprova quem pediu vaga sozinho pelo app (ver solicitarVagaMotoboy) —
+ * a partir daqui ele já consegue logar (contanto que também tenha
+ * confirmado o e-mail). Não mexe em `livre`: a cooperativa ainda precisa
+ * liberar explicitamente em quais clientes ele pode trabalhar, igual
+ * qualquer motoboy cadastrado manualmente. */
+export async function aprovarSolicitacaoMotoboy(motoboyId: number) {
+  const sessao = await requireTenant();
+  await prisma.motoboy.updateMany({
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId, aprovadoEm: null },
+    data: { aprovadoEm: new Date() },
+  });
+  revalidatePath("/motoboys");
+}
+
+/** Recusa uma solicitação de vaga — como quem pediu vaga nunca conseguiu
+ * logar (aprovadoEm ainda null), não existe turno/pagamento nenhum
+ * amarrado a esse registro, então excluir de vez é sempre seguro (mesma
+ * garantia de excluirMotoboy, só que sem precisar checar histórico). */
+export async function rejeitarSolicitacaoMotoboy(motoboyId: number) {
+  const sessao = await requireTenant();
+  await prisma.motoboy.deleteMany({
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId, aprovadoEm: null },
+  });
   revalidatePath("/motoboys");
 }
 
