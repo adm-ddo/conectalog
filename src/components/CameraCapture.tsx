@@ -3,18 +3,26 @@
 import { useEffect, useRef, useState } from "react";
 
 // Limita o lado maior da foto e comprime como JPEG — a câmera de um celular
-// moderno captura em resolução bem maior do que o necessário só pra
-// conferir a chegada/CNH, e isso mantém o upload leve.
-const LADO_MAXIMO_PX = 1280;
+// moderno captura em resolução bem maior do que o necessário, e isso mantém
+// o upload leve. Padrão de 1280px serve selfie/CNH (precisa de mais
+// detalhe pra conferência de identidade); foto de início/fim de turno é só
+// prova de que o motoboy chegou/saiu do local, então pode usar um valor
+// bem menor (ver `ladoMaximoPx` passado por quem usa o componente).
+const LADO_MAXIMO_PX_PADRAO = 1280;
 const QUALIDADE_JPEG = 0.82;
 
 export default function CameraCapture({
   onCapture,
   camera = "user",
+  ladoMaximoPx = LADO_MAXIMO_PX_PADRAO,
 }: {
   onCapture: (dataUrl: string) => void | Promise<void>;
   /** "user" = câmera frontal (selfie), "environment" = traseira (documento). */
   camera?: "user" | "environment";
+  /** Lado maior da foto final, em pixels — reduz o arquivo pra fotos que só
+   * precisam provar presença (início/fim de turno), sem precisar do
+   * detalhe de uma foto de identidade. */
+  ladoMaximoPx?: number;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -77,7 +85,7 @@ export default function CameraCapture({
 
     const escala = Math.min(
       1,
-      LADO_MAXIMO_PX / Math.max(video.videoWidth, video.videoHeight)
+      ladoMaximoPx / Math.max(video.videoWidth, video.videoHeight)
     );
     const canvas = document.createElement("canvas");
     canvas.width = Math.round(video.videoWidth * escala);

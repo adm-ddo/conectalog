@@ -69,7 +69,11 @@ export default function EncerrarTurnoWizard({
               </button>
             </div>
           ) : (
-            <CameraCapture camera="environment" onCapture={(dataUrl) => setFotoFimDataUrl(dataUrl)} />
+            <CameraCapture
+              camera="environment"
+              ladoMaximoPx={640}
+              onCapture={(dataUrl) => setFotoFimDataUrl(dataUrl)}
+            />
           )}
         </div>
       )}
