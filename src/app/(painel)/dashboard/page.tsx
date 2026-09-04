@@ -34,7 +34,7 @@ export default async function DashboardPage() {
         select: {
           id: true,
           horaInicio: true,
-          motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
+          motoboy: { select: { id: true, nomeCompleto: true, tipoEquipamento: true } },
           cliente: { select: { id: true, nome: true } },
         },
       }),
@@ -93,6 +93,7 @@ export default async function DashboardPage() {
       nome: string;
       motoboys: {
         id: number;
+        motoboyId: number;
         nome: string;
         horaInicio: Date;
         tipoEquipamento: TipoEquipamento | null;
@@ -103,6 +104,7 @@ export default async function DashboardPage() {
     const atual = porCliente.get(t.cliente.id) ?? { nome: t.cliente.nome, motoboys: [] };
     atual.motoboys.push({
       id: t.id,
+      motoboyId: t.motoboy.id,
       nome: t.motoboy.nomeCompleto,
       horaInicio: t.horaInicio,
       tipoEquipamento: t.motoboy.tipoEquipamento,
@@ -235,7 +237,13 @@ export default async function DashboardPage() {
                 <ul className="flex flex-col gap-1 pl-3 border-l-2 border-brand-200">
                   {grupo.motoboys.map((m) => (
                     <li key={m.id} className="text-sm text-stone-600 flex items-center gap-2">
-                      {m.nome}
+                      {escopoGestor ? (
+                        m.nome
+                      ) : (
+                        <Link href={`/motoboys/${m.motoboyId}`} className="hover:underline">
+                          {m.nome}
+                        </Link>
+                      )}
                       <EquipamentoBadge tipo={m.tipoEquipamento} />— desde {formatarHora(m.horaInicio)}
                     </li>
                   ))}

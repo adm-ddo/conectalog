@@ -257,10 +257,12 @@ export default async function EscalaPage({
               <EscalaRow
                 key={e.id}
                 escalaId={e.id}
+                motoboyId={e.motoboy.id}
                 nome={e.motoboy.nomeCompleto}
                 tipoEquipamento={e.motoboy.tipoEquipamento}
                 chegou={e.turnoVinculado !== null}
                 horaChegada={e.turnoVinculado ? formatarHora(e.turnoVinculado.horaInicio) : null}
+                podeVerPerfil={!escopoGestor}
               />
             ))}
           </ul>
@@ -286,6 +288,7 @@ export default async function EscalaPage({
                 tipoEquipamento={m.tipoEquipamento}
                 data={data}
                 turno={turno}
+                podeVerPerfil={!escopoGestor}
               />
             ))}
           </ul>
