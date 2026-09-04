@@ -3,6 +3,10 @@ import { Resend } from "resend";
 
 const SITE_URL = "https://conectalog.app.br";
 const REMETENTE = "ConectaLog <contato@conectalog.app.br>";
+/// Pra onde vai o aviso de novo lead comercial — o Thiago, dono da
+/// plataforma. Não é configurável por env de propósito: só existe um
+/// dono do ConectaLog hoje.
+const EMAIL_DONO = "thiagodier@gmail.com";
 
 /** Sem RESEND_API_KEY configurada, o envio vira um no-op que só loga —
  * mesmo espírito do extras-app: falha de envio é resultado de negócio,
@@ -257,12 +261,62 @@ export async function enviarEmailVerificacaoMotoboy(
     await resend.emails.send({
       from: REMETENTE,
       to: destinatario,
-      subject: "Confirme seu e-mail — ConectaLog",
+      subject: "Confirme seu e-mail — ConectaLog (motoboy)",
       html,
     });
     return { sucesso: true };
   } catch (err) {
     console.error("Falha ao enviar e-mail de verificação:", err);
+    return { sucesso: false };
+  }
+}
+
+/** Avisa o dono da plataforma que alguém pediu contato pela landing
+ * comercial (raiz do domínio) — o lead em si já fica salvo no banco
+ * (LeadComercial), isso aqui é só o alerta em tempo real. O botão vira
+ * "chamar no WhatsApp" ou "responder por e-mail" dependendo do que a
+ * pessoa deixou como contato. */
+export async function enviarEmailLeadComercial(lead: {
+  nome: string;
+  contato: string;
+  mensagem: string | null;
+}): Promise<{ sucesso: boolean }> {
+  const resend = cliente();
+  if (!resend) {
+    console.warn("RESEND_API_KEY não configurada — lead comercial não notificado por e-mail.");
+    return { sucesso: false };
+  }
+
+  const ehEmail = lead.contato.includes("@");
+  const digitos = lead.contato.replace(/\D/g, "");
+  const linkBotao = ehEmail
+    ? `mailto:${lead.contato}`
+    : digitos
+      ? `https://wa.me/${digitos.startsWith("55") ? digitos : `55${digitos}`}`
+      : SITE_URL;
+  const textoBotao = ehEmail ? "Responder por e-mail" : "Chamar no WhatsApp";
+
+  const html = layoutEmail({
+    titulo: `Novo pedido de contato: ${escaparHtml(lead.nome)}`,
+    paragrafos: [
+      `<strong>${escaparHtml(lead.nome)}</strong> pediu contato pela página comercial do ConectaLog.`,
+      `Contato informado: <strong>${escaparHtml(lead.contato)}</strong>`,
+      ...(lead.mensagem ? [`Mensagem: "${escaparHtml(lead.mensagem)}"`] : []),
+    ],
+    textoBotao,
+    linkBotao,
+  });
+
+  try {
+    await resend.emails.send({
+      from: REMETENTE,
+      to: EMAIL_DONO,
+      subject: `Novo lead: ${lead.nome} — ConectaLog`,
+      html,
+    });
+    return { sucesso: true };
+  } catch (err) {
+    console.error("Falha ao enviar e-mail de lead comercial:", err);
     return { sucesso: false };
   }
 }

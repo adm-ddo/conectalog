@@ -812,3 +812,16 @@ model Meta {
 
   @@index([motoboyId, ativa])
 }
+
+/// Pedido de contato feito na landing page comercial (raiz do domínio) por
+/// alguém interessado em usar o ConectaLog na própria cooperativa — não é
+/// tenant nenhum ainda, só um lead. Fica salvo aqui além de mandar e-mail
+/// de aviso, porque e-mail se perde na caixa de entrada; aqui sempre dá
+/// pra ver a lista completa de quem pediu contato.
+model LeadComercial {
+  id       Int      @id @default(autoincrement())
+  nome     String
+  contato  String
+  mensagem String?
+  criadoEm DateTime @default(now())
+}
