@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import ContadorStepper from "@/components/ContadorStepper";
 import CampoMoedaControlado from "@/components/CampoMoedaControlado";
 import { encerrarPeloCliente } from "./actions";
@@ -9,11 +10,13 @@ import { encerrarPeloCliente } from "./actions";
 export default function EncerrarPeloClienteForm({
   token,
   turnoId,
+  motoboyId,
   nomeMotoboy,
   taxasExtras,
 }: {
   token: string;
   turnoId: number;
+  motoboyId: number;
   nomeMotoboy: string;
   taxasExtras: { id: number; descricao: string }[];
 }) {
@@ -53,7 +56,14 @@ export default function EncerrarPeloClienteForm({
   return (
     <div className="flex flex-col gap-5">
       <p className="text-sm text-stone-600">
-        Quantas bandas o(a) <strong>{nomeMotoboy}</strong> fez aqui hoje?
+        Quantas bandas o(a){" "}
+        <Link
+          href={`/portal/${token}/motoboy/${motoboyId}`}
+          className="font-semibold text-brand-700 hover:underline"
+        >
+          {nomeMotoboy}
+        </Link>{" "}
+        fez aqui hoje?
       </p>
       <ContadorStepper label="Bandas" valor={bandas} onChange={setBandas} />
       {taxasExtras.map((t) => (

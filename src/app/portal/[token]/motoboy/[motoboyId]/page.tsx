@@ -2,16 +2,18 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
-import { dataISOBrasil } from "@/lib/data";
+import { dataISOBrasil, inicioDoDiaBrasil } from "@/lib/data";
 import { baixarComoDataUrl } from "@/lib/blob";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import WhatsAppLink from "@/components/WhatsAppLink";
 
 /** Cadastro básico do motoboy (foto grande, telefone, telefone de
- * emergência) — só acessível pro cliente se esse motoboy está escalado
- * pra ele hoje (mesma trava de segurança da foto na lista da escala,
- * pra um link não virar forma de bisbilhotar qualquer motoboy da
- * cooperativa). */
+ * emergência) — só acessível pro cliente se esse motoboy apareceu de
+ * algum jeito pra ele hoje: escalado, com um turno de verdade aqui
+ * (motoboy "livre" pode bater turno sem estar escalado antes, ver
+ * turno/iniciar/actions.ts) ou fez um apoio aqui vindo de outro turno.
+ * Sem isso o link viraria forma de bisbilhotar qualquer motoboy da
+ * cooperativa direto pelo id. */
 export default async function PortalMotoboyPage({
   params,
 }: {
@@ -21,13 +23,23 @@ export default async function PortalMotoboyPage({
   const cliente = await resolverClientePortal(token);
   if (!cliente) notFound();
 
-  const escaladoHoje = await prisma.escalaTurno.findFirst({
-    where: { clienteId: cliente.id, motoboyId: Number(motoboyId), data: new Date(dataISOBrasil()) },
-  });
-  if (!escaladoHoje) notFound();
+  const idMotoboy = Number(motoboyId);
+  const inicioHoje = inicioDoDiaBrasil();
+  const [escaladoHoje, turnoHoje, apoioHoje] = await Promise.all([
+    prisma.escalaTurno.findFirst({
+      where: { clienteId: cliente.id, motoboyId: idMotoboy, data: new Date(dataISOBrasil()) },
+    }),
+    prisma.turno.findFirst({
+      where: { clienteId: cliente.id, motoboyId: idMotoboy, horaInicio: { gte: inicioHoje } },
+    }),
+    prisma.apoio.findFirst({
+      where: { clienteId: cliente.id, criadoEm: { gte: inicioHoje }, turno: { motoboyId: idMotoboy } },
+    }),
+  ]);
+  if (!escaladoHoje && !turnoHoje && !apoioHoje) notFound();
 
   const motoboy = await prisma.motoboy.findUnique({
-    where: { id: Number(motoboyId) },
+    where: { id: idMotoboy },
     select: {
       nomeCompleto: true,
       telefoneCelular: true,

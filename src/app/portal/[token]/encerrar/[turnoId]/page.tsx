@@ -17,6 +17,7 @@ export default async function EncerrarPeloClientePage({
     where: { id: Number(turnoId), clienteId: cliente.id },
     select: {
       id: true,
+      motoboyId: true,
       motoboy: { select: { nomeCompleto: true } },
       taxaExtraItens: {
         orderBy: { ordem: "asc" },
@@ -37,6 +38,7 @@ export default async function EncerrarPeloClientePage({
       <EncerrarPeloClienteForm
         token={token}
         turnoId={turno.id}
+        motoboyId={turno.motoboyId}
         nomeMotoboy={turno.motoboy.nomeCompleto}
         taxasExtras={turno.taxaExtraItens}
       />

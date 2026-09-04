@@ -1,15 +1,19 @@
+import Link from "next/link";
 import { formatarHora } from "@/lib/data";
 import type { ResumoDiaCliente } from "@/lib/resumoDia";
 
 /** Card de "bandas de hoje" pra um Cliente — mesmo componente no portal
  * dele e na tela dele no painel da cooperativa, pra mostrar sempre o
- * mesmo número dos dois lados. */
+ * mesmo número dos dois lados. `hrefMotoboy` é opcional: só o portal do
+ * cliente passa (linkando pro cadastro básico dele), o painel da
+ * cooperativa não — lá o nome fica só em texto. */
 export default function ResumoDiaClienteCard({
   totalBandasNormais,
   totalBandasApoio,
   totalBandas,
   apoios,
-}: ResumoDiaCliente) {
+  hrefMotoboy,
+}: ResumoDiaCliente & { hrefMotoboy?: (motoboyId: number) => string }) {
   return (
     <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3 flex flex-col gap-1.5">
       <div className="flex items-baseline justify-between gap-3">
@@ -34,7 +38,14 @@ export default function ResumoDiaClienteCard({
             {apoios.map((a, indice) => (
               <li key={a.id} className="text-sm text-stone-700 flex items-center justify-between gap-3">
                 <span>
-                  Apoio {indice + 1} — {a.motoboyNome}
+                  Apoio {indice + 1} —{" "}
+                  {hrefMotoboy ? (
+                    <Link href={hrefMotoboy(a.motoboyId)} className="text-brand-700 hover:underline">
+                      {a.motoboyNome}
+                    </Link>
+                  ) : (
+                    a.motoboyNome
+                  )}
                 </span>
                 <span className="text-stone-500 shrink-0">
                   {a.quantidadeBandas} banda{a.quantidadeBandas === 1 ? "" : "s"} ·{" "}

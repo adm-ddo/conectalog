@@ -88,7 +88,10 @@ export default async function PortalEscalaPage({
         </Link>
       </div>
 
-      <ResumoDiaClienteCard {...resumoDia} />
+      <ResumoDiaClienteCard
+        {...resumoDia}
+        hrefMotoboy={(motoboyId) => `/portal/${token}/motoboy/${motoboyId}`}
+      />
 
       {cliente.turnoManhaAtivo && (
         <SecaoTurno

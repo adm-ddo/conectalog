@@ -3,6 +3,7 @@ import { inicioDoDiaBrasil } from "@/lib/data";
 
 export type ApoioDoDia = {
   id: number;
+  motoboyId: number;
   quantidadeBandas: number;
   motoboyNome: string;
   criadoEm: Date;
@@ -36,7 +37,7 @@ export async function resumoDiaCliente(clienteId: number): Promise<ResumoDiaClie
         id: true,
         quantidadeBandas: true,
         criadoEm: true,
-        turno: { select: { motoboy: { select: { nomeCompleto: true } } } },
+        turno: { select: { motoboyId: true, motoboy: { select: { nomeCompleto: true } } } },
       },
     }),
   ]);
@@ -53,6 +54,7 @@ export async function resumoDiaCliente(clienteId: number): Promise<ResumoDiaClie
     totalBandas: totalBandasNormais + totalBandasApoio,
     apoios: apoios.map((a) => ({
       id: a.id,
+      motoboyId: a.turno.motoboyId,
       quantidadeBandas: a.quantidadeBandas,
       motoboyNome: a.turno.motoboy.nomeCompleto,
       criadoEm: a.criadoEm,
