@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { dataISOBrasil } from "@/lib/data";
 import { baixarComoDataUrl } from "@/lib/blob";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
+import WhatsAppLink from "@/components/WhatsAppLink";
 
 /** Cadastro básico do motoboy (foto grande, telefone, telefone de
  * emergência) — só acessível pro cliente se esse motoboy está escalado
@@ -67,8 +68,9 @@ export default async function PortalMotoboyPage({
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-3 text-sm">
-        <p>
+        <p className="flex items-center gap-1.5">
           <span className="text-stone-500">Celular:</span> {motoboy.telefoneCelular}
+          <WhatsAppLink telefone={motoboy.telefoneCelular} />
         </p>
         <p>
           <span className="text-stone-500">Emergência:</span> {motoboy.telefoneEmergencia}

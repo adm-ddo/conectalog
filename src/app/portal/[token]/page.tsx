@@ -7,6 +7,7 @@ import { resumoDiaCliente } from "@/lib/resumoDia";
 import { baixarComoDataUrl } from "@/lib/blob";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
+import WhatsAppLink from "@/components/WhatsAppLink";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
 
 export default async function PortalEscalaPage({
@@ -88,38 +89,33 @@ export default async function PortalEscalaPage({
 
       <ResumoDiaClienteCard {...resumoDia} />
 
-      {/* No celular empilha (uma coluna cabe bem numa tela alta e estreita);
-          no computador usa a largura à toa e mostra os turnos lado a lado,
-          pra não ficar uma página comprida com rolagem à toa. */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
-        {cliente.turnoManhaAtivo && (
-          <SecaoTurno
-            token={token}
-            titulo="Manhã"
-            itens={manha}
-            contratadas={contratadasManha}
-            fotosPorMotoboy={fotosPorMotoboy}
-          />
-        )}
-        {cliente.turnoTardeAtivo && (
-          <SecaoTurno
-            token={token}
-            titulo="Tarde"
-            itens={tarde}
-            contratadas={contratadasTarde}
-            fotosPorMotoboy={fotosPorMotoboy}
-          />
-        )}
-        {cliente.turnoNoiteAtivo && (
-          <SecaoTurno
-            token={token}
-            titulo="Noite"
-            itens={noite}
-            contratadas={contratadasNoite}
-            fotosPorMotoboy={fotosPorMotoboy}
-          />
-        )}
-      </div>
+      {cliente.turnoManhaAtivo && (
+        <SecaoTurno
+          token={token}
+          titulo="Manhã"
+          itens={manha}
+          contratadas={contratadasManha}
+          fotosPorMotoboy={fotosPorMotoboy}
+        />
+      )}
+      {cliente.turnoTardeAtivo && (
+        <SecaoTurno
+          token={token}
+          titulo="Tarde"
+          itens={tarde}
+          contratadas={contratadasTarde}
+          fotosPorMotoboy={fotosPorMotoboy}
+        />
+      )}
+      {cliente.turnoNoiteAtivo && (
+        <SecaoTurno
+          token={token}
+          titulo="Noite"
+          itens={noite}
+          contratadas={contratadasNoite}
+          fotosPorMotoboy={fotosPorMotoboy}
+        />
+      )}
     </div>
   );
 }
@@ -184,53 +180,52 @@ function SecaoTurno({
       {itens.length === 0 ? (
         <p className="text-sm text-stone-500">Ninguém escalado pra esse turno hoje.</p>
       ) : (
-        <ul className="flex flex-col gap-3">
+        <ul className="flex flex-col gap-2 overflow-x-auto">
           {itens.map((e) => (
             <li
               key={e.id}
-              className="flex items-start justify-between gap-3 rounded-xl border border-stone-100 px-3 py-3"
+              className="flex items-center gap-3 rounded-xl border border-stone-100 px-3 py-2.5 w-max min-w-full"
             >
-              <div className="flex items-start gap-3 min-w-0">
-                <FotoMotoboy
-                  token={token}
-                  motoboyId={e.motoboyId}
-                  nome={e.motoboy.nomeCompleto}
-                  dataUrl={e.motoboy.fotoPerfilUrl ? fotosPorMotoboy.get(e.motoboy.fotoPerfilUrl) : undefined}
-                />
-                <div className="flex flex-col min-w-0 gap-0.5">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span
-                      className={`h-2 w-2 rounded-full shrink-0 ${
-                        e.turnoVinculado ? "bg-brand-500" : "bg-stone-300"
-                      }`}
-                    />
-                    <span className="text-base font-semibold text-navy-900">
-                      {e.motoboy.nomeCompleto}
-                    </span>
-                    <EquipamentoBadge tipo={e.motoboy.tipoEquipamento} />
-                  </div>
-                  <span className="text-sm text-stone-500">{e.motoboy.telefoneCelular}</span>
-                  {e.turnoVinculado && (
-                    <span className="text-sm text-stone-500">
-                      Chegou às {formatarHora(e.turnoVinculado.horaInicio)}
-                    </span>
-                  )}
-                </div>
-              </div>
-              {e.turnoVinculado?.avaliacao ? (
-                <span className="text-xs text-stone-500 shrink-0 pt-1">
-                  {"★".repeat(e.turnoVinculado.avaliacao.nota)} avaliado
+              <FotoMotoboy
+                token={token}
+                motoboyId={e.motoboyId}
+                nome={e.motoboy.nomeCompleto}
+                dataUrl={e.motoboy.fotoPerfilUrl ? fotosPorMotoboy.get(e.motoboy.fotoPerfilUrl) : undefined}
+              />
+              <span
+                className={`h-2 w-2 rounded-full shrink-0 ${
+                  e.turnoVinculado ? "bg-brand-500" : "bg-stone-300"
+                }`}
+              />
+              <span className="text-base font-semibold text-navy-900 whitespace-nowrap">
+                {e.motoboy.nomeCompleto}
+              </span>
+              <EquipamentoBadge tipo={e.motoboy.tipoEquipamento} />
+              <span className="text-sm text-stone-500 whitespace-nowrap flex items-center gap-1.5">
+                {e.motoboy.telefoneCelular}
+                <WhatsAppLink telefone={e.motoboy.telefoneCelular} />
+              </span>
+              {e.turnoVinculado && (
+                <span className="text-sm text-stone-500 whitespace-nowrap">
+                  Chegou às {formatarHora(e.turnoVinculado.horaInicio)}
                 </span>
-              ) : e.turnoVinculado ? (
-                <Link
-                  href={`/portal/${token}/encerrar/${e.turnoVinculado.id}`}
-                  className="text-xs font-semibold text-brand-700 hover:underline shrink-0 pt-1"
-                >
-                  Encerrar e avaliar
-                </Link>
-              ) : (
-                <span className="text-xs text-stone-500 shrink-0 pt-1">Aguardando</span>
               )}
+              <span className="ml-auto shrink-0 pl-3">
+                {e.turnoVinculado?.avaliacao ? (
+                  <span className="text-xs text-stone-500 whitespace-nowrap">
+                    {"★".repeat(e.turnoVinculado.avaliacao.nota)} avaliado
+                  </span>
+                ) : e.turnoVinculado ? (
+                  <Link
+                    href={`/portal/${token}/encerrar/${e.turnoVinculado.id}`}
+                    className="text-xs font-semibold text-brand-700 hover:underline whitespace-nowrap"
+                  >
+                    Encerrar e avaliar
+                  </Link>
+                ) : (
+                  <span className="text-xs text-stone-500 whitespace-nowrap">Aguardando</span>
+                )}
+              </span>
             </li>
           ))}
         </ul>
