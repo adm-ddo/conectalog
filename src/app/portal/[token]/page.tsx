@@ -66,22 +66,23 @@ export default async function PortalEscalaPage({
   const contratadasNoite = cliente.motosFixasNoite[diaSemana];
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-lg font-semibold text-navy-900">Escala de hoje</h1>
-          <p className="text-sm text-stone-500">
+    <div className="flex flex-col gap-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <h1 className="text-base font-semibold text-navy-900">
+          Escala de hoje{" "}
+          <span className="font-normal text-stone-500">
+            ·{" "}
             {new Date().toLocaleDateString("pt-BR", {
               weekday: "long",
               day: "2-digit",
               month: "long",
               timeZone: "America/Sao_Paulo",
             })}
-          </p>
-        </div>
+          </span>
+        </h1>
         <Link
           href={`/portal/${token}/apoio`}
-          className="rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold px-3 py-2 transition-colors shrink-0"
+          className="rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold px-3 py-1.5 transition-colors shrink-0"
         >
           🆘 Pedir apoio
         </Link>
@@ -147,9 +148,9 @@ function SecaoTurno({
   const moto = (n: number) => `moto${n === 1 ? "" : "s"}`;
 
   return (
-    <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-2">
+    <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3 flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-lg font-bold text-navy-900">{titulo}</h2>
+        <h2 className="text-base font-bold text-navy-900">{titulo}</h2>
         {contratadas > 0 && (
           <span
             className={`text-xs font-semibold px-2 py-0.5 rounded-full shrink-0 ${
@@ -162,7 +163,7 @@ function SecaoTurno({
           </span>
         )}
       </div>
-      <p className="text-base sm:text-lg text-navy-900 leading-snug">
+      <p className="text-sm sm:text-base text-navy-900 leading-snug">
         {contratadas > 0 ? (
           <>
             Hoje a previsão é de <strong>{contratadas}</strong> {moto(contratadas)}, sendo que temos{" "}
@@ -189,11 +190,11 @@ function SecaoTurno({
       {itens.length === 0 ? (
         <p className="text-sm text-stone-500">Ninguém escalado pra esse turno hoje.</p>
       ) : (
-        <ul className="flex flex-col gap-2 overflow-x-auto">
+        <ul className="flex flex-col gap-1.5 overflow-x-auto">
           {itens.map((e) => (
             <li
               key={e.id}
-              className="flex items-center gap-3 rounded-xl border border-stone-100 px-3 py-2.5 w-max min-w-full"
+              className="flex items-center gap-2.5 rounded-xl border border-stone-100 px-2.5 py-1.5 w-max min-w-full"
             >
               <FotoMotoboy
                 token={token}
@@ -206,7 +207,7 @@ function SecaoTurno({
                   e.turnoVinculado ? "bg-brand-500" : "bg-stone-300"
                 }`}
               />
-              <span className="text-base font-semibold text-navy-900 whitespace-nowrap">
+              <span className="text-sm font-semibold text-navy-900 whitespace-nowrap">
                 {e.motoboy.nomeCompleto}
               </span>
               <EquipamentoBadge tipo={e.motoboy.tipoEquipamento} />
@@ -265,10 +266,10 @@ function FotoMotoboy({
         <img
           src={dataUrl}
           alt={`Foto de ${nome}`}
-          className="h-12 w-12 rounded-full object-cover border border-stone-200"
+          className="h-9 w-9 rounded-full object-cover border border-stone-200"
         />
       ) : (
-        <span className="h-12 w-12 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-base">
+        <span className="h-9 w-9 rounded-full bg-brand-100 flex items-center justify-center text-brand-700 font-bold text-sm">
           {nome.slice(0, 1).toUpperCase()}
         </span>
       )}
