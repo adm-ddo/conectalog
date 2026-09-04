@@ -1,0 +1,1 @@
+export const LIMITE_GESTORES_POR_CLIENTE = 2;

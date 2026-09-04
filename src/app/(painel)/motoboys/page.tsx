@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarData } from "@/lib/data";
 import MotoboyRow from "./MotoboyRow";
@@ -7,7 +7,7 @@ import SolicitacaoRow from "./SolicitacaoRow";
 import NovoMotoboyForm from "./NovoMotoboyForm";
 
 export default async function MotoboysPage() {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
 
   const [motoboys, solicitacoes] = await Promise.all([
     prisma.motoboy.findMany({
@@ -19,6 +19,7 @@ export default async function MotoboysPage() {
         email: true,
         ativo: true,
         livre: true,
+        ehGestor: true,
         senhaHash: true,
         tipoEquipamento: true,
       },
@@ -86,6 +87,7 @@ export default async function MotoboysPage() {
                 email: m.email,
                 ativo: m.ativo,
                 livre: m.livre,
+                ehGestor: m.ehGestor,
                 temAcesso: m.senhaHash !== null,
                 tipoEquipamento: m.tipoEquipamento,
               }}

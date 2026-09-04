@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil } from "@/lib/data";
 import { LABEL_TURNO } from "@/lib/equipe";
@@ -43,20 +43,32 @@ export default async function EscalaSemanaPage({
   const sessao = await requireTenant();
   const params = await searchParams;
 
+  const idsResponsaveis = await clientesResponsaveisIds(sessao);
+  const escopoGestor = sessao.role === "GESTOR_CAMPO";
+
   const clientes = await prisma.cliente.findMany({
-    where: { empresaId: sessao.empresaEfetivoId, ativo: true },
+    where: {
+      empresaId: sessao.empresaEfetivoId,
+      ativo: true,
+      ...(escopoGestor ? { id: { in: idsResponsaveis } } : {}),
+    },
     orderBy: { nome: "asc" },
     select: { id: true, nome: true },
   });
 
-  const clienteId = Number(params.clienteId) || clientes[0]?.id;
+  const clienteIdPedido = Number(params.clienteId) || clientes[0]?.id;
+  const clienteId = clientes.find((c) => c.id === clienteIdPedido)?.id ?? clientes[0]?.id;
   const inicio = params.inicio || dataISOBrasil();
 
   if (!clienteId) {
     return (
       <div className="flex flex-col gap-4">
         <h1 className="text-2xl font-semibold text-navy-900">Escala da semana</h1>
-        <p className="text-sm text-stone-500">Cadastre um cliente antes de montar a escala.</p>
+        <p className="text-sm text-stone-500">
+          {escopoGestor
+            ? "Você ainda não é responsável por nenhum cliente. Fale com a cooperativa."
+            : "Cadastre um cliente antes de montar a escala."}
+        </p>
       </div>
     );
   }
@@ -152,10 +164,16 @@ export default async function EscalaSemanaPage({
       {turnosDisponiveis.length === 0 ? (
         <p className="text-sm text-stone-500">
           <strong>{cliente.nome}</strong> ainda não tem nenhum turno configurado.{" "}
-          <Link href={`/clientes/${clienteId}`} className="text-brand-700 underline">
-            Configure o horário dele
-          </Link>{" "}
-          antes de montar a escala.
+          {escopoGestor ? (
+            "Fale com a cooperativa pra configurar o horário dele antes de montar a escala."
+          ) : (
+            <>
+              <Link href={`/clientes/${clienteId}`} className="text-brand-700 underline">
+                Configure o horário dele
+              </Link>{" "}
+              antes de montar a escala.
+            </>
+          )}
         </p>
       ) : (
         <div className="overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">

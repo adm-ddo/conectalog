@@ -10,7 +10,11 @@ export default async function EquipePage() {
 
   const [membros, convites] = await Promise.all([
     prisma.usuario.findMany({
-      where: { empresaId: sessao.empresaEfetivoId },
+      // Gestores de campo (role GESTOR_CAMPO) não aparecem aqui — o login
+      // deles é provisionado automaticamente e fica atrelado ao checkbox
+      // "É Gestor" na tela do motoboy, pra não ter duas telas controlando
+      // a mesma ativação.
+      where: { empresaId: sessao.empresaEfetivoId, role: { not: "GESTOR_CAMPO" } },
       orderBy: [{ role: "asc" }, { nome: "asc" }],
     }),
     prisma.conviteEquipe.findMany({
@@ -36,7 +40,7 @@ export default async function EquipePage() {
             usuarioId={m.id}
             nome={m.nome}
             email={m.email}
-            role={m.role}
+            role={m.role === "MASTER" ? "MASTER" : "GESTOR"}
             ativo={m.ativo}
             souEu={m.id === sessao.usuarioId}
           />

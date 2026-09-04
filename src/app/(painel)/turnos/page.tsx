@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarDataHora } from "@/lib/data";
 import { formatarMoeda } from "@/lib/valores";
@@ -25,7 +25,7 @@ export default async function TurnosPage({
 }: {
   searchParams: Promise<{ motoboyId?: string; clienteId?: string; status?: string }>;
 }) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   const params = await searchParams;
 
   const motoboyId = Number(params.motoboyId) || undefined;

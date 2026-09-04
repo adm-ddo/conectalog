@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 
@@ -10,7 +10,7 @@ import EquipamentoBadge from "@/components/EquipamentoBadge";
  * gente disponível). Contato hoje é só por WhatsApp; chat interno fica
  * pra uma fase futura. */
 export default async function MotoboysDisponiveisPage() {
-  await requireTenant();
+  await requireTenantCompleto();
 
   const disponiveis = await prisma.motoboy.findMany({
     where: { empresaId: null, ativo: true },

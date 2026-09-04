@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil } from "@/lib/data";
 import { formatarMoeda } from "@/lib/valores";
@@ -24,7 +24,7 @@ export default async function RelatoriosPage({
 }: {
   searchParams: Promise<{ clienteId?: string; inicio?: string; fim?: string }>;
 }) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   const params = await searchParams;
 
   const clientes = await prisma.cliente.findMany({

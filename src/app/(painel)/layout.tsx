@@ -26,6 +26,8 @@ export default async function PainelLayout({
         vendoComoSuperAdmin={sessao.superAdmin && sessao.empresaAtivaId !== null}
         logoUrl={empresa.logoUrl}
         ehMaster={sessao.role === "MASTER" || (sessao.superAdmin && sessao.empresaAtivaId !== null)}
+        ehGestorCampo={sessao.role === "GESTOR_CAMPO"}
+        email={sessao.email}
         solicitacoesPendentes={solicitacoesPendentes}
       />
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 py-8">{children}</main>

@@ -25,6 +25,10 @@ export type SessaoMotoboy = {
   aprovadoEm: Date | null;
   nomeCompleto: string;
   email: string;
+  /** Motoboy promovido a Gestor de campo (ver Motoboy.ehGestor) — tem um
+   * login de painel próprio pareado (Usuario.motoboyVinculadoId), com o
+   * mesmo e-mail. Usado só pra mostrar o link de trocar de painel. */
+  ehGestor: boolean;
 };
 
 export async function criarSessaoMotoboy(motoboyId: number): Promise<void> {
@@ -71,6 +75,7 @@ export const getSessaoMotoboy = cache(
             email: true,
             ativo: true,
             aprovadoEm: true,
+            ehGestor: true,
           },
         },
       },
@@ -85,6 +90,7 @@ export const getSessaoMotoboy = cache(
       aprovadoEm: sessao.motoboy.aprovadoEm,
       nomeCompleto: sessao.motoboy.nomeCompleto,
       email: sessao.motoboy.email,
+      ehGestor: sessao.motoboy.ehGestor,
     };
   }
 );

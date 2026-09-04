@@ -41,6 +41,27 @@ export type ResultadoCalculo = {
   valorCliente: number;
 };
 
+export type ConfigRemuneracaoGestor = {
+  ehGestor: boolean;
+  modoRemuneracaoGestor: "PADRAO" | "VALOR_ESPECIAL" | "NAO_CONTABILIZA";
+  valorBandaGestorEspecial: unknown;
+};
+
+/** Se quem fechou o turno é Gestor de campo, o valor que ELE recebe pelas
+ * próprias bandas (não a cobrança do cliente, que nunca muda) pode seguir
+ * uma regra diferente da tarifa normal — ver Motoboy.modoRemuneracaoGestor.
+ * Taxas extras nunca entram nessa regra, só a banda, por isso quem chama
+ * precisa passar só a parte de banda já separada da parte de taxa extra. */
+export function aplicarRemuneracaoGestor(
+  valorMotoboyBandas: number,
+  quantidadeBandas: number,
+  motoboy: ConfigRemuneracaoGestor
+): number {
+  if (!motoboy.ehGestor || motoboy.modoRemuneracaoGestor === "PADRAO") return valorMotoboyBandas;
+  if (motoboy.modoRemuneracaoGestor === "NAO_CONTABILIZA") return 0;
+  return quantidadeBandas * paraNumero(motoboy.valorBandaGestorEspecial);
+}
+
 function paraMinutos(hhmm: string): number | null {
   const partes = hhmm.split(":").map(Number);
   if (partes.length !== 2 || partes.some(Number.isNaN)) return null;

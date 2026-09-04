@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Document, Page, Text, View, StyleSheet, renderToBuffer } from "@react-pdf/renderer";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { gerarRelatorioCliente, type RelatorioCliente } from "@/lib/relatorios";
 import { formatarMoeda } from "@/lib/valores";
 
@@ -124,7 +124,7 @@ function RelatorioPdfDocument({ relatorio }: { relatorio: RelatorioCliente }) {
 }
 
 export async function GET(request: NextRequest) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   const { searchParams } = new URL(request.url);
 
   const clienteId = Number(searchParams.get("clienteId"));

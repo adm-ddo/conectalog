@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import type { StatusSolicitacaoApoio } from "@/generated/prisma/enums";
 
 export async function responderSolicitacaoApoio(
@@ -10,8 +10,19 @@ export async function responderSolicitacaoApoio(
   status: Extract<StatusSolicitacaoApoio, "A_CAMINHO" | "SEM_MOTO">
 ) {
   const sessao = await requireTenant();
+  // Gestor de campo só decide sobre solicitações dos clientes dele —
+  // mesmo cuidado do dashboard, que já só mostra essas (defesa em
+  // profundidade, caso o id venha de fora da tela).
+  const idsResponsaveis = await clientesResponsaveisIds(sessao);
   await prisma.solicitacaoApoio.updateMany({
-    where: { id: solicitacaoId, cliente: { empresaId: sessao.empresaEfetivoId }, status: "PENDENTE" },
+    where: {
+      id: solicitacaoId,
+      cliente: {
+        empresaId: sessao.empresaEfetivoId,
+        ...(sessao.role === "GESTOR_CAMPO" ? { id: { in: idsResponsaveis } } : {}),
+      },
+      status: "PENDENTE",
+    },
     data: { status, respondidoPorUsuarioId: sessao.usuarioId, respondidoEm: new Date() },
   });
   revalidatePath("/dashboard");
@@ -33,17 +44,26 @@ export async function resolverDivergenciaTurno(
   observacao: string
 ) {
   const sessao = await requireTenant();
+  const idsResponsaveis = await clientesResponsaveisIds(sessao);
 
   const turno = await prisma.turno.findFirst({
-    where: { id: turnoId, motoboy: { empresaId: sessao.empresaEfetivoId } },
-    include: { cliente: { include: { turnosFixos: true } }, taxaExtraItens: true },
+    where: {
+      id: turnoId,
+      motoboy: { empresaId: sessao.empresaEfetivoId },
+      ...(sessao.role === "GESTOR_CAMPO" ? { clienteId: { in: idsResponsaveis } } : {}),
+    },
+    include: {
+      cliente: { include: { turnosFixos: true } },
+      taxaExtraItens: true,
+      motoboy: { select: { ehGestor: true, modoRemuneracaoGestor: true, valorBandaGestorEspecial: true } },
+    },
   });
   if (!turno) return;
 
   const idsDoTurno = new Set(turno.taxaExtraItens.map((item) => item.id));
   const itensValidos = taxasExtrasFinais.filter((t) => idsDoTurno.has(t.itemId));
 
-  const { calcularValores } = await import("@/lib/precificacao");
+  const { calcularValores, aplicarRemuneracaoGestor } = await import("@/lib/precificacao");
   const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaEfetivoId } });
   const { valorMotoboy, valorCliente } = calcularValores(
     turno.cliente,
@@ -57,6 +77,15 @@ export async function resolverDivergenciaTurno(
     }))
   );
   const totalTaxasExtras = itensValidos.reduce((soma, t) => soma + t.quantidade, 0);
+  // Mesma regra do encerramento normal — a cobrança do cliente
+  // (valorCliente) nunca muda por causa disso, só o que o Gestor recebe.
+  const totalTaxasMotoboy = turno.taxaExtraItens.reduce((soma, item) => {
+    const quantidade = itensValidos.find((t) => t.itemId === item.id)?.quantidade ?? item.quantidade;
+    return soma + quantidade * Number(item.valorMotoboyAplicado);
+  }, 0);
+  const valorMotoboyFinal =
+    aplicarRemuneracaoGestor(valorMotoboy - totalTaxasMotoboy, quantidadeBandasFinal, turno.motoboy) +
+    totalTaxasMotoboy;
 
   await prisma.$transaction([
     prisma.turno.update({
@@ -64,7 +93,7 @@ export async function resolverDivergenciaTurno(
       data: {
         quantidadeBandas: quantidadeBandasFinal,
         quantidadeTaxasExtras: totalTaxasExtras,
-        valorTotal: valorMotoboy,
+        valorTotal: valorMotoboyFinal,
         valorCobradoCliente: valorCliente,
         quantidadeBandasMotoboyOriginal: turno.quantidadeBandas,
         resolvidoPorUsuarioId: sessao.usuarioId,

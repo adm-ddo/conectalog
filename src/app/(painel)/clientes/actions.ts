@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 
 export type ClienteFormState = { erro?: string } | undefined;
 
@@ -131,7 +131,7 @@ export async function criarCliente(
   _prev: ClienteFormState,
   formData: FormData
 ): Promise<ClienteFormState> {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) return { erro: "Informe o nome do cliente." };
 
@@ -161,7 +161,7 @@ export async function atualizarCliente(
   _prev: ClienteFormState,
   formData: FormData
 ): Promise<ClienteFormState> {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   const nome = String(formData.get("nome") ?? "").trim();
   if (!nome) return { erro: "Informe o nome do cliente." };
 
@@ -201,7 +201,7 @@ export async function atualizarCliente(
 }
 
 export async function alternarAtivoCliente(clienteId: number, ativo: boolean) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   await prisma.cliente.updateMany({
     where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
     data: { ativo },
@@ -212,7 +212,7 @@ export async function alternarAtivoCliente(clienteId: number, ativo: boolean) {
 /** Troca o link do portal por um novo — útil se o link vazou ou se
  * precisar revogar o acesso de quem tinha o link antigo salvo. */
 export async function regenerarTokenPortal(clienteId: number) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   await prisma.cliente.updateMany({
     where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
     data: { tokenPortal: randomBytes(16).toString("hex") },

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { LABEL_TURNO } from "@/lib/equipe";
 import type { TurnoEscala } from "@/generated/prisma/enums";
 
@@ -56,6 +56,8 @@ export async function escalarMotoboy(
   turno: TurnoEscala
 ) {
   const sessao = await requireTenant();
+  const idsResponsaveis = await clientesResponsaveisIds(sessao);
+  if (sessao.role === "GESTOR_CAMPO" && !idsResponsaveis.includes(clienteId)) return;
 
   const [cliente, motoboy] = await Promise.all([
     prisma.cliente.findFirst({ where: { id: clienteId, empresaId: sessao.empresaEfetivoId } }),
@@ -70,8 +72,15 @@ export async function escalarMotoboy(
 
 export async function removerEscala(escalaId: number) {
   const sessao = await requireTenant();
+  const idsResponsaveis = await clientesResponsaveisIds(sessao);
   await prisma.escalaTurno.deleteMany({
-    where: { id: escalaId, cliente: { empresaId: sessao.empresaEfetivoId } },
+    where: {
+      id: escalaId,
+      cliente: {
+        empresaId: sessao.empresaEfetivoId,
+        ...(sessao.role === "GESTOR_CAMPO" ? { id: { in: idsResponsaveis } } : {}),
+      },
+    },
   });
   revalidatePath("/escala");
 }
@@ -86,6 +95,8 @@ export async function manterEscalaSemanaPassada(
   data: string
 ) {
   const sessao = await requireTenant();
+  const idsResponsaveis = await clientesResponsaveisIds(sessao);
+  if (sessao.role === "GESTOR_CAMPO" && !idsResponsaveis.includes(clienteId)) return;
 
   const cliente = await prisma.cliente.findFirst({
     where: { id: clienteId, empresaId: sessao.empresaEfetivoId },

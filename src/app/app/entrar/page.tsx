@@ -2,9 +2,14 @@ import { redirect } from "next/navigation";
 import { getSessaoMotoboy } from "@/lib/auth-motoboy";
 import LoginMotoboyForm from "./LoginMotoboyForm";
 
-export default async function EntrarMotoboyPage() {
+export default async function EntrarMotoboyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ email?: string }>;
+}) {
   const sessao = await getSessaoMotoboy();
   if (sessao) redirect("/app/inicio");
+  const { email } = await searchParams;
 
   return (
     <main className="flex-1 flex flex-col items-center justify-center gap-6 px-4 py-10 bg-stone-50">
@@ -16,7 +21,7 @@ export default async function EntrarMotoboyPage() {
           Ainda não tem conta? Peça o link de cadastro pra cooperativa que você vai trabalhar.
         </p>
       </div>
-      <LoginMotoboyForm />
+      <LoginMotoboyForm emailInicial={email} />
     </main>
   );
 }

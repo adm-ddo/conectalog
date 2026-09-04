@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { turnoAtivoAgora, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
 import { formatarHora } from "@/lib/data";
@@ -8,14 +8,28 @@ import EquipamentoBadge from "@/components/EquipamentoBadge";
 import SolicitacaoApoioAlert from "./SolicitacaoApoioAlert";
 import DivergenciaRow from "./DivergenciaRow";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
+import type { Prisma } from "@/generated/prisma/client";
 
 export default async function DashboardPage() {
   const sessao = await requireTenant();
 
+  // Gestor de campo só vê o que diz respeito aos clientes que ele é
+  // responsável (ver MotoboyCliente.gestor) — dono/equipe normal vê tudo
+  // da cooperativa, sem esse filtro.
+  const idsResponsaveis = await clientesResponsaveisIds(sessao);
+  const escopoGestor = sessao.role === "GESTOR_CAMPO";
+  const filtroCliente: Prisma.ClienteWhereInput = escopoGestor
+    ? { id: { in: idsResponsaveis } }
+    : {};
+
   const [turnosAbertos, totalMotoboysAtivos, clientesAtivos, solicitacoesApoio, turnosDivergentes] =
     await Promise.all([
       prisma.turno.findMany({
-        where: { status: "ABERTO", motoboy: { empresaId: sessao.empresaEfetivoId } },
+        where: {
+          status: "ABERTO",
+          motoboy: { empresaId: sessao.empresaEfetivoId },
+          cliente: filtroCliente,
+        },
         orderBy: { horaInicio: "asc" },
         select: {
           id: true,
@@ -24,16 +38,30 @@ export default async function DashboardPage() {
           cliente: { select: { id: true, nome: true } },
         },
       }),
-      prisma.motoboy.count({ where: { empresaId: sessao.empresaEfetivoId, ativo: true } }),
-      prisma.cliente.findMany({ where: { empresaId: sessao.empresaEfetivoId, ativo: true } }),
+      escopoGestor
+        ? prisma.motoboyCliente
+            .findMany({
+              where: { clienteId: { in: idsResponsaveis }, liberado: true },
+              select: { motoboyId: true },
+              distinct: ["motoboyId"],
+            })
+            .then((r) => r.length)
+        : prisma.motoboy.count({ where: { empresaId: sessao.empresaEfetivoId, ativo: true } }),
+      prisma.cliente.findMany({
+        where: { empresaId: sessao.empresaEfetivoId, ativo: true, ...filtroCliente },
+      }),
       prisma.solicitacaoApoio.findMany({
-        where: { status: "PENDENTE", cliente: { empresaId: sessao.empresaEfetivoId } },
+        where: {
+          status: "PENDENTE",
+          cliente: { empresaId: sessao.empresaEfetivoId, ...filtroCliente },
+        },
         orderBy: { criadoEm: "asc" },
         include: { cliente: { select: { nome: true } } },
       }),
       prisma.turno.findMany({
         where: {
           motoboy: { empresaId: sessao.empresaEfetivoId },
+          cliente: filtroCliente,
           // Só considera divergência depois que o motoboy também encerrou o
           // turno dele (status ABERTO = quantidadeBandas ainda no padrão 0,
           // porque o cliente pode fechar o portal antes ou depois — ver
@@ -96,7 +124,11 @@ export default async function DashboardPage() {
       <DashboardAutoRefresh />
       <div>
         <h1 className="text-2xl font-semibold text-navy-900">Dashboard</h1>
-        <p className="text-stone-600 mt-1 text-sm">Visão geral da operação agora.</p>
+        <p className="text-stone-600 mt-1 text-sm">
+          {escopoGestor
+            ? "Visão geral dos clientes que você é responsável."
+            : "Visão geral da operação agora."}
+        </p>
       </div>
 
       <SolicitacaoApoioAlert
@@ -117,13 +149,13 @@ export default async function DashboardPage() {
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
-            Motoboys ativos
+            {escopoGestor ? "Motoboys na sua equipe" : "Motoboys ativos"}
           </p>
           <p className="text-3xl font-bold text-navy-900 mt-1">{totalMotoboysAtivos}</p>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
-            Clientes ativos
+            {escopoGestor ? "Seus clientes" : "Clientes ativos"}
           </p>
           <p className="text-3xl font-bold text-navy-900 mt-1">{clientesAtivos.length}</p>
         </div>
@@ -137,9 +169,13 @@ export default async function DashboardPage() {
           <ul className="flex flex-col gap-1">
             {equipesIncompletas.map((c) => (
               <li key={c.id} className="text-sm text-red-700">
-                <Link href={`/clientes/${c.id}`} className="font-medium hover:underline">
-                  {c.nome}
-                </Link>{" "}
+                {escopoGestor ? (
+                  <span className="font-medium">{c.nome}</span>
+                ) : (
+                  <Link href={`/clientes/${c.id}`} className="font-medium hover:underline">
+                    {c.nome}
+                  </Link>
+                )}{" "}
                 — {c.presentes} de {c.contratadas} motos no turno de{" "}
                 {c.turnoAtual && LABEL_TURNO[c.turnoAtual]}
               </li>
@@ -182,13 +218,20 @@ export default async function DashboardPage() {
           <div className="flex flex-col gap-4">
             {[...porCliente.entries()].map(([clienteId, grupo]) => (
               <div key={clienteId} className="flex flex-col gap-2">
-                <Link
-                  href={`/clientes/${clienteId}`}
-                  className="text-sm font-semibold text-navy-900 hover:underline"
-                >
-                  {grupo.nome} · {grupo.motoboys.length}{" "}
-                  {grupo.motoboys.length === 1 ? "motoboy" : "motoboys"}
-                </Link>
+                {escopoGestor ? (
+                  <span className="text-sm font-semibold text-navy-900">
+                    {grupo.nome} · {grupo.motoboys.length}{" "}
+                    {grupo.motoboys.length === 1 ? "motoboy" : "motoboys"}
+                  </span>
+                ) : (
+                  <Link
+                    href={`/clientes/${clienteId}`}
+                    className="text-sm font-semibold text-navy-900 hover:underline"
+                  >
+                    {grupo.nome} · {grupo.motoboys.length}{" "}
+                    {grupo.motoboys.length === 1 ? "motoboy" : "motoboys"}
+                  </Link>
+                )}
                 <ul className="flex flex-col gap-1 pl-3 border-l-2 border-brand-200">
                   {grupo.motoboys.map((m) => (
                     <li key={m.id} className="text-sm text-stone-600 flex items-center gap-2">

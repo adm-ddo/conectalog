@@ -15,6 +15,19 @@ datasource db {
 enum RoleUsuario {
   MASTER
   GESTOR
+  /// Motoboy promovido a Gestor de campo (ver Motoboy.ehGestor) — login de
+  /// painel pareado com um Motoboy (Usuario.motoboyVinculadoId), acesso
+  /// bem mais restrito que GESTOR normal: só dashboard/escala/equipe dos
+  /// clientes que ele é responsável (ver MotoboyCliente.gestor), nunca
+  /// outros clientes, pagamentos, relatórios, equipe (convites) ou
+  /// configurações.
+  GESTOR_CAMPO
+}
+
+enum ModoRemuneracaoGestor {
+  PADRAO
+  VALOR_ESPECIAL
+  NAO_CONTABILIZA
 }
 
 enum TipoChavePix {
@@ -133,27 +146,33 @@ model Empresa {
 /// deliberadamente separado do login do Motoboy (auth-motoboy.ts), mesmo
 /// espírito do extras-app: uma falha num nunca deve derrubar o outro.
 model Usuario {
-  id                Int         @id @default(autoincrement())
-  empresaId         Int
-  nome              String
-  email             String      @unique
-  senhaHash         String
-  role              RoleUsuario @default(GESTOR)
+  id                 Int         @id @default(autoincrement())
+  empresaId          Int
+  nome               String
+  email              String      @unique
+  senhaHash          String
+  role               RoleUsuario @default(GESTOR)
   /// Dono da plataforma ConectaLog (não confundir com role MASTER, que é
   /// só o dono de UMA cooperativa) — enxerga todas as cooperativas
   /// cadastradas e pode "entrar" em qualquer uma como se fosse o dono
   /// dela (ver Sessao.empresaAtivaId e requireTenant em
   /// src/lib/auth-empresa.ts). Nunca setado por autocadastro.
-  superAdmin        Boolean     @default(false)
+  superAdmin         Boolean     @default(false)
   /// null até confirmar o cadastro pelo link de e-mail (só se aplica a
   /// quem se cadastrou sozinho, ou seja, o primeiro MASTER de cada
   /// cooperativa) — GESTOR convidado já entra verificado, porque clicar
   /// no link de convite já prova posse do e-mail.
-  emailVerificadoEm DateTime?
-  ativo             Boolean     @default(true)
-  criadoEm          DateTime    @default(now())
+  emailVerificadoEm  DateTime?
+  ativo              Boolean     @default(true)
+  criadoEm           DateTime    @default(now())
+  /// Só preenchido pra role GESTOR_CAMPO — este login de painel foi
+  /// criado automaticamente quando um Motoboy virou Gestor (ver
+  /// Motoboy.ehGestor). Mesma pessoa, dois logins de verdade e isolados,
+  /// só ligados por essa referência.
+  motoboyVinculadoId Int?        @unique
 
   empresa                      Empresa                    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  motoboyVinculado             Motoboy?                   @relation(fields: [motoboyVinculadoId], references: [id], onDelete: Cascade)
   sessoes                      Sessao[]
   vales                        Vale[]
   escalasCriadas               EscalaTurno[]
@@ -354,7 +373,7 @@ model EscalaTurno {
 /// cooperativa. senhaHash fica null até ele definir a senha pelo link de
 /// verificação de e-mail (mesmo fluxo do Portal do extras-app).
 model Motoboy {
-  id                       Int                 @id @default(autoincrement())
+  id                       Int                   @id @default(autoincrement())
   /// null = ainda não escolheu nenhuma cooperativa — só acontece pra quem
   /// se cadastra pelo app sem link (ver solicitarVagaMotoboy), entre a
   /// confirmação de e-mail e a escolha feita depois do primeiro login em
@@ -362,9 +381,9 @@ model Motoboy {
   /// cooperativa ou é cadastrado manualmente já nasce com isso setado.
   empresaId                Int?
   nomeCompleto             String
-  dataNascimento           DateTime            @db.Date
-  cpf                      String              @unique
-  email                    String              @unique
+  dataNascimento           DateTime              @db.Date
+  cpf                      String                @unique
+  email                    String                @unique
   endereco                 String
   numero                   String?
   complemento              String?
@@ -396,18 +415,36 @@ model Motoboy {
   /// Mostrado ao lado do nome dele em toda tela (painel e portal do
   /// cliente) — null = ainda não informado.
   tipoEquipamento          TipoEquipamento?
-  frequenciaPagamento      FrequenciaPagamento @default(SEMANAL)
+  frequenciaPagamento      FrequenciaPagamento   @default(SEMANAL)
   /// true = pode iniciar turno em qualquer Cliente ativo da cooperativa,
-  /// sem precisar de liberação individual em MotoboyCliente.
-  livre                    Boolean             @default(false)
+  /// sem precisar de liberação individual em MotoboyCliente. Não confundir
+  /// com ehGestor — são independentes (um motoboy pode ser as duas coisas,
+  /// nenhuma ou só uma).
+  livre                    Boolean               @default(false)
+  /// Gestor de campo: responsável por até N clientes específicos (ver
+  /// MotoboyCliente.gestor), com acesso a um painel próprio e restrito
+  /// (dashboard/escala/equipe só dos clientes dele). Ao virar true a
+  /// primeira vez, o sistema cria um login de painel pareado (ver
+  /// Usuario.motoboyVinculadoId) — dois logins de verdade, ligados, não
+  /// uma sessão só (propositalmente: nunca misturar auth de painel com
+  /// auth de motoboy).
+  ehGestor                 Boolean               @default(false)
+  /// Como as bandas que ELE MESMO faz (não como gestor, como motoboy de
+  /// verdade) são remuneradas — só relevante se ehGestor. PADRAO usa a
+  /// mesma tarifa de qualquer motoboy; VALOR_ESPECIAL usa
+  /// valorBandaGestorEspecial; NAO_CONTABILIZA conta a banda (aparece nas
+  /// estatísticas) mas não gera valor a pagar.
+  modoRemuneracaoGestor    ModoRemuneracaoGestor @default(PADRAO)
+  valorBandaGestorEspecial Decimal?              @db.Decimal(10, 2)
   /// Liga o desconto automático de atraso pra esse motoboy (ver
   /// Empresa.toleranciaAtrasoMinutos e DescontoAssiduidade) — desligado
   /// por padrão, cada motoboy precisa ser marcado explicitamente.
-  descontoAssiduidadeAtivo Boolean             @default(false)
-  ativo                    Boolean             @default(true)
-  criadoEm                 DateTime            @default(now())
+  descontoAssiduidadeAtivo Boolean               @default(false)
+  ativo                    Boolean               @default(true)
+  criadoEm                 DateTime              @default(now())
 
   empresa              Empresa?                   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  usuarioGestor        Usuario?
   clientesLiberados    MotoboyCliente[]
   turnos               Turno[]
   pagamentos           Pagamento[]
@@ -483,12 +520,18 @@ model MotoboyCliente {
   motoboyId Int
   clienteId Int
   liberado  Boolean  @default(true)
+  /// Esse motoboy é Gestor responsável por esse cliente específico — no
+  /// máximo 2 por cliente (checado na action, não dá pra fazer via
+  /// constraint simples do banco). Só motoboy com Motoboy.ehGestor true
+  /// pode ter alguma linha com gestor true.
+  gestor    Boolean  @default(false)
   criadoEm  DateTime @default(now())
 
   motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 
   @@unique([motoboyId, clienteId])
+  @@index([clienteId, gestor])
 }
 
 /// Um turno do motoboy num Cliente: foto+assinatura de início, foto+

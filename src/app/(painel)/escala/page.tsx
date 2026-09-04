@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, formatarHora } from "@/lib/data";
 import { LABEL_TURNO } from "@/lib/equipe";
@@ -33,14 +33,38 @@ export default async function EscalaPage({
   const sessao = await requireTenant();
   const params = await searchParams;
 
+  // Gestor de campo só monta escala pros clientes que ele é responsável
+  // (ver MotoboyCliente.gestor) — dono/equipe normal vê todos.
+  const idsResponsaveis = await clientesResponsaveisIds(sessao);
+  const escopoGestor = sessao.role === "GESTOR_CAMPO";
+
   const clientes = await prisma.cliente.findMany({
-    where: { empresaId: sessao.empresaEfetivoId, ativo: true },
+    where: {
+      empresaId: sessao.empresaEfetivoId,
+      ativo: true,
+      ...(escopoGestor ? { id: { in: idsResponsaveis } } : {}),
+    },
     orderBy: { nome: "asc" },
     select: { id: true, nome: true },
   });
 
-  const clienteId = Number(params.clienteId) || clientes[0]?.id;
+  const clienteIdPedido = Number(params.clienteId) || clientes[0]?.id;
+  // Se pediu um cliente fora da lista permitida (URL manipulada), cai pro
+  // primeiro cliente que ele realmente pode ver.
+  const clienteId =
+    clientes.find((c) => c.id === clienteIdPedido)?.id ?? clientes[0]?.id;
   const data = params.data || dataISOBrasil();
+
+  if (escopoGestor && clientes.length === 0) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-2xl font-semibold text-navy-900">Escala</h1>
+        <p className="text-sm text-stone-500">
+          Você ainda não é responsável por nenhum cliente. Fale com a cooperativa.
+        </p>
+      </div>
+    );
+  }
 
   if (!clienteId) {
     return (
@@ -78,10 +102,16 @@ export default async function EscalaPage({
         <h1 className="text-2xl font-semibold text-navy-900">Escala</h1>
         <p className="text-sm text-stone-500">
           <strong>{clienteSelecionado.nome}</strong> ainda não tem nenhum turno configurado.{" "}
-          <Link href={`/clientes/${clienteId}`} className="text-brand-700 underline">
-            Configure o horário dele
-          </Link>{" "}
-          antes de montar a escala.
+          {escopoGestor ? (
+            "Fale com a cooperativa pra configurar o horário dele antes de montar a escala."
+          ) : (
+            <>
+              <Link href={`/clientes/${clienteId}`} className="text-brand-700 underline">
+                Configure o horário dele
+              </Link>{" "}
+              antes de montar a escala.
+            </>
+          )}
         </p>
       </div>
     );

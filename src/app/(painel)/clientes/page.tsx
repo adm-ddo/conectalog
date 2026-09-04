@@ -1,4 +1,4 @@
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda, valorEfetivo } from "@/lib/valores";
 import { turnoAtivoAgora, motosContratadasNoTurno } from "@/lib/equipe";
@@ -6,7 +6,7 @@ import ClienteRow from "./ClienteRow";
 import NovoClienteForm from "./NovoClienteForm";
 
 export default async function ClientesPage() {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
 
   const [empresa, clientes] = await Promise.all([
     prisma.empresa.findUniqueOrThrow({

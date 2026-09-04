@@ -15,10 +15,14 @@ export default function AppHeader({
   nome,
   logoUrl,
   empresaNome,
+  ehGestor,
+  email,
 }: {
   nome: string;
   logoUrl: string | null;
   empresaNome: string;
+  ehGestor: boolean;
+  email: string;
 }) {
   const pathname = usePathname();
 
@@ -39,11 +43,21 @@ export default function AppHeader({
             <span className="text-xs text-stone-500 truncate">Olá, {nome.split(" ")[0]}</span>
           </div>
         </div>
-        <form action={sairMotoboy}>
-          <button type="submit" className="text-xs text-stone-500 underline underline-offset-2">
-            Sair
-          </button>
-        </form>
+        <div className="flex items-center gap-3 shrink-0">
+          {ehGestor && (
+            <Link
+              href={`/login?email=${encodeURIComponent(email)}`}
+              className="text-xs text-brand-700 underline underline-offset-2"
+            >
+              Painel Gestor
+            </Link>
+          )}
+          <form action={sairMotoboy}>
+            <button type="submit" className="text-xs text-stone-500 underline underline-offset-2">
+              Sair
+            </button>
+          </form>
+        </div>
       </div>
       <nav className="max-w-md mx-auto px-4 pb-2 flex items-center gap-1">
         {LINKS.map((link) => {

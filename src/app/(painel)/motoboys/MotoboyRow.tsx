@@ -15,6 +15,7 @@ export default function MotoboyRow({
     email: string;
     ativo: boolean;
     livre: boolean;
+    ehGestor: boolean;
     temAcesso: boolean;
     tipoEquipamento: TipoEquipamento | null;
   };
@@ -46,7 +47,8 @@ export default function MotoboyRow({
           </span>
           <span className="text-xs text-stone-500 truncate">
             {motoboy.email}
-            {motoboy.livre && " · Gestor (livre em qualquer cliente)"}
+            {motoboy.livre && " · Livre em qualquer cliente"}
+            {motoboy.ehGestor && " · Gestor"}
             {!motoboy.temAcesso && " · ainda sem acesso ao app"}
           </span>
         </Link>

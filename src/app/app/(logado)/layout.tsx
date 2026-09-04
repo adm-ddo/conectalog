@@ -73,7 +73,13 @@ export default async function AppLogadoLayout({
 
   return (
     <div className="flex-1 flex flex-col bg-stone-50">
-      <AppHeader nome={sessao.nomeCompleto} logoUrl={empresa.logoUrl} empresaNome={empresa.nome} />
+      <AppHeader
+        nome={sessao.nomeCompleto}
+        logoUrl={empresa.logoUrl}
+        empresaNome={empresa.nome}
+        ehGestor={sessao.ehGestor}
+        email={sessao.email}
+      />
       <main className="flex-1 max-w-md w-full mx-auto px-4 py-6 flex flex-col">{children}</main>
     </div>
   );

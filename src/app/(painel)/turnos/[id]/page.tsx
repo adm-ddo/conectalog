@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { baixarComoDataUrl } from "@/lib/blob";
 import { formatarDataHora } from "@/lib/data";
@@ -19,7 +19,7 @@ export default async function TurnoDetalhePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   const turnoId = Number((await params).id);
 
   const turno = await prisma.turno.findFirst({

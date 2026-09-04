@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 
 /** Fecha o pagamento de um grupo específico de turnos (um dia, se o
  * motoboy é DIARIA, ou uma semana, se é SEMANAL — ver agrupamento em
@@ -16,7 +16,7 @@ import { requireTenant } from "@/lib/auth-empresa";
  * primeiro pagamento que a cooperativa fechar depois deles existirem é
  * quem absorve o desconto. */
 export async function fecharPagamento(motoboyId: number, turnoIds: number[]) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
 
   const motoboy = await prisma.motoboy.findFirst({
     where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
@@ -97,7 +97,7 @@ export async function fecharPagamento(motoboyId: number, turnoIds: number[]) {
 }
 
 export async function marcarPagamentoPago(pagamentoId: number) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
 
   const pagamento = await prisma.pagamento.findFirst({
     where: { id: pagamentoId, empresaId: sessao.empresaEfetivoId },

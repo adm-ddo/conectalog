@@ -4,16 +4,22 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { sair, voltarAoMaster } from "./actions";
 
+// Gestor de campo vê só um subconjunto bem menor (dashboard/escala/minha
+// equipe, filtrados pros clientes dele) — nunca outros clientes,
+// motoboys da cooperativa inteira, pagamentos, relatórios, turnos, equipe
+// (convites) ou configurações. `gestorCampo: false` marca links que ficam
+// escondidos pra esse papel; os sem essa flag valem pros dois.
 const LINKS = [
   { href: "/dashboard", label: "Dashboard" },
   { href: "/escala", label: "Escala" },
-  { href: "/turnos", label: "Turnos" },
-  { href: "/clientes", label: "Clientes" },
-  { href: "/motoboys", label: "Motoboys" },
-  { href: "/pagamentos", label: "Pagamentos" },
-  { href: "/relatorios", label: "Relatórios" },
-  { href: "/equipe", label: "Equipe", masterOnly: true },
-  { href: "/configuracoes", label: "Configurações", masterOnly: true },
+  { href: "/minha-equipe", label: "Minha equipe", soGestorCampo: true },
+  { href: "/turnos", label: "Turnos", gestorCampo: false },
+  { href: "/clientes", label: "Clientes", gestorCampo: false },
+  { href: "/motoboys", label: "Motoboys", gestorCampo: false },
+  { href: "/pagamentos", label: "Pagamentos", gestorCampo: false },
+  { href: "/relatorios", label: "Relatórios", gestorCampo: false },
+  { href: "/equipe", label: "Equipe", masterOnly: true, gestorCampo: false },
+  { href: "/configuracoes", label: "Configurações", masterOnly: true, gestorCampo: false },
 ];
 
 export default function PainelHeader({
@@ -22,6 +28,8 @@ export default function PainelHeader({
   vendoComoSuperAdmin,
   logoUrl,
   ehMaster,
+  ehGestorCampo,
+  email,
   solicitacoesPendentes,
 }: {
   empresaNome: string;
@@ -29,10 +37,16 @@ export default function PainelHeader({
   vendoComoSuperAdmin: boolean;
   logoUrl: string | null;
   ehMaster: boolean;
+  ehGestorCampo: boolean;
+  email: string;
   solicitacoesPendentes: number;
 }) {
   const pathname = usePathname();
-  const links = LINKS.filter((link) => !link.masterOnly || ehMaster);
+  const links = LINKS.filter((link) => {
+    if (link.soGestorCampo) return ehGestorCampo;
+    if (ehGestorCampo && link.gestorCampo === false) return false;
+    return !link.masterOnly || ehMaster;
+  });
 
   return (
     <header className="bg-navy-900 text-white">
@@ -86,6 +100,14 @@ export default function PainelHeader({
           </span>
           <span className="hidden sm:block text-navy-500">·</span>
           <span className="text-sm text-navy-200 truncate max-w-[120px]">{usuarioNome}</span>
+          {ehGestorCampo && (
+            <Link
+              href={`/app/entrar?email=${encodeURIComponent(email)}`}
+              className="text-sm text-navy-200 hover:text-white underline underline-offset-2 shrink-0"
+            >
+              App Motoboy
+            </Link>
+          )}
           <form action={sair}>
             <button
               type="submit"

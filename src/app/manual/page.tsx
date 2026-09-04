@@ -144,6 +144,7 @@ export default function ManualPage() {
                 ["Cadastrar e liberar motoboys", "Aprova o cadastro que o motoboy faz pelo próprio celular e libera em quais clientes ele pode trabalhar."],
                 ["Montar a escala", "Escolhe quem trabalha em qual cliente, dia e turno — com até 7 dias de antecedência, já vendo quantas motos faltam."],
                 ["Acompanhar o dashboard", "Vê quem está em turno agora, equipe incompleta, solicitações de apoio e qualquer divergência pra resolver."],
+                ["Promover um Gestor de campo", "Escolhe um motoboy de confiança e marca quais clientes ele passa a ser responsável (no máximo 2 gestores por cliente). Ele ganha um painel próprio — só pra escala, equipe e dashboard desses clientes — e recebe o alerta quando um deles pede apoio, sem acesso a outros clientes, pagamentos ou relatórios."],
                 ["Fechar pagamentos", "Agrupa os turnos do período, já descontando vale, ocorrência ou atraso, e marca como pago depois do PIX."],
                 ["Tirar relatórios", "Por cliente e período: quanto cobrar, quantas motos trabalharam, quanto cada uma recebe — com PDF pra enviar."],
               ].map(([titulo, texto]) => (
@@ -181,14 +182,28 @@ export default function ManualPage() {
                 nada. É onde ele bate o início e o fim de cada turno, vê sua escala e acompanha
                 quanto vai receber.
               </p>
+              <div className="rounded-2xl bg-white border border-brand-200 px-5 py-4 flex flex-col gap-1.5">
+                <p className="text-sm font-bold text-navy-900">
+                  📋 Um cadastro só, várias cooperativas de olho em você
+                </p>
+                <p className="text-sm text-stone-600">
+                  Não precisa esperar o link de uma cooperativa específica: você pode se cadastrar
+                  direto no app e escolher entrar em contato com a cooperativa que já conhece, ou
+                  ficar disponível &quot;na prateleira&quot; pra qualquer cooperativa que usa o
+                  ConectaLog te chamar. Você só trabalha pra uma cooperativa por vez, mas pode se
+                  desvincular quando quiser e voltar pra prateleira, esperando a próxima chamada.
+                </p>
+              </div>
               <ul className="flex flex-col gap-3 mt-2">
                 {[
-                  ["Se cadastrar", "Pelo link que a cooperativa manda: nome, CPF, chave PIX, foto de perfil e CNH (foto ou arquivo)."],
+                  ["Se cadastrar", "Pelo próprio app (ou pelo link que a cooperativa manda): nome, CPF, chave PIX, foto de perfil e CNH (foto ou arquivo)."],
+                  ["Escolher ou esperar uma cooperativa", "Depois do primeiro login, solicita entrar numa cooperativa específica ou fica disponível na prateleira até alguma chamar."],
                   ["Ver a escala", "A aba \"Escala\" mostra em quais clientes e turnos ele já está confirmado pros próximos 7 dias."],
                   ["Iniciar o turno", "Chegou no cliente: tira uma foto na hora e assina o termo do dia — leva poucos segundos."],
                   ["Pedir apoio", "Se sobrar tempo, pode ajudar outro cliente da cooperativa durante o mesmo turno."],
                   ["Encerrar o turno", "Informa quantas entregas fez, tira outra foto, assina o recibo e avalia como foi o atendimento da empresa."],
                   ["Ver relatório e nota", "Acompanha quanto já fez, quanto vai receber, qualquer vale descontado e sua média de avaliação (sem ver quem avaliou)."],
+                  ["Virar Gestor de campo", "Se a cooperativa confiar essa responsabilidade a você, ganha um painel próprio pra montar a escala e acompanhar a equipe dos clientes que ficam sob sua responsabilidade — sem deixar de fazer entregas e continuar recebendo por elas."],
                 ].map(([titulo, texto]) => (
                   <li key={titulo} className="flex gap-3">
                     <span className="text-brand-600 font-bold shrink-0">✓</span>
@@ -265,6 +280,8 @@ export default function ManualPage() {
               ["E se motoboy e empresa informarem números diferentes?", "A cooperativa vê essa divergência no painel dela e entra em acordo com os dois lados antes de fechar o pagamento — fica registrado quem resolveu e como."],
               ["Como o motoboy recebe o pagamento?", "A cooperativa faz o PIX diretamente pra ele (diário ou semanal, como for combinado) e marca no sistema como pago."],
               ["Preciso instalar algum aplicativo?", "Não. Tanto o painel da cooperativa quanto o app do motoboy e o portal da empresa funcionam direto no navegador do celular ou computador."],
+              ["O que é a \"prateleira\" de motoboys?", "É a lista de motoboys cadastrados no ConectaLog que ainda não escolheram (ou saíram de) uma cooperativa. Qualquer cooperativa pode ver essa lista e chamar um motoboy disponível — ele só entra de verdade depois que aceita e a cooperativa aprova."],
+              ["O que é um Gestor de campo?", "É um motoboy que a própria cooperativa promove pra cuidar da escala e da equipe de clientes específicos (no máximo 2 gestores por cliente). Ele ganha um painel próprio, bem mais restrito que o da cooperativa — só escala, equipe e dashboard dos clientes dele — e pode alternar entre esse painel e o app de motoboy normal, já que continua fazendo entregas."],
             ].map(([pergunta, resposta]) => (
               <div key={pergunta} className="rounded-2xl bg-white border border-stone-200 p-5">
                 <h3 className="text-sm font-bold text-navy-900 mb-1.5">{pergunta}</h3>

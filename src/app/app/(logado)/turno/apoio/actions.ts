@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireMotoboyComEmpresa } from "@/lib/auth-motoboy";
 import { valorEfetivo, paraNumero } from "@/lib/valores";
+import { aplicarRemuneracaoGestor } from "@/lib/precificacao";
 
 // Apoio sempre usa o modelo "por banda" normal do cliente de apoio, nunca
 // a diária/franquia — a diária representa a moto fixa contratada e
@@ -31,7 +32,7 @@ export async function registrarApoio(dados: DadosApoio): Promise<ApoioState> {
 
   const motoboy = await prisma.motoboy.findUniqueOrThrow({
     where: { id: sessao.motoboyId },
-    select: { livre: true },
+    select: { livre: true, ehGestor: true, modoRemuneracaoGestor: true, valorBandaGestorEspecial: true },
   });
   if (!motoboy.livre) {
     const liberacao = await prisma.motoboyCliente.findUnique({
@@ -80,7 +81,9 @@ export async function registrarApoio(dados: DadosApoio): Promise<ApoioState> {
     (soma, item) => soma + item.quantidade * paraNumero(item.valorClienteAplicado),
     0
   );
-  const valorTotal = dados.quantidadeBandas * valorBandaAplicado + somaTaxaMotoboy;
+  const valorTotal =
+    aplicarRemuneracaoGestor(dados.quantidadeBandas * valorBandaAplicado, dados.quantidadeBandas, motoboy) +
+    somaTaxaMotoboy;
   const valorCobradoCliente = dados.quantidadeBandas * valorBandaClienteAplicado + somaTaxaCliente;
 
   const apoio = await prisma.apoio.create({

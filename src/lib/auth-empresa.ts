@@ -33,6 +33,10 @@ export type SessaoEmpresa = {
    * certa é /master, não um painel de cooperativa nenhuma). */
   empresaEfetivoId: number | null;
   empresaEfetivoNome: string | null;
+  /** Só preenchido pra role GESTOR_CAMPO — o Motoboy pareado a este
+   * login (ver Usuario.motoboyVinculadoId). Usado pra filtrar dashboard/
+   * escala/minha-equipe só pros clientes que ele é responsável. */
+  motoboyVinculadoId: number | null;
 };
 
 export async function criarSessaoEmpresa(usuarioId: number): Promise<void> {
@@ -83,6 +87,7 @@ export const getSessaoEmpresa = cache(
             role: true,
             superAdmin: true,
             ativo: true,
+            motoboyVinculadoId: true,
           },
         },
         empresaAtiva: { select: { nome: true } },
@@ -114,6 +119,7 @@ export const getSessaoEmpresa = cache(
       empresaAtivaId: sessao.empresaAtivaId,
       empresaEfetivoId,
       empresaEfetivoNome,
+      motoboyVinculadoId: sessao.usuario.motoboyVinculadoId,
     };
   }
 );
@@ -137,6 +143,33 @@ export async function requireTenant(): Promise<
   const sessao = await requireEmpresa();
   if (sessao.empresaEfetivoId === null) redirect("/master");
   return { ...sessao, empresaEfetivoId: sessao.empresaEfetivoId };
+}
+
+/** Use nas páginas/ações que um Gestor de campo NUNCA deveria ver
+ * (clientes, motoboys, pagamentos, relatórios, turnos, escala da
+ * semana...) — dashboard, escala (dia) e minha-equipe são as únicas
+ * exceções, que usam requireTenant normal e filtram os dados por
+ * clientesResponsaveisIds em vez de bloquear a página inteira. */
+export async function requireTenantCompleto(): Promise<
+  SessaoEmpresa & { empresaEfetivoId: number }
+> {
+  const sessao = await requireTenant();
+  if (sessao.role === "GESTOR_CAMPO") redirect("/dashboard");
+  return sessao;
+}
+
+/** IDs dos clientes que esse Gestor de campo é responsável (ver
+ * MotoboyCliente.gestor) — lista vazia se não for GESTOR_CAMPO ou ainda
+ * não tiver nenhum cliente atribuído. */
+export async function clientesResponsaveisIds(
+  sessao: Pick<SessaoEmpresa, "role" | "motoboyVinculadoId">
+): Promise<number[]> {
+  if (sessao.role !== "GESTOR_CAMPO" || sessao.motoboyVinculadoId === null) return [];
+  const vinculos = await prisma.motoboyCliente.findMany({
+    where: { motoboyId: sessao.motoboyVinculadoId, gestor: true },
+    select: { clienteId: true },
+  });
+  return vinculos.map((v) => v.clienteId);
 }
 
 /** Use nas ações restritas ao dono (ex.: criar outro login, mexer em

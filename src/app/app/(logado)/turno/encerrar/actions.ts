@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMotoboyComEmpresa } from "@/lib/auth-motoboy";
 import { uploadDataUrl } from "@/lib/blob";
 import { valorEfetivo, paraNumero } from "@/lib/valores";
-import { calcularValores, encontrarPerfilFixo } from "@/lib/precificacao";
+import { calcularValores, encontrarPerfilFixo, aplicarRemuneracaoGestor } from "@/lib/precificacao";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type EncerrarTurnoState = { erro?: string } | undefined;
@@ -49,7 +49,13 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
     return { erro: "Selecione uma nota de 1 a 5 pra avaliar a empresa." };
   }
 
-  const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaId } });
+  const [empresa, motoboy] = await Promise.all([
+    prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaId } }),
+    prisma.motoboy.findUniqueOrThrow({
+      where: { id: sessao.motoboyId },
+      select: { ehGestor: true, modoRemuneracaoGestor: true, valorBandaGestorEspecial: true },
+    }),
+  ]);
   const { valorMotoboy, valorCliente } = calcularValores(
     turno.cliente,
     empresa,
@@ -61,6 +67,15 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
       quantidade: item.quantidade,
     }))
   );
+  // A cobrança do cliente nunca muda; só o quanto o Gestor recebe pelas
+  // PRÓPRIAS bandas pode seguir uma regra diferente da tarifa normal.
+  const totalTaxasMotoboy = itensComQuantidade.reduce(
+    (soma, item) => soma + item.quantidade * paraNumero(item.valorMotoboyAplicado),
+    0
+  );
+  const valorMotoboyFinal =
+    aplicarRemuneracaoGestor(valorMotoboy - totalTaxasMotoboy, dados.quantidadeBandas, motoboy) +
+    totalTaxasMotoboy;
   // Snapshot informativo do valor por banda em vigor — no valor fixo por
   // turno, é a tarifa de excedente do perfil que bateu (a única que de
   // fato varia com a quantidade).
@@ -84,7 +99,7 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
         quantidadeBandas: dados.quantidadeBandas,
         quantidadeTaxasExtras: totalTaxasExtras,
         valorBandaAplicado,
-        valorTotal: valorMotoboy,
+        valorTotal: valorMotoboyFinal,
         valorCobradoCliente: valorCliente,
         status: "CONCLUIDO",
       },

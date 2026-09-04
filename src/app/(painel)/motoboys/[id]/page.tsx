@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
-import { formatarData } from "@/lib/data";
+import { formatarData, formatarDataHora } from "@/lib/data";
 import { paraNumero } from "@/lib/valores";
 import { baixarComoDataUrl } from "@/lib/blob";
 import LiberacaoClientes from "./LiberacaoClientes";
@@ -14,16 +14,18 @@ import DescontosAssiduidadeSection from "./DescontosAssiduidadeSection";
 import DescontoAssiduidadeToggle from "./DescontoAssiduidadeToggle";
 import EquipamentoSelector from "./EquipamentoSelector";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
+import GestorSection from "./GestorSection";
+import FrequenciaPagamentoToggle from "./FrequenciaPagamentoToggle";
 
 export default async function MotoboyDetalhePage({
   params,
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   const motoboyId = Number((await params).id);
 
-  const [motoboy, clientes, mediaAvaliacoes, totalTurnos, turnosRecentes] = await Promise.all([
+  const [motoboy, clientes, gestoresPorCliente, mediaAvaliacoes, totalTurnos, turnosRecentes] = await Promise.all([
     prisma.motoboy.findFirst({
       where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
       include: {
@@ -47,6 +49,12 @@ export default async function MotoboyDetalhePage({
       where: { empresaId: sessao.empresaEfetivoId, ativo: true },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
+    }),
+    // Conta quantos gestores cada cliente já tem (de qualquer motoboy),
+    // pra travar a marcação em GestorSection ao chegar no limite.
+    prisma.motoboyCliente.findMany({
+      where: { gestor: true, cliente: { empresaId: sessao.empresaEfetivoId } },
+      select: { clienteId: true },
     }),
     prisma.avaliacao.aggregate({
       where: { motoboyId },
@@ -73,6 +81,13 @@ export default async function MotoboyDetalhePage({
   const liberadosPorClienteId = new Map(
     motoboy.clientesLiberados.map((mc) => [mc.clienteId, mc.liberado])
   );
+  const souGestorPorClienteId = new Map(
+    motoboy.clientesLiberados.map((mc) => [mc.clienteId, mc.gestor])
+  );
+  const totalGestoresPorClienteId = new Map<number, number>();
+  for (const { clienteId } of gestoresPorCliente) {
+    totalGestoresPorClienteId.set(clienteId, (totalGestoresPorClienteId.get(clienteId) ?? 0) + 1);
+  }
 
   // Foto de perfil e CNH ficam privadas no Blob — só dá pra exibir
   // baixando aqui no servidor (depois de já ter confirmado que esse
@@ -131,6 +146,10 @@ export default async function MotoboyDetalhePage({
           <span className="text-stone-500">Acesso ao app:</span>{" "}
           {motoboy.senhaHash ? "já configurado" : "ainda não configurado"}
         </p>
+        <p>
+          <span className="text-stone-500">Cadastrado em:</span> {formatarDataHora(motoboy.criadoEm)}
+        </p>
+        <FrequenciaPagamentoToggle motoboyId={motoboy.id} frequencia={motoboy.frequenciaPagamento} />
       </div>
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-4">
@@ -196,6 +215,21 @@ export default async function MotoboyDetalhePage({
           id: c.id,
           nome: c.nome,
           liberado: liberadosPorClienteId.get(c.id) ?? false,
+        }))}
+      />
+
+      <GestorSection
+        motoboyId={motoboy.id}
+        ehGestor={motoboy.ehGestor}
+        modoRemuneracao={motoboy.modoRemuneracaoGestor}
+        valorEspecial={
+          motoboy.valorBandaGestorEspecial !== null ? paraNumero(motoboy.valorBandaGestorEspecial) : null
+        }
+        clientes={clientes.map((c) => ({
+          id: c.id,
+          nome: c.nome,
+          souGestor: souGestorPorClienteId.get(c.id) ?? false,
+          totalGestores: totalGestoresPorClienteId.get(c.id) ?? 0,
         }))}
       />
 

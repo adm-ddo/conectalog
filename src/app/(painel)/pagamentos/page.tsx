@@ -1,4 +1,4 @@
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
 import { dataISOBrasil, formatarData, inicioDaSemanaBrasil } from "@/lib/data";
@@ -25,7 +25,7 @@ function chaveEDataGrupo(
 }
 
 export default async function PagamentosPage() {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
 
   const [motoboys, pagamentos] = await Promise.all([
     prisma.motoboy.findMany({

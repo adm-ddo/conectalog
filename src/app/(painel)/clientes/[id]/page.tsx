@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
 import { turnoAtivoAgora, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
@@ -14,7 +14,7 @@ export default async function ClienteDetalhePage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   const clienteId = Number((await params).id);
 
   const [cliente, mediaAvaliacoes, avaliacoesRecebidas] = await Promise.all([

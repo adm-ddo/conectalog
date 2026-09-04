@@ -4,13 +4,13 @@ import { useActionState, useState } from "react";
 import Link from "next/link";
 import { entrarMotoboy, reenviarVerificacaoMotoboy } from "./actions";
 
-export default function LoginMotoboyForm() {
+export default function LoginMotoboyForm({ emailInicial }: { emailInicial?: string }) {
   const [state, formAction, pending] = useActionState(entrarMotoboy, undefined);
   const [reenviarState, reenviarAction, reenviarPending] = useActionState(
     reenviarVerificacaoMotoboy,
     undefined
   );
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(emailInicial ?? "");
 
   return (
     <div className="flex flex-col gap-3 w-full max-w-sm">

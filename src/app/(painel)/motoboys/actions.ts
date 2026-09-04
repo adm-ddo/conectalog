@@ -1,8 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
-import { requireTenant } from "@/lib/auth-empresa";
+import { requireTenantCompleto, criarTokenAutenticacaoUsuario } from "@/lib/auth-empresa";
+import { hashSenha } from "@/lib/senha";
+import { enviarEmailRecuperacaoSenhaUsuario } from "@/lib/email";
+import type { ModoRemuneracaoGestor } from "@/generated/prisma/enums";
+import { LIMITE_GESTORES_POR_CLIENTE } from "@/lib/gestorConfig";
 
 export type MotoboyFormState = { erro?: string } | undefined;
 
@@ -17,7 +22,7 @@ export async function criarMotoboyManual(
   _prev: MotoboyFormState,
   formData: FormData
 ): Promise<MotoboyFormState> {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
 
   const nomeCompleto = String(formData.get("nomeCompleto") ?? "").trim();
   const cpf = String(formData.get("cpf") ?? "").replace(/\D/g, "");
@@ -76,7 +81,7 @@ export async function atualizarEquipamentoMotoboy(
   motoboyId: number,
   tipoEquipamento: (typeof TIPOS_EQUIPAMENTO)[number] | null
 ) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   await prisma.motoboy.updateMany({
     where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
     data: { tipoEquipamento },
@@ -86,7 +91,7 @@ export async function atualizarEquipamentoMotoboy(
 }
 
 export async function alternarAtivoMotoboy(motoboyId: number, ativo: boolean) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   await prisma.motoboy.updateMany({
     where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
     data: { ativo },
@@ -102,7 +107,7 @@ export type ExcluirMotoboyResult = { erro?: string } | undefined;
  * no schema. Excluir alguém com histórico apagaria pagamento e turno de
  * verdade — nesse caso a cooperativa deve bloquear em vez de excluir. */
 export async function excluirMotoboy(motoboyId: number): Promise<ExcluirMotoboyResult> {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
 
   const motoboy = await prisma.motoboy.findFirst({
     where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
@@ -139,7 +144,7 @@ export async function excluirMotoboy(motoboyId: number): Promise<ExcluirMotoboyR
  * liberar explicitamente em quais clientes ele pode trabalhar, igual
  * qualquer motoboy cadastrado manualmente. */
 export async function aprovarSolicitacaoMotoboy(motoboyId: number) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   await prisma.motoboy.updateMany({
     where: { id: motoboyId, empresaId: sessao.empresaEfetivoId, aprovadoEm: null },
     data: { aprovadoEm: new Date() },
@@ -152,7 +157,7 @@ export async function aprovarSolicitacaoMotoboy(motoboyId: number) {
  * (empresaId null), disponível de novo pra qualquer cooperativa chamar
  * ou pra ele pedir vaga em outra. */
 export async function rejeitarSolicitacaoMotoboy(motoboyId: number) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   await prisma.motoboy.updateMany({
     where: { id: motoboyId, empresaId: sessao.empresaEfetivoId, aprovadoEm: null },
     data: { empresaId: null, aprovadoEm: null, livre: false },
@@ -161,7 +166,7 @@ export async function rejeitarSolicitacaoMotoboy(motoboyId: number) {
 }
 
 export async function alternarLivreMotoboy(motoboyId: number, livre: boolean) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   await prisma.motoboy.updateMany({
     where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
     data: { livre },
@@ -169,10 +174,24 @@ export async function alternarLivreMotoboy(motoboyId: number, livre: boolean) {
   revalidatePath(`/motoboys/${motoboyId}`);
 }
 
+/** DIARIA = "free", recebe a cada turno fechado. SEMANAL = "moto fixa",
+ * entra no fechamento semanal junto com o resto da equipe. */
+export async function atualizarFrequenciaPagamento(
+  motoboyId: number,
+  frequencia: "DIARIA" | "SEMANAL"
+) {
+  const sessao = await requireTenantCompleto();
+  await prisma.motoboy.updateMany({
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
+    data: { frequenciaPagamento: frequencia },
+  });
+  revalidatePath(`/motoboys/${motoboyId}`);
+}
+
 /** Liga/desliga o desconto automático de atraso pra esse motoboy (ver
  * Empresa.toleranciaAtrasoMinutos e DescontoAssiduidade). */
 export async function alternarDescontoAssiduidade(motoboyId: number, ativo: boolean) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   await prisma.motoboy.updateMany({
     where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
     data: { descontoAssiduidadeAtivo: ativo },
@@ -188,7 +207,7 @@ export async function alternarLiberacaoMotoboyCliente(
   clienteId: number,
   liberado: boolean
 ) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
 
   // Confere posse dos dois lados antes de mexer — motoboy e cliente
   // precisam ser da mesma empresa de quem está logado.
@@ -218,7 +237,7 @@ export async function criarVale(
   _prev: ValeFormState,
   formData: FormData
 ): Promise<ValeFormState> {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
 
   const valor = Number(String(formData.get("valor") ?? "").replace(",", "."));
   const dataTexto = String(formData.get("data") ?? "").trim();
@@ -251,10 +270,147 @@ export async function criarVale(
 }
 
 export async function marcarValeDescontado(valeId: number, motoboyId: number) {
-  const sessao = await requireTenant();
+  const sessao = await requireTenantCompleto();
   await prisma.vale.updateMany({
     where: { id: valeId, empresaId: sessao.empresaEfetivoId },
     data: { descontadoEm: new Date() },
+  });
+  revalidatePath(`/motoboys/${motoboyId}`);
+}
+
+/** Cria (ou reativa) o login de painel pareado com esse Motoboy, papel
+ * GESTOR_CAMPO — dois logins de verdade e isolados (nunca compartilha
+ * senha nem sessão com o Motoboy), só ligados por
+ * Usuario.motoboyVinculadoId. A senha nasce aleatória e inutilizável de
+ * propósito: quem usa é o e-mail de "defina sua senha" (mesmo token de
+ * recuperação de senha já usado em /redefinir-senha). */
+async function provisionarUsuarioGestor(motoboy: {
+  id: number;
+  empresaId: number;
+  nomeCompleto: string;
+  email: string;
+}): Promise<{ erro?: string }> {
+  const existente = await prisma.usuario.findUnique({ where: { motoboyVinculadoId: motoboy.id } });
+  if (existente) {
+    if (!existente.ativo) {
+      await prisma.usuario.update({ where: { id: existente.id }, data: { ativo: true } });
+    }
+    return {};
+  }
+
+  const colisao = await prisma.usuario.findUnique({ where: { email: motoboy.email } });
+  if (colisao) {
+    return { erro: "Já existe um login de painel com esse e-mail — não dá pra criar o de gestor." };
+  }
+
+  const senhaInutilizavel = await hashSenha(randomBytes(24).toString("hex"));
+  const criado = await prisma.usuario.create({
+    data: {
+      empresaId: motoboy.empresaId,
+      nome: motoboy.nomeCompleto,
+      email: motoboy.email,
+      senhaHash: senhaInutilizavel,
+      role: "GESTOR_CAMPO",
+      // O e-mail já foi confirmado do lado do app do motoboy — não faz
+      // sentido pedir de novo aqui.
+      emailVerificadoEm: new Date(),
+      motoboyVinculadoId: motoboy.id,
+    },
+  });
+
+  const token = await criarTokenAutenticacaoUsuario(criado.id, "RECUPERACAO_SENHA");
+  await enviarEmailRecuperacaoSenhaUsuario(motoboy.email, motoboy.nomeCompleto, token);
+  return {};
+}
+
+export type AlternarGestorResult = { erro?: string } | undefined;
+
+/** Liga/desliga o motoboy como Gestor de campo. Ao ligar, provisiona (ou
+ * reativa) o login de painel pareado. Ao desligar, desativa esse login
+ * (não apaga — pode ter escalas criadas no histórico, ver
+ * EscalaTurno.criadoPorUsuario) e tira ele de gestor de todos os
+ * clientes que respondia. */
+export async function alternarEhGestor(
+  motoboyId: number,
+  ehGestor: boolean
+): Promise<AlternarGestorResult> {
+  const sessao = await requireTenantCompleto();
+  const motoboy = await prisma.motoboy.findFirst({
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
+  });
+  if (!motoboy) return { erro: "Motoboy não encontrado." };
+  if (motoboy.empresaId === null) return { erro: "Motoboy não encontrado." };
+
+  if (ehGestor) {
+    const resultado = await provisionarUsuarioGestor({ ...motoboy, empresaId: motoboy.empresaId });
+    if (resultado.erro) return resultado;
+    await prisma.motoboy.update({ where: { id: motoboyId }, data: { ehGestor: true } });
+  } else {
+    await prisma.$transaction([
+      prisma.motoboy.update({ where: { id: motoboyId }, data: { ehGestor: false } }),
+      prisma.motoboyCliente.updateMany({ where: { motoboyId }, data: { gestor: false } }),
+      prisma.usuario.updateMany({
+        where: { motoboyVinculadoId: motoboyId },
+        data: { ativo: false },
+      }),
+    ]);
+  }
+
+  revalidatePath(`/motoboys/${motoboyId}`);
+}
+
+/** Liga/desliga esse motoboy como Gestor responsável por um cliente
+ * específico — no máximo LIMITE_GESTORES_POR_CLIENTE por cliente. Ligar
+ * também libera ele nesse cliente (gestor sem estar liberado não faz
+ * sentido). */
+export async function alternarGestorCliente(
+  motoboyId: number,
+  clienteId: number,
+  gestor: boolean
+): Promise<AlternarGestorResult> {
+  const sessao = await requireTenantCompleto();
+
+  const [motoboy, cliente] = await Promise.all([
+    prisma.motoboy.findFirst({ where: { id: motoboyId, empresaId: sessao.empresaEfetivoId } }),
+    prisma.cliente.findFirst({ where: { id: clienteId, empresaId: sessao.empresaEfetivoId } }),
+  ]);
+  if (!motoboy || !cliente) return { erro: "Motoboy ou cliente inválido." };
+  if (!motoboy.ehGestor) return { erro: "Marque o motoboy como Gestor antes de atribuir clientes." };
+
+  if (gestor) {
+    const totalGestoresNoCliente = await prisma.motoboyCliente.count({
+      where: { clienteId, gestor: true, motoboyId: { not: motoboyId } },
+    });
+    if (totalGestoresNoCliente >= LIMITE_GESTORES_POR_CLIENTE) {
+      return {
+        erro: `${cliente.nome} já tem ${LIMITE_GESTORES_POR_CLIENTE} gestores — tire um antes de adicionar outro.`,
+      };
+    }
+  }
+
+  await prisma.motoboyCliente.upsert({
+    where: { motoboyId_clienteId: { motoboyId, clienteId } },
+    update: { gestor, ...(gestor ? { liberado: true } : {}) },
+    create: { motoboyId, clienteId, gestor, liberado: true },
+  });
+
+  revalidatePath(`/motoboys/${motoboyId}`);
+}
+
+/** Define como as bandas que o próprio Gestor faz (motoboy de verdade,
+ * não gestão) são remuneradas — ver Motoboy.modoRemuneracaoGestor. */
+export async function atualizarRemuneracaoGestor(
+  motoboyId: number,
+  modo: ModoRemuneracaoGestor,
+  valorEspecial: number | null
+) {
+  const sessao = await requireTenantCompleto();
+  await prisma.motoboy.updateMany({
+    where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
+    data: {
+      modoRemuneracaoGestor: modo,
+      valorBandaGestorEspecial: modo === "VALOR_ESPECIAL" ? valorEspecial : null,
+    },
   });
   revalidatePath(`/motoboys/${motoboyId}`);
 }
