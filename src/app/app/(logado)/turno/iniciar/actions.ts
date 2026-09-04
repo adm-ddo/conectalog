@@ -75,24 +75,34 @@ export async function iniciarTurno(dados: DadosIniciarTurno): Promise<IniciarTur
   // existir pros dois lados poderem preencher a quantidade, em qualquer
   // ordem. O preço também fica travado nesse momento (snapshot), igual
   // já acontece com valorBandaAplicado.
-  const turno = await prisma.turno.create({
-    data: {
-      motoboyId: sessao.motoboyId,
-      clienteId: dados.clienteId,
-      turnoPredefinido: dados.turnoPredefinido,
-      fotoInicioUrl,
-      assinaturaTermoUrl,
-      taxaExtraItens: {
-        create: cliente.taxasExtras.map((faixa) => ({
-          clienteTaxaExtraId: faixa.id,
-          ordem: faixa.ordem,
-          descricao: faixa.descricao,
-          valorMotoboyAplicado: faixa.valorMotoboy,
-          valorClienteAplicado: faixa.valorCliente,
-        })),
+  let turno;
+  try {
+    turno = await prisma.turno.create({
+      data: {
+        motoboyId: sessao.motoboyId,
+        clienteId: dados.clienteId,
+        turnoPredefinido: dados.turnoPredefinido,
+        fotoInicioUrl,
+        assinaturaTermoUrl,
+        taxaExtraItens: {
+          create: cliente.taxasExtras.map((faixa) => ({
+            clienteTaxaExtraId: faixa.id,
+            ordem: faixa.ordem,
+            descricao: faixa.descricao,
+            valorMotoboyAplicado: faixa.valorMotoboy,
+            valorClienteAplicado: faixa.valorCliente,
+          })),
+        },
       },
-    },
-  });
+    });
+  } catch {
+    // A checagem de jaEmTurno acima não impede duas requisições quase
+    // simultâneas (cliques repetidos, rede lenta) de passarem juntas —
+    // quem garante de verdade é o índice único parcial no banco
+    // (Turno_motoboyId_aberto_unico, só um ABERTO por motoboy). Cair
+    // aqui só acontece se esbarrar nele.
+    return { erro: "Você já está com um turno em aberto." };
+  }
 
   await Promise.all([
     vincularEscalaSeExistir(sessao.motoboyId, dados.clienteId, dados.turnoPredefinido, turno.id),

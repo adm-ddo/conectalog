@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import CameraCapture from "@/components/CameraCapture";
 import SignaturePadInput from "@/components/SignaturePadInput";
 import { TERMO_AUTONOMO } from "@/lib/termos";
@@ -32,7 +32,7 @@ export default function IniciarTurnoWizard({ clientes }: { clientes: Cliente[] }
   const [fotoInicioDataUrl, setFotoInicioDataUrl] = useState<string | null>(null);
   const [aceitouTermo, setAceitouTermo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
 
   const clienteSelecionado = clientes.find((c) => c.id === clienteId);
   const opcoesTurno = OPCOES_TURNO.filter(
@@ -54,10 +54,18 @@ export default function IniciarTurnoWizard({ clientes }: { clientes: Cliente[] }
     );
   }
 
-  function assinar(assinaturaTermoDataUrl: string) {
+  // Precisa ser async de verdade e o SignaturePadInput precisa dar
+  // `await` nisso (ele dá, ver onConfirm) — é o que mantém o botão de
+  // assinar desabilitado pelo tempo real da requisição. Antes isso usava
+  // startTransition, que retorna na hora sem esperar o callback interno
+  // terminar: o botão reabilitava enquanto o envio ainda estava a
+  // caminho, e cliques repetidos (rede lenta, dedo ansioso) disparavam
+  // vários turnos em paralelo pro mesmo motoboy.
+  async function assinar(assinaturaTermoDataUrl: string) {
     if (!clienteId || !fotoInicioDataUrl) return;
     setErro(null);
-    startTransition(async () => {
+    setPending(true);
+    try {
       const resultado = await iniciarTurno({
         clienteId,
         turnoPredefinido,
@@ -65,7 +73,9 @@ export default function IniciarTurnoWizard({ clientes }: { clientes: Cliente[] }
         assinaturaTermoDataUrl,
       });
       if (resultado?.erro) setErro(resultado.erro);
-    });
+    } finally {
+      setPending(false);
+    }
   }
 
   return (

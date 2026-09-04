@@ -550,6 +550,13 @@ model MotoboyCliente {
 /// a SOMA de todas as faixas, guardada pra exibição rápida e pra sinalizar
 /// divergência sem precisar somar os itens toda hora — o valor de
 /// verdade (pra pagamento) vem de TurnoTaxaExtraItem.
+///
+/// Existe também um índice único parcial só no banco (Prisma não modela
+/// unique parcial em schema.prisma), criado na migration
+/// 20260904220000_turno_aberto_unico: `UNIQUE (motoboyId) WHERE status =
+/// 'ABERTO'` — garante que um motoboy nunca tenha dois turnos abertos ao
+/// mesmo tempo, mesmo com requisições concorrentes (ver comentário em
+/// iniciarTurno, turno/iniciar/actions.ts).
 model Turno {
   id                    Int              @id @default(autoincrement())
   motoboyId             Int
