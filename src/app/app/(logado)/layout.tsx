@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireMotoboy } from "@/lib/auth-motoboy";
 import { prisma } from "@/lib/prisma";
 import { sairMotoboy } from "./actions";
@@ -5,7 +6,7 @@ import AppHeader from "./AppHeader";
 import SemCooperativaScreen from "./SemCooperativaScreen";
 import AguardandoAprovacaoScreen from "./AguardandoAprovacaoScreen";
 
-function CabecalhoMinimo({ nome }: { nome: string }) {
+function CabecalhoMinimo({ nome, temContaPainel }: { nome: string; temContaPainel: boolean }) {
   return (
     <header className="bg-white border-b border-stone-200">
       <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
@@ -14,6 +15,11 @@ function CabecalhoMinimo({ nome }: { nome: string }) {
         </span>
         <div className="flex items-center gap-3">
           <span className="text-xs text-stone-500">Olá, {nome.split(" ")[0]}</span>
+          {temContaPainel && (
+            <Link href="/dashboard" className="text-xs text-brand-700 underline underline-offset-2">
+              Painel da cooperativa
+            </Link>
+          )}
           <form action={sairMotoboy}>
             <button type="submit" className="text-xs text-stone-500 underline underline-offset-2">
               Sair
@@ -43,7 +49,7 @@ export default async function AppLogadoLayout({
     });
     return (
       <div className="flex-1 flex flex-col bg-stone-50">
-        <CabecalhoMinimo nome={sessao.nomeCompleto} />
+        <CabecalhoMinimo nome={sessao.nomeCompleto} temContaPainel={sessao.temContaPainel} />
         <main className="flex-1 max-w-md w-full mx-auto px-4 py-6 flex flex-col">
           <SemCooperativaScreen empresas={empresas} />
         </main>
@@ -59,7 +65,7 @@ export default async function AppLogadoLayout({
     });
     return (
       <div className="flex-1 flex flex-col bg-stone-50">
-        <CabecalhoMinimo nome={sessao.nomeCompleto} />
+        <CabecalhoMinimo nome={sessao.nomeCompleto} temContaPainel={sessao.temContaPainel} />
         <main className="flex-1 max-w-md w-full mx-auto px-4 py-6 flex flex-col">
           <AguardandoAprovacaoScreen empresaNome={empresa.nome} />
         </main>
@@ -78,8 +84,7 @@ export default async function AppLogadoLayout({
         nome={sessao.nomeCompleto}
         logoUrl={empresa.logoUrl}
         empresaNome={empresa.nome}
-        ehGestor={sessao.ehGestor}
-        email={sessao.email}
+        temContaPainel={sessao.temContaPainel}
       />
       <main className="flex-1 max-w-md w-full mx-auto px-4 py-6 flex flex-col">{children}</main>
     </div>

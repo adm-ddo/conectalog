@@ -29,7 +29,7 @@ export default function PainelHeader({
   logoUrl,
   ehMaster,
   ehGestorCampo,
-  email,
+  temContaMotoboy,
   solicitacoesPendentes,
 }: {
   empresaNome: string;
@@ -38,7 +38,7 @@ export default function PainelHeader({
   logoUrl: string | null;
   ehMaster: boolean;
   ehGestorCampo: boolean;
-  email: string;
+  temContaMotoboy: boolean;
   solicitacoesPendentes: number;
 }) {
   const pathname = usePathname();
@@ -100,9 +100,9 @@ export default function PainelHeader({
           </span>
           <span className="hidden sm:block text-navy-500">·</span>
           <span className="text-sm text-navy-200 truncate max-w-[120px]">{usuarioNome}</span>
-          {ehGestorCampo && (
+          {temContaMotoboy && (
             <Link
-              href={`/app/entrar?email=${encodeURIComponent(email)}`}
+              href="/app/inicio"
               className="text-sm text-navy-200 hover:text-white underline underline-offset-2 shrink-0"
             >
               App Motoboy

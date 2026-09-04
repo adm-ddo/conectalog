@@ -37,6 +37,11 @@ export type SessaoEmpresa = {
    * login (ver Usuario.motoboyVinculadoId). Usado pra filtrar dashboard/
    * escala/minha-equipe só pros clientes que ele é responsável. */
   motoboyVinculadoId: number | null;
+  /** true se esse e-mail também tem QUALQUER login de motoboy (pareado
+   * como Gestor de campo ou não — ex.: o próprio dono da cooperativa que
+   * também se cadastrou como motoboy pra fazer entrega). Usado pra
+   * mostrar o link fixo de trocar de tela em toda página do painel. */
+  temContaMotoboy: boolean;
 };
 
 export async function criarSessaoEmpresa(usuarioId: number): Promise<void> {
@@ -109,6 +114,11 @@ export const getSessaoEmpresa = cache(
     const empresaEfetivoNome =
       sessao.usuario.superAdmin && sessao.empresaAtiva ? sessao.empresaAtiva.nome : null;
 
+    const motoboyComMesmoEmail = await prisma.motoboy.findFirst({
+      where: { email: sessao.usuario.email },
+      select: { id: true },
+    });
+
     return {
       usuarioId: sessao.usuario.id,
       nome: sessao.usuario.nome,
@@ -120,6 +130,7 @@ export const getSessaoEmpresa = cache(
       empresaEfetivoId,
       empresaEfetivoNome,
       motoboyVinculadoId: sessao.usuario.motoboyVinculadoId,
+      temContaMotoboy: motoboyComMesmoEmail !== null,
     };
   }
 );

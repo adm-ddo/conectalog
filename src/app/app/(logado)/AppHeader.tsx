@@ -15,14 +15,12 @@ export default function AppHeader({
   nome,
   logoUrl,
   empresaNome,
-  ehGestor,
-  email,
+  temContaPainel,
 }: {
   nome: string;
   logoUrl: string | null;
   empresaNome: string;
-  ehGestor: boolean;
-  email: string;
+  temContaPainel: boolean;
 }) {
   const pathname = usePathname();
 
@@ -44,12 +42,12 @@ export default function AppHeader({
           </div>
         </div>
         <div className="flex items-center gap-3 shrink-0">
-          {ehGestor && (
+          {temContaPainel && (
             <Link
-              href={`/login?email=${encodeURIComponent(email)}`}
+              href="/dashboard"
               className="text-xs text-brand-700 underline underline-offset-2"
             >
-              Painel Gestor
+              Painel da cooperativa
             </Link>
           )}
           <form action={sairMotoboy}>

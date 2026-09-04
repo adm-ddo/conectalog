@@ -27,8 +27,16 @@ export type SessaoMotoboy = {
   email: string;
   /** Motoboy promovido a Gestor de campo (ver Motoboy.ehGestor) — tem um
    * login de painel próprio pareado (Usuario.motoboyVinculadoId), com o
-   * mesmo e-mail. Usado só pra mostrar o link de trocar de painel. */
+   * mesmo e-mail. Controla o acesso à tela "Minha equipe" e o modo de
+   * remuneração das próprias bandas — não é sobre navegação, ver
+   * temContaPainel pra isso. */
   ehGestor: boolean;
+  /** true se esse e-mail também tem QUALQUER login de painel (dono,
+   * gestor convidado ou Gestor de campo pareado — não importa o motivo,
+   * são duas contas de verdade independentes, só compartilhando e-mail).
+   * Usado pra mostrar o link fixo de trocar de tela em toda página do
+   * app, não só uma vez no login. */
+  temContaPainel: boolean;
 };
 
 export async function criarSessaoMotoboy(motoboyId: number): Promise<void> {
@@ -84,6 +92,11 @@ export const getSessaoMotoboy = cache(
       return null;
     }
 
+    const usuarioComMesmoEmail = await prisma.usuario.findFirst({
+      where: { email: sessao.motoboy.email },
+      select: { id: true },
+    });
+
     return {
       motoboyId: sessao.motoboy.id,
       empresaId: sessao.motoboy.empresaId,
@@ -91,6 +104,7 @@ export const getSessaoMotoboy = cache(
       nomeCompleto: sessao.motoboy.nomeCompleto,
       email: sessao.motoboy.email,
       ehGestor: sessao.motoboy.ehGestor,
+      temContaPainel: usuarioComMesmoEmail !== null,
     };
   }
 );
