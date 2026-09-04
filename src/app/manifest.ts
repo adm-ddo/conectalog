@@ -11,11 +11,13 @@ export default function manifest(): MetadataRoute.Manifest {
       "Gestão de motoboys para cooperativas de entrega — jornada, bandas e pagamento em um lugar só.",
     start_url: "/",
     display: "standalone",
-    background_color: "#0d1b2a",
+    // Preto pra bater exatamente com o fundo já embutido no ícone (ele
+    // não tem transparência) — evita uma borda visível na splash screen.
+    background_color: "#000000",
     theme_color: "#0d1b2a",
     icons: [
-      { src: "/icons/192", sizes: "192x192", type: "image/png" },
-      { src: "/icons/512", sizes: "512x512", type: "image/png" },
+      { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { src: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
     ],
   };
 }
