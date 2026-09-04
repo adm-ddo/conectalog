@@ -43,8 +43,27 @@ async function escalarSeNovo(
   });
   if (jaExiste) return;
 
+  // Se o motoboy já está com um turno ABERTO nesse cliente (ex.: entrou
+  // como "livre"/apoio antes de alguém montar a escala do dia — a
+  // cooperativa às vezes só formaliza a escala depois de já ver quem
+  // apareceu), a escala nasce já vinculada, senão o portal do cliente
+  // continua achando que ele "ainda não chegou" mesmo estando lá desde
+  // antes. Espelha vincularEscalaSeExistir (turno/iniciar/actions.ts),
+  // que faz o link no sentido contrário (turno já existe, escala chega
+  // depois — aqui é o inverso).
+  const turnoAbertoNesseCliente = await prisma.turno.findFirst({
+    where: { motoboyId, clienteId, status: "ABERTO" },
+  });
+
   await prisma.escalaTurno.create({
-    data: { clienteId, motoboyId, data, turno, criadoPorUsuarioId },
+    data: {
+      clienteId,
+      motoboyId,
+      data,
+      turno,
+      criadoPorUsuarioId,
+      turnoId: turnoAbertoNesseCliente?.id,
+    },
   });
   await avisarEscalado(motoboyId, clienteNome, data, turno);
 }
