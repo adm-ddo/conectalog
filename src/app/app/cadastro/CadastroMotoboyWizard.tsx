@@ -329,7 +329,10 @@ export default function CadastroMotoboyWizard({ origem }: { origem: Origem }) {
           ) : cnhModo === "foto" ? (
             <CameraCapture camera="environment" onCapture={(dataUrl) => setCnhDataUrl(dataUrl)} />
           ) : (
-            <input type="file" accept="image/*,.pdf" onChange={lerArquivoCnh} className="text-sm" />
+            <label className="cursor-pointer self-start rounded-lg border border-stone-300 bg-white hover:bg-stone-50 text-navy-900 text-sm font-medium px-4 py-2.5 transition-colors">
+              Escolher arquivo da CNH
+              <input type="file" accept="image/*,.pdf" onChange={lerArquivoCnh} className="sr-only" />
+            </label>
           )}
         </div>
       )}

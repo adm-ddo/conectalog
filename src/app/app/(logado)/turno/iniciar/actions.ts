@@ -39,6 +39,21 @@ export async function iniciarTurno(dados: DadosIniciarTurno): Promise<IniciarTur
   });
   if (!cliente) return { erro: "Cliente inválido." };
 
+  // Mesma regra da tela: só aceita um turno predefinido que o cliente tem
+  // ativado no cadastro dele — "Livre" nunca tem esse tipo de trava (ver
+  // comentário do enum TurnoPredefinido). Redundante com o filtro que já
+  // esconde as opções no wizard, mas o app do motoboy nunca deve confiar
+  // só no que o cliente (navegador) mandou.
+  const ATIVO_POR_TURNO: Record<TurnoPredefinido, boolean> = {
+    MANHA: cliente.turnoManhaAtivo,
+    TARDE: cliente.turnoTardeAtivo,
+    NOITE: cliente.turnoNoiteAtivo,
+    LIVRE: true,
+  };
+  if (!ATIVO_POR_TURNO[dados.turnoPredefinido]) {
+    return { erro: "Esse turno não está disponível pra esse cliente." };
+  }
+
   const jaEmTurno = await prisma.turno.findFirst({
     where: { motoboyId: sessao.motoboyId, status: "ABERTO" },
   });

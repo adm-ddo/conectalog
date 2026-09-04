@@ -7,20 +7,44 @@ import { TERMO_AUTONOMO } from "@/lib/termos";
 import { iniciarTurno } from "./actions";
 import type { TurnoPredefinido } from "@/generated/prisma/enums";
 
-export default function IniciarTurnoWizard({
-  clientes,
-}: {
-  clientes: { id: number; nome: string }[];
-}) {
+type Cliente = {
+  id: number;
+  nome: string;
+  turnoManhaAtivo: boolean;
+  turnoTardeAtivo: boolean;
+  turnoNoiteAtivo: boolean;
+};
+
+// LIVRE não tem um "ativo" configurável no cadastro do cliente — é o
+// turno avulso, sempre disponível como alternativa aos horários fixos
+// (ver comentário do enum TurnoPredefinido no schema).
+const OPCOES_TURNO: { valor: TurnoPredefinido; label: string; ativoEm?: keyof Cliente }[] = [
+  { valor: "MANHA", label: "Manhã", ativoEm: "turnoManhaAtivo" },
+  { valor: "TARDE", label: "Tarde", ativoEm: "turnoTardeAtivo" },
+  { valor: "NOITE", label: "Noite", ativoEm: "turnoNoiteAtivo" },
+  { valor: "LIVRE", label: "Livre" },
+];
+
+export default function IniciarTurnoWizard({ clientes }: { clientes: Cliente[] }) {
   const [passo, setPasso] = useState(0);
   const [clienteId, setClienteId] = useState<number | null>(clientes[0]?.id ?? null);
-  const [turnoPredefinido, setTurnoPredefinido] = useState<TurnoPredefinido>("LIVRE");
+  const [turnoEscolhido, setTurnoEscolhido] = useState<TurnoPredefinido | null>(null);
   const [fotoInicioDataUrl, setFotoInicioDataUrl] = useState<string | null>(null);
   const [aceitouTermo, setAceitouTermo] = useState(false);
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
 
   const clienteSelecionado = clientes.find((c) => c.id === clienteId);
+  const opcoesTurno = OPCOES_TURNO.filter(
+    (opcao) => !opcao.ativoEm || clienteSelecionado?.[opcao.ativoEm]
+  );
+  // Deriva da escolha manual em vez de sincronizar com um efeito: se
+  // trocou de cliente e a opção marcada não existe mais nele (ex.: veio
+  // de um cliente com Noite pra um que só tem Manhã), cai sozinho pra
+  // primeira opção disponível daquele cliente.
+  const turnoPredefinido: TurnoPredefinido = opcoesTurno.some((o) => o.valor === turnoEscolhido)
+    ? turnoEscolhido!
+    : (opcoesTurno[0]?.valor ?? "LIVRE");
 
   if (clientes.length === 0) {
     return (
@@ -66,24 +90,18 @@ export default function IniciarTurnoWizard({
           <div className="flex flex-col gap-1">
             <span className="text-xs text-stone-500">Turno</span>
             <div className="flex gap-2">
-              {(["MANHA", "TARDE", "NOITE", "LIVRE"] as const).map((opcao) => (
+              {opcoesTurno.map((opcao) => (
                 <button
-                  key={opcao}
+                  key={opcao.valor}
                   type="button"
-                  onClick={() => setTurnoPredefinido(opcao)}
+                  onClick={() => setTurnoEscolhido(opcao.valor)}
                   className={`flex-1 rounded-lg px-3 py-2 text-sm font-medium ${
-                    turnoPredefinido === opcao
+                    turnoPredefinido === opcao.valor
                       ? "bg-brand-600 text-white"
                       : "bg-stone-100 text-stone-600"
                   }`}
                 >
-                  {opcao === "MANHA"
-                    ? "Manhã"
-                    : opcao === "TARDE"
-                      ? "Tarde"
-                      : opcao === "NOITE"
-                        ? "Noite"
-                        : "Livre"}
+                  {opcao.label}
                 </button>
               ))}
             </div>

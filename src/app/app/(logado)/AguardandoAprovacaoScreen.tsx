@@ -1,11 +1,20 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { sairDaCooperativaMotoboy } from "./actions";
 
 export default function AguardandoAprovacaoScreen({ empresaNome }: { empresaNome: string }) {
   const [erro, setErro] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  // Assim que a cooperativa aprovar, essa tela some sozinha e dá lugar
+  // ao app normal — sem precisar o motoboy atualizar a página na mão.
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 5_000);
+    return () => clearInterval(id);
+  }, [router]);
 
   function cancelar() {
     if (

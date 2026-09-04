@@ -15,11 +15,19 @@ export default async function IniciarTurnoPage() {
   ]);
   if (turnoAberto) redirect("/app/inicio");
 
+  const selecaoTurnos = {
+    id: true,
+    nome: true,
+    turnoManhaAtivo: true,
+    turnoTardeAtivo: true,
+    turnoNoiteAtivo: true,
+  } as const;
+
   const clientes = motoboy.livre
     ? await prisma.cliente.findMany({
         where: { empresaId: sessao.empresaId, ativo: true },
         orderBy: { nome: "asc" },
-        select: { id: true, nome: true },
+        select: selecaoTurnos,
       })
     : await prisma.cliente
         .findMany({
@@ -29,7 +37,7 @@ export default async function IniciarTurnoPage() {
             motoboysLiberados: { some: { motoboyId: sessao.motoboyId, liberado: true } },
           },
           orderBy: { nome: "asc" },
-          select: { id: true, nome: true },
+          select: selecaoTurnos,
         });
 
   return (
