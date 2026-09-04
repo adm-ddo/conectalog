@@ -10,9 +10,7 @@ import {
 } from "@/lib/auth-motoboy";
 import { enviarEmailVerificacaoMotoboy } from "@/lib/email";
 
-export type LoginMotoboyState =
-  | { erro?: string; naoVerificado?: boolean; aguardandoAprovacao?: boolean }
-  | undefined;
+export type LoginMotoboyState = { erro?: string; naoVerificado?: boolean } | undefined;
 
 export async function entrarMotoboy(
   _prev: LoginMotoboyState,
@@ -38,13 +36,10 @@ export async function entrarMotoboy(
       naoVerificado: true,
     };
   }
-  if (motoboy.aprovadoEm === null) {
-    return {
-      erro: "Seu cadastro ainda está aguardando aprovação da cooperativa.",
-      aguardandoAprovacao: true,
-    };
-  }
 
+  // Sem cooperativa (na "prateleira"), pedido pendente ou já vinculado —
+  // login sempre funciona a partir daqui; quem decide o que mostrar é o
+  // layout de (logado), não o login em si (ver src/app/app/(logado)/layout.tsx).
   await criarSessaoMotoboy(motoboy.id);
   redirect("/app/inicio");
 }

@@ -147,14 +147,15 @@ export async function aprovarSolicitacaoMotoboy(motoboyId: number) {
   revalidatePath("/motoboys");
 }
 
-/** Recusa uma solicitação de vaga — como quem pediu vaga nunca conseguiu
- * logar (aprovadoEm ainda null), não existe turno/pagamento nenhum
- * amarrado a esse registro, então excluir de vez é sempre seguro (mesma
- * garantia de excluirMotoboy, só que sem precisar checar histórico). */
+/** Recusa uma solicitação de vaga — não apaga o cadastro (é um perfil de
+ * verdade, com login próprio), só devolve ele "pra prateleira"
+ * (empresaId null), disponível de novo pra qualquer cooperativa chamar
+ * ou pra ele pedir vaga em outra. */
 export async function rejeitarSolicitacaoMotoboy(motoboyId: number) {
   const sessao = await requireTenant();
-  await prisma.motoboy.deleteMany({
+  await prisma.motoboy.updateMany({
     where: { id: motoboyId, empresaId: sessao.empresaEfetivoId, aprovadoEm: null },
+    data: { empresaId: null, aprovadoEm: null, livre: false },
   });
   revalidatePath("/motoboys");
 }

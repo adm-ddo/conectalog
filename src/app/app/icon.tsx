@@ -7,7 +7,7 @@ export const contentType = "image/png";
 
 export default async function Icon() {
   const sessao = await getSessaoMotoboy();
-  const logoUrl = sessao
+  const logoUrl = sessao?.empresaId
     ? (
         await prisma.empresa.findUnique({
           where: { id: sessao.empresaId },

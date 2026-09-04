@@ -61,7 +61,7 @@ export default async function MasterMotoboysPage() {
                   <EquipamentoBadge tipo={m.tipoEquipamento} />
                 </span>
                 <span className="text-xs text-stone-500 truncate">
-                  {m.email} · {m.empresa.nome}
+                  {m.email} · {m.empresa?.nome ?? "na prateleira (sem cooperativa)"}
                 </span>
               </div>
               <span

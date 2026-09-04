@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarData } from "@/lib/data";
@@ -44,6 +45,9 @@ export default async function MotoboysPage() {
           O ideal é que cada motoboy se cadastre pelo app dele (com foto e CNH). Aqui você também
           pode cadastrar manualmente e liberar em quais clientes cada um pode trabalhar.
         </p>
+        <Link href="/motoboys/disponiveis" className="text-sm text-brand-700 hover:underline mt-1 inline-block">
+          Ver motoboys disponíveis pra chamar →
+        </Link>
       </div>
 
       {solicitacoes.length > 0 && (

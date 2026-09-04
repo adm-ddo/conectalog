@@ -1,10 +1,10 @@
 import { redirect } from "next/navigation";
-import { requireMotoboy } from "@/lib/auth-motoboy";
+import { requireMotoboyComEmpresa } from "@/lib/auth-motoboy";
 import { prisma } from "@/lib/prisma";
 import ApoioForm from "./ApoioForm";
 
 export default async function ApoioPage() {
-  const sessao = await requireMotoboy();
+  const sessao = await requireMotoboyComEmpresa();
 
   const [motoboy, turnoAberto] = await Promise.all([
     prisma.motoboy.findUniqueOrThrow({ where: { id: sessao.motoboyId }, select: { livre: true } }),

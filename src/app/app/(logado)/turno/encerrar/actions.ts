@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireMotoboy } from "@/lib/auth-motoboy";
+import { requireMotoboyComEmpresa } from "@/lib/auth-motoboy";
 import { uploadDataUrl } from "@/lib/blob";
 import { valorEfetivo, paraNumero } from "@/lib/valores";
 import { calcularValores, encontrarPerfilFixo } from "@/lib/precificacao";
@@ -20,7 +20,7 @@ export type DadosEncerrarTurno = {
 };
 
 export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<EncerrarTurnoState> {
-  const sessao = await requireMotoboy();
+  const sessao = await requireMotoboyComEmpresa();
 
   // taxaExtraItens já existe desde o início do turno (um item por faixa
   // do Cliente naquele momento, com o preço já travado) — aqui só marca

@@ -355,7 +355,12 @@ model EscalaTurno {
 /// verificação de e-mail (mesmo fluxo do Portal do extras-app).
 model Motoboy {
   id                       Int                 @id @default(autoincrement())
-  empresaId                Int
+  /// null = ainda não escolheu nenhuma cooperativa — só acontece pra quem
+  /// se cadastra pelo app sem link (ver solicitarVagaMotoboy), entre a
+  /// confirmação de e-mail e a escolha feita depois do primeiro login em
+  /// /app/escolher-cooperativa. Quem se cadastra por link direto da
+  /// cooperativa ou é cadastrado manualmente já nasce com isso setado.
+  empresaId                Int?
   nomeCompleto             String
   dataNascimento           DateTime            @db.Date
   cpf                      String              @unique
@@ -381,10 +386,12 @@ model Motoboy {
   emailVerificadoEm        DateTime?
   /// Preenchido na criação pra quem se cadastra pelo link específico da
   /// cooperativa (convite implícito) ou é cadastrado manualmente por ela
-  /// — fica null só pra quem "pede vaga" sem link, escolhendo a
-  /// cooperativa direto no app (ver solicitarVagaMotoboy). Enquanto null,
-  /// não consegue logar: aparece no painel da cooperativa como
-  /// solicitação pendente até ela aprovar ou recusar.
+  /// — fica null pra quem "pede vaga" sem link, desde o cadastro até a
+  /// cooperativa escolhida aprovar (ver solicitarVagaMotoboy e
+  /// escolherCooperativaMotoboy). Enquanto null, consegue logar (o app
+  /// mostra a tela de escolher/aguardar cooperativa em vez do normal),
+  /// mas não usa nada do sistema de verdade. Aparece no painel da
+  /// cooperativa escolhida como solicitação pendente até aprovar/recusar.
   aprovadoEm               DateTime?
   /// Mostrado ao lado do nome dele em toda tela (painel e portal do
   /// cliente) — null = ainda não informado.
@@ -400,7 +407,7 @@ model Motoboy {
   ativo                    Boolean             @default(true)
   criadoEm                 DateTime            @default(now())
 
-  empresa              Empresa                    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+  empresa              Empresa?                   @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   clientesLiberados    MotoboyCliente[]
   turnos               Turno[]
   pagamentos           Pagamento[]

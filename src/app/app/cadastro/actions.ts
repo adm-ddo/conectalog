@@ -149,26 +149,16 @@ export async function cadastrarMotoboy(
   redirect("/app/cadastro/verifique-seu-email");
 }
 
-export type DadosSolicitarVaga = Omit<DadosCadastroMotoboy, "tokenEmpresa"> & {
-  empresaId: number;
-};
+export type DadosSolicitarVaga = Omit<DadosCadastroMotoboy, "tokenEmpresa">;
 
-/** "Pedir vaga" sem link — o motoboy escolhe a cooperativa direto no app
- * (ver /app/cadastro, sem token na URL). Diferente de cadastrarMotoboy
- * (que já vem convidado/aprovado pelo link), aqui a cooperativa ainda não
- * sabe dessa pessoa: entra com `livre: false` e `aprovadoEm: null`, e só
- * consegue logar depois que alguém do painel aprovar (ver
- * aprovarSolicitacaoMotoboy em motoboys/actions.ts). Continua exigindo
- * confirmação de e-mail também — são dois cuidados independentes (e-mail
- * é de verdade / cooperativa realmente quer essa pessoa). */
+/** Cadastro sem link e sem cooperativa nenhuma ainda — o motoboy vira um
+ * perfil "na prateleira" (empresaId null), visível pras cooperativas
+ * chamarem, ou escolhe uma cooperativa depois do primeiro login (ver
+ * escolherCooperativaMotoboy em src/app/app/(logado)/actions.ts). Continua
+ * exigindo confirmação de e-mail, igual todo cadastro. */
 export async function solicitarVagaMotoboy(
   dados: DadosSolicitarVaga
 ): Promise<CadastroState> {
-  const empresa = await prisma.empresa.findUnique({ where: { id: dados.empresaId } });
-  if (!empresa) {
-    return { erro: "Cooperativa inválida — escolha novamente." };
-  }
-
   const cpf = dados.cpf.replace(/\D/g, "");
   const email = dados.email.trim().toLowerCase();
 
@@ -215,7 +205,7 @@ export async function solicitarVagaMotoboy(
   try {
     const criado = await prisma.motoboy.create({
       data: {
-        empresaId: empresa.id,
+        empresaId: null,
         cpf,
         email,
         livre: false,

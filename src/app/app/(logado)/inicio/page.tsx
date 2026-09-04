@@ -5,6 +5,7 @@ import { formatarHora } from "@/lib/data";
 import { paraNumero } from "@/lib/valores";
 import EstrelasMedia from "@/components/EstrelasMedia";
 import NotificacoesBanner from "./NotificacoesBanner";
+import SairCooperativaButton from "./SairCooperativaButton";
 
 export default async function InicioMotoboyPage() {
   const sessao = await requireMotoboy();
@@ -98,6 +99,7 @@ export default async function InicioMotoboyPage() {
       >
         Iniciar turno
       </Link>
+      <SairCooperativaButton />
     </div>
   );
 }

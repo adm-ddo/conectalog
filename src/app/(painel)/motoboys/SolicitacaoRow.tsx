@@ -20,7 +20,11 @@ export default function SolicitacaoRow({
   const [pending, startTransition] = useTransition();
 
   function rejeitar() {
-    if (!window.confirm(`Recusar o pedido de ${motoboy.nomeCompleto}? O cadastro dele é apagado.`)) {
+    if (
+      !window.confirm(
+        `Recusar o pedido de ${motoboy.nomeCompleto}? Ele volta a ficar disponível pra outras cooperativas.`
+      )
+    ) {
       return;
     }
     startTransition(() => rejeitarSolicitacaoMotoboy(motoboy.id));

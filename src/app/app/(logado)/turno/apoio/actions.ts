@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireMotoboy } from "@/lib/auth-motoboy";
+import { requireMotoboyComEmpresa } from "@/lib/auth-motoboy";
 import { valorEfetivo, paraNumero } from "@/lib/valores";
 
 // Apoio sempre usa o modelo "por banda" normal do cliente de apoio, nunca
@@ -22,7 +22,7 @@ export type DadosApoio = {
  * Thiago) — só marca o cliente de apoio e a quantidade, pra não
  * atrapalhar o motoboy no meio da correria. */
 export async function registrarApoio(dados: DadosApoio): Promise<ApoioState> {
-  const sessao = await requireMotoboy();
+  const sessao = await requireMotoboyComEmpresa();
 
   const turnoAberto = await prisma.turno.findFirst({
     where: { motoboyId: sessao.motoboyId, status: "ABERTO" },

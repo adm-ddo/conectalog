@@ -1,21 +1,15 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getSessaoMotoboy } from "@/lib/auth-motoboy";
-import { prisma } from "@/lib/prisma";
 import CadastroMotoboyWizard from "./CadastroMotoboyWizard";
 
-/** Cadastro sem link de convite — o motoboy escolhe a cooperativa e pede
- * vaga (ver solicitarVagaMotoboy em actions.ts). Diferente de
- * /app/cadastro/[token] (que já vem aprovado pelo link), aqui alguém do
- * painel da cooperativa precisa aprovar antes dele conseguir logar. */
+/** Cadastro sem link de convite — o motoboy só se cadastra (dados, foto,
+ * CNH); a escolha de cooperativa (ou ficar disponível "na prateleira" pra
+ * elas chamarem) acontece depois do primeiro login, ver
+ * src/app/app/(logado)/layout.tsx. */
 export default async function SolicitarVagaPage() {
   const sessao = await getSessaoMotoboy();
   if (sessao) redirect("/app/inicio");
-
-  const empresas = await prisma.empresa.findMany({
-    orderBy: { nome: "asc" },
-    select: { id: true, nome: true },
-  });
 
   return (
     <main className="flex-1 flex flex-col items-center gap-6 px-4 py-10 bg-stone-50">
@@ -30,7 +24,7 @@ export default async function SolicitarVagaPage() {
           </Link>
         </p>
       </div>
-      <CadastroMotoboyWizard origem={{ tipo: "solicitacao", empresas }} />
+      <CadastroMotoboyWizard origem={{ tipo: "solicitacao" }} />
     </main>
   );
 }

@@ -16,7 +16,13 @@ const TOKEN_TTL_HORAS = 24;
 
 export type SessaoMotoboy = {
   motoboyId: number;
-  empresaId: number;
+  /** null = ainda não escolheu cooperativa (ver comentário em
+   * Motoboy.empresaId no schema) — quem usa isso precisa checar antes de
+   * assumir que existe uma cooperativa de verdade. */
+  empresaId: number | null;
+  /** null = escolheu uma cooperativa mas ela ainda não aprovou. Só
+   * relevante quando empresaId não é null. */
+  aprovadoEm: Date | null;
   nomeCompleto: string;
   email: string;
 };
@@ -69,18 +75,14 @@ export const getSessaoMotoboy = cache(
         },
       },
     });
-    if (
-      !sessao ||
-      sessao.expiraEm < new Date() ||
-      !sessao.motoboy.ativo ||
-      sessao.motoboy.aprovadoEm === null
-    ) {
+    if (!sessao || sessao.expiraEm < new Date() || !sessao.motoboy.ativo) {
       return null;
     }
 
     return {
       motoboyId: sessao.motoboy.id,
       empresaId: sessao.motoboy.empresaId,
+      aprovadoEm: sessao.motoboy.aprovadoEm,
       nomeCompleto: sessao.motoboy.nomeCompleto,
       email: sessao.motoboy.email,
     };
@@ -92,6 +94,19 @@ export async function requireMotoboy(): Promise<SessaoMotoboy> {
   const sessao = await getSessaoMotoboy();
   if (!sessao) redirect("/app/entrar");
   return sessao;
+}
+
+/** Use nas actions/pages que só fazem sentido com uma cooperativa de
+ * verdade (turno, escala, relatório...) — tudo isso já fica escondido
+ * atrás da tela de "escolher/aguardar cooperativa" no layout de
+ * src/app/app/(logado)/layout.tsx, então empresaId aqui nunca deveria
+ * ser null de verdade; o redirect é só uma rede de segurança. */
+export async function requireMotoboyComEmpresa(): Promise<
+  SessaoMotoboy & { empresaId: number }
+> {
+  const sessao = await requireMotoboy();
+  if (sessao.empresaId === null) redirect("/app/inicio");
+  return { ...sessao, empresaId: sessao.empresaId };
 }
 
 /** Cria um token de uso único (verificação de e-mail / recuperação de

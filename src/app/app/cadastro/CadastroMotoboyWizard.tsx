@@ -5,9 +5,7 @@ import CameraCapture from "@/components/CameraCapture";
 import { cadastrarMotoboy, solicitarVagaMotoboy, type DadosCadastroMotoboy } from "./actions";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
 
-type Origem =
-  | { tipo: "token"; tokenEmpresa: string }
-  | { tipo: "solicitacao"; empresas: { id: number; nome: string }[] };
+type Origem = { tipo: "token"; tokenEmpresa: string } | { tipo: "solicitacao" };
 
 type Dados = Omit<
   DadosCadastroMotoboy,
@@ -46,7 +44,6 @@ const PASSOS = ["Dados pessoais", "PIX e senha", "Sua foto", "CNH", "Equipamento
 const TAMANHO_MAXIMO_CNH_BYTES = 6 * 1024 * 1024;
 
 export default function CadastroMotoboyWizard({ origem }: { origem: Origem }) {
-  const [empresaId, setEmpresaId] = useState<number | null>(null);
   const [passo, setPasso] = useState(0);
   const [dados, setDados] = useState<Dados>(DADOS_INICIAIS);
   const [fotoPerfilDataUrl, setFotoPerfilDataUrl] = useState<string | null>(null);
@@ -172,48 +169,12 @@ export default function CadastroMotoboyWizard({ origem }: { origem: Origem }) {
             })
           : await solicitarVagaMotoboy({
               ...dados,
-              empresaId: empresaId as number,
               tipoEquipamento: dados.tipoEquipamento as TipoEquipamento,
               fotoPerfilDataUrl,
               cnhDataUrl,
             });
       if (resultado?.erro) setErro(resultado.erro);
     });
-  }
-
-  // Quem "pede vaga" (sem link) escolhe a cooperativa antes de mais nada
-  // — só depois disso é que o wizard numerado (dados/foto/CNH/etc) começa,
-  // igual pra quem entrou por link direto.
-  if (origem.tipo === "solicitacao" && empresaId === null) {
-    return (
-      <div className="flex flex-col gap-4 w-full max-w-md">
-        <h1 className="text-lg font-semibold text-navy-900">Escolha sua cooperativa</h1>
-        <p className="text-sm text-stone-600">
-          Selecione a cooperativa que você quer pedir pra entrar. Depois de enviar seu cadastro,
-          ela vai analisar e aprovar (ou não) o seu pedido.
-        </p>
-        {origem.empresas.length === 0 ? (
-          <p className="text-sm text-stone-500">
-            Nenhuma cooperativa disponível no momento. Peça o link de cadastro direto pra ela.
-          </p>
-        ) : (
-          <select
-            defaultValue=""
-            onChange={(e) => setEmpresaId(Number(e.target.value) || null)}
-            className={inputClasse}
-          >
-            <option value="" disabled>
-              Selecione...
-            </option>
-            {origem.empresas.map((e) => (
-              <option key={e.id} value={e.id}>
-                {e.nome}
-              </option>
-            ))}
-          </select>
-        )}
-      </div>
-    );
   }
 
   return (
@@ -227,15 +188,6 @@ export default function CadastroMotoboyWizard({ origem }: { origem: Origem }) {
         ))}
       </div>
       <h1 className="text-lg font-semibold text-navy-900">{PASSOS[passo]}</h1>
-      {origem.tipo === "solicitacao" && (
-        <button
-          type="button"
-          onClick={() => setEmpresaId(null)}
-          className="text-xs text-stone-500 underline self-start -mt-3"
-        >
-          ← Trocar cooperativa
-        </button>
-      )}
 
       {passo === 0 && (
         <div className="flex flex-col gap-3">
@@ -418,8 +370,9 @@ export default function CadastroMotoboyWizard({ origem }: { origem: Origem }) {
         <div className="flex flex-col gap-3">
           <p className="text-sm text-stone-600">
             Confere se está tudo certo e toca em enviar. A gente manda um link de confirmação pro
-            seu e-mail — só entra no app depois de clicar nele
-            {origem.tipo === "solicitacao" && " e da cooperativa aprovar seu pedido"}.
+            seu e-mail — só entra no app depois de clicar nele.
+            {origem.tipo === "solicitacao" &&
+              " Depois de entrar, você escolhe pra qual cooperativa quer trabalhar (ou fica disponível pra elas te chamarem)."}
           </p>
           <div className="rounded-xl border border-stone-200 bg-stone-50 p-4 text-sm flex flex-col gap-1">
             <p>

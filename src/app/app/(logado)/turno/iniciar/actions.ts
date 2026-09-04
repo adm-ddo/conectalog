@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
-import { requireMotoboy } from "@/lib/auth-motoboy";
+import { requireMotoboyComEmpresa } from "@/lib/auth-motoboy";
 import { uploadDataUrl } from "@/lib/blob";
 import { dataISOBrasil, minutosDesdeMeiaNoiteBrasil } from "@/lib/data";
 import type { TurnoPredefinido } from "@/generated/prisma/enums";
@@ -17,7 +17,7 @@ export type DadosIniciarTurno = {
 };
 
 export async function iniciarTurno(dados: DadosIniciarTurno): Promise<IniciarTurnoState> {
-  const sessao = await requireMotoboy();
+  const sessao = await requireMotoboyComEmpresa();
 
   const motoboy = await prisma.motoboy.findUniqueOrThrow({
     where: { id: sessao.motoboyId },
