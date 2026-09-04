@@ -1,3 +1,4 @@
+import { redirect } from "next/navigation";
 import { requireTenant } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import PainelHeader from "./PainelHeader";
@@ -9,7 +10,13 @@ export default async function PainelLayout({
 }) {
   const sessao = await requireTenant();
   const [empresa, solicitacoesPendentes] = await Promise.all([
-    prisma.empresa.findUniqueOrThrow({
+    // findUnique (não findUniqueOrThrow) de propósito: se um superAdmin
+    // apagar essa cooperativa pelo /master bem no instante em que essa
+    // página carrega em outra aba, a sessão ainda pode ter o
+    // empresaEfetivoId antigo por uma fração de segundo — melhor mandar
+    // de volta pra /master do que estourar um erro genérico pra quem tá
+    // vendo essa tela.
+    prisma.empresa.findUnique({
       where: { id: sessao.empresaEfetivoId },
       select: { nome: true, logoUrl: true },
     }),
@@ -17,6 +24,7 @@ export default async function PainelLayout({
       where: { empresaId: sessao.empresaEfetivoId, aprovadoEm: null },
     }),
   ]);
+  if (!empresa) redirect("/master");
 
   return (
     <div className="flex-1 flex flex-col bg-stone-50">
