@@ -131,6 +131,12 @@ model Empresa {
   valorDescontoAtrasoManha Decimal  @default(15) @db.Decimal(10, 2)
   valorDescontoAtrasoTarde Decimal  @default(10) @db.Decimal(10, 2)
   valorDescontoAtrasoNoite Decimal  @default(20) @db.Decimal(10, 2)
+  /// false = some da lista de cooperativas que o motoboy "na prateleira"
+  /// vê pra solicitar vaga (ver app/(logado)/layout.tsx) — pra
+  /// cooperativas de teste/internas que não devem aparecer pra
+  /// motoboy nenhum. Não afeta quem já está vinculado a ela nem o link
+  /// direto de cadastro (tokenCadastroMotoboy).
+  visivelParaCadastro      Boolean  @default(true)
   criadoEm                 DateTime @default(now())
 
   usuarios      Usuario[]

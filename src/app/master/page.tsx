@@ -71,6 +71,7 @@ export default async function MasterPage() {
               criadoEm={formatarData(e.criadoEm)}
               totalMotoboys={e._count.motoboys}
               totalClientes={e._count.clientes}
+              visivelParaCadastro={e.visivelParaCadastro}
             />
           ))}
         </ul>

@@ -46,3 +46,16 @@ export async function excluirEmpresa(empresaId: number): Promise<ExcluirEmpresaR
   revalidatePath("/master");
   return;
 }
+
+/** Esconde/mostra a cooperativa na lista que o motoboy "na prateleira"
+ * vê pra pedir vaga (ver Empresa.visivelParaCadastro e
+ * app/(logado)/layout.tsx) — pra cooperativas de teste/internas. Não
+ * afeta quem já está vinculado nem o link direto de cadastro dela. */
+export async function alternarVisibilidadeEmpresa(empresaId: number, visivel: boolean) {
+  await requireSuperAdmin();
+  await prisma.empresa.update({
+    where: { id: empresaId },
+    data: { visivelParaCadastro: visivel },
+  });
+  revalidatePath("/master");
+}

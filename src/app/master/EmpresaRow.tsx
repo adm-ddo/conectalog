@@ -1,7 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { entrarNaEmpresa, renomearEmpresa, excluirEmpresa } from "./actions";
+import {
+  entrarNaEmpresa,
+  renomearEmpresa,
+  excluirEmpresa,
+  alternarVisibilidadeEmpresa,
+} from "./actions";
 
 export default function EmpresaRow({
   empresaId,
@@ -9,14 +14,17 @@ export default function EmpresaRow({
   criadoEm,
   totalMotoboys,
   totalClientes,
+  visivelParaCadastro,
 }: {
   empresaId: number;
   nome: string;
   criadoEm: string;
   totalMotoboys: number;
   totalClientes: number;
+  visivelParaCadastro: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const [pendingVisibilidade, startVisibilidade] = useTransition();
   const [editando, setEditando] = useState(false);
   const [novoNome, setNovoNome] = useState(nome);
   const [erro, setErro] = useState<string | null>(null);
@@ -123,6 +131,19 @@ export default function EmpresaRow({
           {erro}
         </p>
       )}
+
+      <label className="flex items-center gap-2 text-xs text-stone-600">
+        <input
+          type="checkbox"
+          checked={visivelParaCadastro}
+          disabled={pendingVisibilidade}
+          onChange={(e) =>
+            startVisibilidade(() => alternarVisibilidadeEmpresa(empresaId, e.target.checked))
+          }
+          className="h-4 w-4 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
+        />
+        Aparece na lista pro motoboy pedir vaga
+      </label>
 
       {!editando &&
         (confirmandoExclusao ? (

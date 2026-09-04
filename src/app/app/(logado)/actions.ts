@@ -24,7 +24,11 @@ export async function escolherCooperativaMotoboy(
     return { erro: "Você já está vinculado (ou com pedido pendente) numa cooperativa." };
   }
 
-  const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } });
+  // visivelParaCadastro também vale aqui, não só na lista — esconder da
+  // tela e ainda aceitar por um id direto não faria sentido.
+  const empresa = await prisma.empresa.findFirst({
+    where: { id: empresaId, visivelParaCadastro: true },
+  });
   if (!empresa) return { erro: "Cooperativa inválida." };
 
   await prisma.motoboy.update({

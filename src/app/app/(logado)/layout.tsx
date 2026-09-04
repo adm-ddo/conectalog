@@ -37,6 +37,7 @@ export default async function AppLogadoLayout({
   // depende de ter uma empresa pra tudo (turno, escala, relatório...).
   if (sessao.empresaId === null) {
     const empresas = await prisma.empresa.findMany({
+      where: { visivelParaCadastro: true },
       orderBy: { nome: "asc" },
       select: { id: true, nome: true },
     });
