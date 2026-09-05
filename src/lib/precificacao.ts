@@ -101,11 +101,15 @@ export function encontrarPerfilFixo(
  *
  * (2) "Valor fixo por turno" (liga quando o horário de início do turno
  * bate com algum perfil em ClienteTurnoFixo — ver encontrarPerfilFixo):
- * um valor garantido que já cobre N bandas; bandas além disso usam a
- * tarifa de excedente daquele perfil, diferente da tarifa "normal" do
- * item (1). Cada perfil vale só nos dias da semana configurados nele
- * (ex.: um perfil "Noite" pra semana normal e outro só pro domingo, com
- * valores diferentes).
+ * os dois lados NÃO seguem a mesma regra, de propósito (confirmado com o
+ * Thiago). O motoboy recebe um valor garantido que já cobre N bandas —
+ * só as bandas além disso usam a tarifa de excedente. Já o cliente paga
+ * o valor fixo da moto parada MAIS a tarifa por banda sobre TODAS as
+ * bandas feitas, desde a primeira (não é excedente do lado do cliente,
+ * mesmo o nome do campo dizendo "excedente" por historicamente ter
+ * nascido simétrico ao do motoboy). Cada perfil vale só nos dias da
+ * semana configurados nele (ex.: um perfil "Noite" pra semana normal e
+ * outro só pro domingo, com valores diferentes).
  *
  * Taxas extras somam por cima dos dois modelos, faixa a faixa (cada
  * Cliente tem sua própria lista de faixas — ver ClienteTaxaExtra — não
@@ -127,8 +131,10 @@ export function calcularValores(
     const excedentes = Math.max(0, quantidadeBandas - perfil.bandasIncluidas);
     valorMotoboy =
       paraNumero(perfil.valorGarantidoMotoboy) + excedentes * paraNumero(perfil.valorExcedenteMotoboy);
+    // Cliente não tem "bandas incluídas" — paga a moto parada fixa mais a
+    // tarifa por banda sobre TODAS as bandas do turno, desde a primeira.
     valorCliente =
-      paraNumero(perfil.valorGarantidoCliente) + excedentes * paraNumero(perfil.valorExcedenteCliente);
+      paraNumero(perfil.valorGarantidoCliente) + quantidadeBandas * paraNumero(perfil.valorExcedenteCliente);
   } else {
     const vbm = valorEfetivo(cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);
     const vbc = valorEfetivo(cliente.valorBandaCliente, empresa.valorBandaClientePadrao);

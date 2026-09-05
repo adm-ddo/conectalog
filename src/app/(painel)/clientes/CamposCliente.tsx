@@ -215,10 +215,12 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
             Valor fixo por turno que o motoboy recebe
           </span>
           <p className="text-xs text-stone-500">
-            Regra fixa, mas os valores podem mudar por perfil: um valor garantido pra até N
-            entregas naquele horário, e um valor por entrega excedente depois disso. Cada perfil
-            vale só nos dias da semana marcados — se domingo à noite paga diferente do resto da
-            semana, crie um perfil só pra domingo.
+            Regra fixa, mas os valores podem mudar por perfil. O motoboy recebe um valor garantido
+            que já cobre N entregas, e só ganha por fora depois de passar disso. O cliente é
+            diferente: paga o valor fixo da moto parada mais o valor por entrega sobre TODAS as
+            entregas do turno, desde a primeira — não só as que passaram de N. Cada perfil vale só
+            nos dias da semana marcados — se domingo à noite paga diferente do resto da semana,
+            crie um perfil só pra domingo.
           </p>
         </div>
 
@@ -379,7 +381,9 @@ function BlocoTurnoFixo({
           />
         </div>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-stone-500">Entregas incluídas no valor garantido</span>
+          <span className="text-xs text-stone-500">
+            Entregas incluídas no valor garantido do motoboy
+          </span>
           <input
             type="number"
             min="0"
@@ -404,7 +408,7 @@ function BlocoTurnoFixo({
         </div>
         <div>
           <CampoMoedaControlado
-            label="Excedente — cooperativa cobra por entrega"
+            label="Cooperativa cobra por entrega (todas, sem carência)"
             valor={perfil.valorExcedenteCliente}
             onChange={(v) => onChange({ ...perfil, valorExcedenteCliente: v })}
           />
