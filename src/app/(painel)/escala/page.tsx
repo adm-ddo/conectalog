@@ -6,6 +6,7 @@ import { LABEL_TURNO } from "@/lib/equipe";
 import EscalaRow from "./EscalaRow";
 import CandidatoRow from "./CandidatoRow";
 import ManterEscalaAnteriorBanner from "./ManterEscalaAnteriorBanner";
+import AutoSubmitForm from "./AutoSubmitForm";
 import type { TurnoEscala } from "@/generated/prisma/enums";
 
 /** Dia da semana (Date.getDay(): 0=domingo...6=sábado) de uma data
@@ -158,6 +159,10 @@ export default async function EscalaPage({
   const escaladosIds = new Set(escalados.map((e) => e.motoboyId));
   const candidatos = candidatosBrutos.filter((m) => !escaladosIds.has(m.id));
 
+  const confirmaram = escalados.filter((e) => e.statusConfirmacao === "CONFIRMADO").length;
+  const recusaram = escalados.filter((e) => e.statusConfirmacao === "RECUSADO").length;
+  const faltamEscalar = Math.max(0, motosContratadas - escalados.length);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -168,7 +173,7 @@ export default async function EscalaPage({
         </p>
       </div>
 
-      <form method="get" className="flex flex-wrap items-end gap-3">
+      <AutoSubmitForm method="get" className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-stone-500">Cliente</span>
           <select
@@ -219,7 +224,7 @@ export default async function EscalaPage({
         <Link href={`/escala/semana?clienteId=${clienteId}&inicio=${data}`} className="text-sm text-brand-700 hover:underline">
           Ver semana inteira →
         </Link>
-      </form>
+      </AutoSubmitForm>
 
       {turnosDisponiveis.length === 1 && (
         <p className="text-xs text-stone-500 -mt-4">
@@ -227,12 +232,44 @@ export default async function EscalaPage({
         </p>
       )}
 
-      {motosContratadas > 0 && escalados.length !== motosContratadas && (
-        <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Faltam motos: são {motosContratadas} contratadas pra esse dia e só {escalados.length}{" "}
-          {escalados.length === 1 ? "está" : "estão"} escalada
-          {escalados.length === 1 ? "" : "s"}. O cliente também vê esse número no portal dele.
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+        <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-center">
+          <p className="text-2xl font-bold text-navy-900">{motosContratadas}</p>
+          <p className="text-[11px] text-stone-500 leading-tight">necessárias</p>
         </div>
+        <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-center">
+          <p
+            className={`text-2xl font-bold ${
+              motosContratadas > 0 && escalados.length < motosContratadas ? "text-red-600" : "text-navy-900"
+            }`}
+          >
+            {escalados.length}
+          </p>
+          <p className="text-[11px] text-stone-500 leading-tight">escaladas</p>
+        </div>
+        <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-center">
+          <p className="text-2xl font-bold text-brand-700">{confirmaram}</p>
+          <p className="text-[11px] text-stone-500 leading-tight">confirmaram</p>
+        </div>
+        <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-center">
+          <p className={`text-2xl font-bold ${recusaram > 0 ? "text-red-600" : "text-navy-900"}`}>
+            {recusaram}
+          </p>
+          <p className="text-[11px] text-stone-500 leading-tight">recusaram</p>
+        </div>
+        <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-center">
+          <p className={`text-2xl font-bold ${faltamEscalar > 0 ? "text-red-600" : "text-navy-900"}`}>
+            {faltamEscalar}
+          </p>
+          <p className="text-[11px] text-stone-500 leading-tight">faltam escalar</p>
+        </div>
+      </div>
+
+      {motosContratadas > 0 && escalados.length > motosContratadas && (
+        <p className="text-xs text-amber-700 -mt-3">
+          Escalou {escalados.length - motosContratadas} a mais do que as {motosContratadas} contratadas
+          pra esse dia.
+        </p>
       )}
 
       {escalados.length === 0 && escaladosSemanaPassada.length > 0 && (
