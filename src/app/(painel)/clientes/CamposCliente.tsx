@@ -36,6 +36,12 @@ type TurnoFixo = {
 export type ValoresCliente = {
   nome?: string;
   endereco?: string | null;
+  cnpj?: string | null;
+  nomeResponsavelOperacional?: string | null;
+  telefoneFixoOperacional?: string | null;
+  telefoneCelularOperacional?: string | null;
+  emailOperacional?: string | null;
+  financeiroMesmoOperacional?: boolean;
   contatoFinanceiroNome?: string | null;
   contatoFinanceiroEmail?: string | null;
   turnoManhaAtivo?: boolean;
@@ -57,6 +63,9 @@ export type ValoresCliente = {
 };
 
 export default function CamposCliente({ valores = {} }: { valores?: ValoresCliente }) {
+  const [financeiroMesmoOperacional, setFinanceiroMesmoOperacional] = useState(
+    valores.financeiroMesmoOperacional ?? false
+  );
   const [turnoManhaAtivo, setTurnoManhaAtivo] = useState(valores.turnoManhaAtivo ?? false);
   const [turnoTardeAtivo, setTurnoTardeAtivo] = useState(valores.turnoTardeAtivo ?? false);
   const [turnoNoiteAtivo, setTurnoNoiteAtivo] = useState(valores.turnoNoiteAtivo ?? false);
@@ -77,33 +86,92 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
       </div>
 
       <div className="flex flex-col gap-2">
+        <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
+          Dados da empresa
+        </span>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-stone-500">CNPJ</span>
+            <input name="cnpj" defaultValue={valores.cnpj ?? ""} className={inputClasse} />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-stone-500">Nome do responsável operacional</span>
+            <input
+              name="nomeResponsavelOperacional"
+              defaultValue={valores.nomeResponsavelOperacional ?? ""}
+              className={inputClasse}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-stone-500">Telefone fixo</span>
+            <input
+              name="telefoneFixoOperacional"
+              defaultValue={valores.telefoneFixoOperacional ?? ""}
+              className={inputClasse}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-stone-500">Celular</span>
+            <input
+              name="telefoneCelularOperacional"
+              defaultValue={valores.telefoneCelularOperacional ?? ""}
+              className={inputClasse}
+            />
+          </label>
+          <label className="flex flex-col gap-1 sm:col-span-2">
+            <span className="text-xs text-stone-500">E-mail</span>
+            <input
+              name="emailOperacional"
+              type="email"
+              defaultValue={valores.emailOperacional ?? ""}
+              className={inputClasse}
+            />
+          </label>
+        </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
-            Contato financeiro
+            Responsável financeiro
           </span>
           <p className="text-xs text-stone-500">
             Quem recebe a nota fiscal de serviço em PDF toda semana (ver tela Financeiro).
           </p>
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-stone-500">Nome</span>
-            <input
-              name="contatoFinanceiroNome"
-              defaultValue={valores.contatoFinanceiroNome ?? ""}
-              className={inputClasse}
-            />
-          </label>
-          <label className="flex flex-col gap-1">
-            <span className="text-xs text-stone-500">E-mail</span>
-            <input
-              name="contatoFinanceiroEmail"
-              type="email"
-              defaultValue={valores.contatoFinanceiroEmail ?? ""}
-              className={inputClasse}
-            />
-          </label>
-        </div>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            name="financeiroMesmoOperacional"
+            checked={financeiroMesmoOperacional}
+            onChange={(e) => setFinanceiroMesmoOperacional(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
+          />
+          <span className="text-xs text-stone-500">
+            É a mesma pessoa/e-mail do responsável operacional acima
+          </span>
+        </label>
+        {!financeiroMesmoOperacional && (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-stone-500">Nome</span>
+              <input
+                name="contatoFinanceiroNome"
+                defaultValue={valores.contatoFinanceiroNome ?? ""}
+                className={inputClasse}
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-stone-500">E-mail</span>
+              <input
+                name="contatoFinanceiroEmail"
+                type="email"
+                defaultValue={valores.contatoFinanceiroEmail ?? ""}
+                className={inputClasse}
+              />
+            </label>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-3">

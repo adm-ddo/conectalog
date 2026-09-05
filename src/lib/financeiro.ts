@@ -42,6 +42,32 @@ export function semanaAnteriorCompleta(
   return { inicio: somarDiasISO(inicioAtual, -7), fim: somarDiasISO(inicioAtual, -1) };
 }
 
+/** Quem recebe a nota fiscal por e-mail — o contato financeiro
+ * cadastrado, ou (financeiroMesmoOperacional=true) o responsável
+ * operacional, reaproveitando nome/e-mail dele. null se faltar
+ * cadastrar o e-mail relevante (a tela de financeiro trava o envio
+ * nesse caso). */
+export function resolverContatoFinanceiro(
+  cliente: Pick<
+    Cliente,
+    | "financeiroMesmoOperacional"
+    | "nomeResponsavelOperacional"
+    | "emailOperacional"
+    | "contatoFinanceiroNome"
+    | "contatoFinanceiroEmail"
+  >
+): { nome: string; email: string } | null {
+  if (cliente.financeiroMesmoOperacional) {
+    if (!cliente.emailOperacional) return null;
+    return { nome: cliente.nomeResponsavelOperacional || cliente.emailOperacional, email: cliente.emailOperacional };
+  }
+  if (!cliente.contatoFinanceiroEmail) return null;
+  return {
+    nome: cliente.contatoFinanceiroNome || cliente.contatoFinanceiroEmail,
+    email: cliente.contatoFinanceiroEmail,
+  };
+}
+
 type ClienteComTurnos = Cliente & { turnosFixos: ClienteTurnoFixo[] };
 
 /** Previsão mínima de hoje pra esse cliente: soma, pra cada turno

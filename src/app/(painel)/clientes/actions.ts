@@ -110,6 +110,12 @@ function validarTurnosFixos(turnosFixos: TurnoFixoInput[]): string | null {
 function dadosComuns(formData: FormData) {
   return {
     endereco: textoOpcional(formData, "endereco"),
+    cnpj: textoOpcional(formData, "cnpj"),
+    nomeResponsavelOperacional: textoOpcional(formData, "nomeResponsavelOperacional"),
+    telefoneFixoOperacional: textoOpcional(formData, "telefoneFixoOperacional"),
+    telefoneCelularOperacional: textoOpcional(formData, "telefoneCelularOperacional"),
+    emailOperacional: textoOpcional(formData, "emailOperacional"),
+    financeiroMesmoOperacional: formData.get("financeiroMesmoOperacional") === "on",
     contatoFinanceiroNome: textoOpcional(formData, "contatoFinanceiroNome"),
     contatoFinanceiroEmail: textoOpcional(formData, "contatoFinanceiroEmail"),
 

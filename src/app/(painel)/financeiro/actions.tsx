@@ -7,6 +7,7 @@ import { requireFinanceiro } from "@/lib/auth-empresa";
 import { gerarRelatorioCliente } from "@/lib/relatorios";
 import { RelatorioPdfDocument } from "@/lib/relatorioClientePdf";
 import { enviarEmailFaturaCliente } from "@/lib/email";
+import { resolverContatoFinanceiro } from "@/lib/financeiro";
 import { formatarMoeda } from "@/lib/valores";
 
 export type GerarFaturaState = { erro?: string } | undefined;
@@ -65,8 +66,9 @@ export async function enviarFatura(faturaId: number): Promise<GerarFaturaState> 
     include: { cliente: true, empresa: { select: { nome: true } } },
   });
   if (!fatura) return { erro: "Fatura não encontrada." };
-  if (!fatura.cliente.contatoFinanceiroEmail) {
-    return { erro: "Cadastre o e-mail do contato financeiro desse cliente antes de enviar." };
+  const contato = resolverContatoFinanceiro(fatura.cliente);
+  if (!contato) {
+    return { erro: "Cadastre o e-mail do contato financeiro (ou do responsável operacional) desse cliente antes de enviar." };
   }
 
   const dataInicioISO = fatura.periodoInicio.toISOString().slice(0, 10);
@@ -80,8 +82,8 @@ export async function enviarFatura(faturaId: number): Promise<GerarFaturaState> 
   const nomeArquivo = `nota-fiscal-${fatura.cliente.nome.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}-${dataInicioISO}-a-${dataFimISO}.pdf`;
 
   const resultado = await enviarEmailFaturaCliente({
-    destinatario: fatura.cliente.contatoFinanceiroEmail,
-    nomeContato: fatura.cliente.contatoFinanceiroNome || fatura.cliente.contatoFinanceiroEmail,
+    destinatario: contato.email,
+    nomeContato: contato.nome,
     nomeCliente: fatura.cliente.nome,
     nomeCooperativa: fatura.empresa.nome,
     periodoInicio: dataInicioISO,

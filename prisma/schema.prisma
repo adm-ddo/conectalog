@@ -297,13 +297,25 @@ model Cliente {
   // deixar aberto/salvo no navegador. null = link ainda não gerado.
   tokenPortal String? @unique
 
+  // Dados da empresa cliente e de quem lida com o dia a dia operacional
+  // (não é login nem contato financeiro) — tudo opcional, não bloqueia o
+  // resto do cadastro.
+  cnpj                        String?
+  nomeResponsavelOperacional  String?
+  telefoneFixoOperacional     String?
+  telefoneCelularOperacional  String?
+  emailOperacional            String?
+
   // Quem recebe a nota fiscal de serviço em PDF por e-mail (ver
   // src/app/(painel)/financeiro) — null enquanto a cooperativa não
   // cadastrar; a tela de financeiro avisa e bloqueia o envio até
   // preencher, mas o resto do cadastro do cliente funciona normalmente
-  // sem isso.
-  contatoFinanceiroNome  String?
-  contatoFinanceiroEmail String?
+  // sem isso. financeiroMesmoOperacional=true reusa nome/e-mail do
+  // responsável operacional acima em vez de exigir um contato separado
+  // — caso comum de restaurante pequeno onde é a mesma pessoa.
+  financeiroMesmoOperacional Boolean @default(false)
+  contatoFinanceiroNome      String?
+  contatoFinanceiroEmail     String?
 
   // Horários dos turnos fixos e quantidade de motos contratada em cada um
   // — usado pro alerta de "equipe incompleta" no dashboard da cooperativa.

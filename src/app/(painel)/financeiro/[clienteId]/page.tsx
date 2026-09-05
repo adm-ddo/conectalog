@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
 import { formatarDataHora } from "@/lib/data";
 import { gerarRelatorioCliente } from "@/lib/relatorios";
-import { semanaAnteriorCompleta } from "@/lib/financeiro";
+import { semanaAnteriorCompleta, resolverContatoFinanceiro } from "@/lib/financeiro";
 import BotaoVoltar from "@/components/BotaoVoltar";
 import FaturaAcoes from "./FaturaAcoes";
 
@@ -60,6 +60,8 @@ export default async function FinanceiroClientePage({
   ]);
   if (!relatorio) notFound();
 
+  const contatoFinanceiro = resolverContatoFinanceiro(cliente);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -98,9 +100,9 @@ export default async function FinanceiroClientePage({
         </button>
       </form>
 
-      {!cliente.contatoFinanceiroEmail && (
+      {!contatoFinanceiro && (
         <div className="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          Esse cliente ainda não tem e-mail de contato financeiro cadastrado —{" "}
+          Esse cliente ainda não tem e-mail de contato financeiro (nem operacional) cadastrado —{" "}
           <Link href={`/clientes/${clienteId}`} className="underline font-medium">
             cadastre na página dele
           </Link>{" "}
@@ -154,7 +156,7 @@ export default async function FinanceiroClientePage({
               }
             : null
         }
-        temContatoFinanceiro={!!cliente.contatoFinanceiroEmail}
+        temContatoFinanceiro={!!contatoFinanceiro}
         pdfHref={`/relatorios/pdf?clienteId=${clienteId}&inicio=${periodoInicio}&fim=${periodoFim}`}
       />
 
