@@ -7,6 +7,8 @@ import AutoRefresh from "@/components/AutoRefresh";
 import SolicitacaoApoioAlert from "./SolicitacaoApoioAlert";
 import DivergenciaRow from "./DivergenciaRow";
 import { expirarEscalasVencidas } from "@/lib/escala";
+import { rankingMotoboys, formatarHoras } from "@/lib/ranking";
+import EquipamentoBadge from "@/components/EquipamentoBadge";
 import type { Prisma } from "@/generated/prisma/client";
 
 export default async function DashboardPage() {
@@ -26,8 +28,16 @@ export default async function DashboardPage() {
   const hojeISO = dataISOBrasil();
   const hoje = new Date(hojeISO);
 
-  const [turnosAbertos, escalasHoje, totalMotoboysAtivos, clientesAtivos, solicitacoesApoio, turnosDivergentes, turnosPendentes] =
-    await Promise.all([
+  const [
+    turnosAbertos,
+    escalasHoje,
+    totalMotoboysAtivos,
+    clientesAtivos,
+    solicitacoesApoio,
+    turnosDivergentes,
+    turnosPendentes,
+    rankingHoje,
+  ] = await Promise.all([
       prisma.turno.findMany({
         where: {
           status: "ABERTO",
@@ -94,6 +104,7 @@ export default async function DashboardPage() {
               resolvidoDivergenciaEm: null,
             },
           }),
+      rankingMotoboys(sessao.empresaEfetivoId, "hoje", filtroCliente),
     ]);
 
   const divergencias = turnosDivergentes.filter(
@@ -321,6 +332,42 @@ export default async function DashboardPage() {
           <span className="shrink-0 text-xs font-semibold text-amber-800">Ver →</span>
         </Link>
       )}
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-navy-900">Ranking de hoje</h2>
+          <Link href="/dashboard/ranking" className="text-xs font-semibold text-brand-700 hover:underline">
+            Ver ranking completo →
+          </Link>
+        </div>
+        {rankingHoje.length === 0 ? (
+          <p className="text-sm text-stone-500">Ninguém trabalhou hoje ainda.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {rankingHoje.slice(0, 3).map((linha, i) => (
+              <li key={linha.motoboyId} className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="shrink-0 w-6 h-6 rounded-full bg-stone-100 text-stone-600 flex items-center justify-center text-xs font-bold">
+                    {i + 1}
+                  </span>
+                  {escopoGestor ? (
+                    <span className="text-sm text-navy-900 truncate">{linha.nome}</span>
+                  ) : (
+                    <Link href={`/motoboys/${linha.motoboyId}`} className="text-sm text-navy-900 hover:underline truncate">
+                      {linha.nome}
+                    </Link>
+                  )}
+                  <EquipamentoBadge tipo={linha.tipoEquipamento} />
+                </div>
+                <span className="shrink-0 text-xs text-stone-500">
+                  <strong className="text-navy-900">{linha.totalBandas}</strong> bandas ·{" "}
+                  {formatarHoras(linha.horasTrabalhadas)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
 
       <div>
         <h2 className="text-sm font-semibold text-navy-900 mb-3">Clientes agora</h2>
