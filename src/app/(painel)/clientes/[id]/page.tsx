@@ -145,6 +145,8 @@ export default async function ClienteDetalhePage({
         valores={{
           nome: cliente.nome,
           endereco: cliente.endereco,
+          contatoFinanceiroNome: cliente.contatoFinanceiroNome,
+          contatoFinanceiroEmail: cliente.contatoFinanceiroEmail,
           turnoManhaAtivo: cliente.turnoManhaAtivo,
           turnoManhaInicio: cliente.turnoManhaInicio,
           turnoManhaFim: cliente.turnoManhaFim,

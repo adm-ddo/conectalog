@@ -42,6 +42,7 @@ export default async function EquipePage() {
             email={m.email}
             role={m.role === "MASTER" ? "MASTER" : "GESTOR"}
             ativo={m.ativo}
+            podeAcessarFinanceiro={m.podeAcessarFinanceiro}
             souEu={m.id === sessao.usuarioId}
           />
         ))}

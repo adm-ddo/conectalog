@@ -34,6 +34,8 @@ export type RelatorioCliente = {
   valorTotalCliente: number;
   totalBandas: number;
   turnosAbertosNaoIncluidos: number;
+  totalEscalas: number;
+  totalConfirmados: number;
   motoboys: LinhaMotoboyRelatorio[];
 };
 
@@ -58,7 +60,7 @@ export async function gerarRelatorioCliente(
   const inicio = instanteBrasil(dataInicio);
   const fimExclusivo = inicioDoDiaSeguinteBrasil(dataFim);
 
-  const [turnos, apoios, turnosAbertos] = await Promise.all([
+  const [turnos, apoios, turnosAbertos, escalas] = await Promise.all([
     prisma.turno.findMany({
       where: {
         clienteId,
@@ -86,6 +88,12 @@ export async function gerarRelatorioCliente(
     }),
     prisma.turno.count({
       where: { clienteId, horaInicio: { gte: inicio, lt: fimExclusivo }, status: "ABERTO" },
+    }),
+    // EscalaTurno.data é @db.Date (dia puro, sem horário) — usa o mesmo
+    // dataInicio/dataFim (strings YYYY-MM-DD) direto, sem instanteBrasil.
+    prisma.escalaTurno.findMany({
+      where: { clienteId, data: { gte: new Date(dataInicio), lte: new Date(dataFim) } },
+      select: { statusConfirmacao: true },
     }),
   ]);
 
@@ -202,6 +210,8 @@ export async function gerarRelatorioCliente(
     valorTotalCliente: motoboys.reduce((soma, m) => soma + m.valorCliente, 0),
     totalBandas: motoboys.reduce((soma, m) => soma + m.bandas, 0),
     turnosAbertosNaoIncluidos: turnosAbertos,
+    totalEscalas: escalas.length,
+    totalConfirmados: escalas.filter((e) => e.statusConfirmacao === "CONFIRMADO").length,
     motoboys,
   };
 }

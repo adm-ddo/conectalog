@@ -36,6 +36,8 @@ type TurnoFixo = {
 export type ValoresCliente = {
   nome?: string;
   endereco?: string | null;
+  contatoFinanceiroNome?: string | null;
+  contatoFinanceiroEmail?: string | null;
   turnoManhaAtivo?: boolean;
   turnoManhaInicio?: string | null;
   turnoManhaFim?: string | null;
@@ -72,6 +74,36 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
           <span className="text-xs text-stone-500">Endereço</span>
           <input name="endereco" defaultValue={valores.endereco ?? ""} className={inputClasse} />
         </label>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
+            Contato financeiro
+          </span>
+          <p className="text-xs text-stone-500">
+            Quem recebe a nota fiscal de serviço em PDF toda semana (ver tela Financeiro).
+          </p>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-stone-500">Nome</span>
+            <input
+              name="contatoFinanceiroNome"
+              defaultValue={valores.contatoFinanceiroNome ?? ""}
+              className={inputClasse}
+            />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-stone-500">E-mail</span>
+            <input
+              name="contatoFinanceiroEmail"
+              type="email"
+              defaultValue={valores.contatoFinanceiroEmail ?? ""}
+              className={inputClasse}
+            />
+          </label>
+        </div>
       </div>
 
       <div className="flex flex-col gap-3">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useTransition } from "react";
-import { alternarAtivoMembro } from "./actions";
+import { alternarAtivoMembro, alternarFinanceiroMembro } from "./actions";
 
 export default function MembroRow({
   usuarioId,
@@ -9,6 +9,7 @@ export default function MembroRow({
   email,
   role,
   ativo,
+  podeAcessarFinanceiro,
   souEu,
 }: {
   usuarioId: number;
@@ -16,6 +17,7 @@ export default function MembroRow({
   email: string;
   role: "MASTER" | "GESTOR";
   ativo: boolean;
+  podeAcessarFinanceiro: boolean;
   souEu: boolean;
 }) {
   const [pending, startTransition] = useTransition();
@@ -31,18 +33,34 @@ export default function MembroRow({
         </span>
       </div>
       {role !== "MASTER" && (
-        <button
-          type="button"
-          disabled={pending || souEu}
-          onClick={() => startTransition(() => alternarAtivoMembro(usuarioId, !ativo))}
-          className={`shrink-0 rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${
-            ativo
-              ? "bg-brand-100 text-brand-800 hover:bg-brand-200"
-              : "bg-stone-100 text-stone-600 hover:bg-stone-200"
-          }`}
-        >
-          {ativo ? "Ativo" : "Inativo"}
-        </button>
+        <div className="flex items-center gap-2 shrink-0">
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() =>
+              startTransition(() => alternarFinanceiroMembro(usuarioId, !podeAcessarFinanceiro))
+            }
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${
+              podeAcessarFinanceiro
+                ? "bg-navy-100 text-navy-800 hover:bg-navy-200"
+                : "bg-stone-100 text-stone-500 hover:bg-stone-200"
+            }`}
+          >
+            {podeAcessarFinanceiro ? "Vê financeiro" : "Sem financeiro"}
+          </button>
+          <button
+            type="button"
+            disabled={pending || souEu}
+            onClick={() => startTransition(() => alternarAtivoMembro(usuarioId, !ativo))}
+            className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors disabled:opacity-50 ${
+              ativo
+                ? "bg-brand-100 text-brand-800 hover:bg-brand-200"
+                : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+            }`}
+          >
+            {ativo ? "Ativo" : "Inativo"}
+          </button>
+        </div>
       )}
     </li>
   );

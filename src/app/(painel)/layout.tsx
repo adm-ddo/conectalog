@@ -35,6 +35,7 @@ export default async function PainelLayout({
         logoUrl={empresa.logoUrl}
         ehMaster={sessao.role === "MASTER" || (sessao.superAdmin && sessao.empresaAtivaId !== null)}
         ehGestorCampo={sessao.role === "GESTOR_CAMPO"}
+        podeAcessarFinanceiro={sessao.podeAcessarFinanceiro}
         temContaMotoboy={sessao.temContaMotoboy}
         solicitacoesPendentes={solicitacoesPendentes}
       />

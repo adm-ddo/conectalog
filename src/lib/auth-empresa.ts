@@ -42,6 +42,10 @@ export type SessaoEmpresa = {
    * também se cadastrou como motoboy pra fazer entrega). Usado pra
    * mostrar o link fixo de trocar de tela em toda página do painel. */
   temContaMotoboy: boolean;
+  /** Acesso à tela /financeiro — MASTER (ou superAdmin agindo como dono)
+   * sempre tem, GESTOR/GESTOR_CAMPO só se Usuario.podeAcessarFinanceiro
+   * tiver sido marcado (ver requireFinanceiro). */
+  podeAcessarFinanceiro: boolean;
 };
 
 export async function criarSessaoEmpresa(usuarioId: number): Promise<void> {
@@ -93,6 +97,7 @@ export const getSessaoEmpresa = cache(
             superAdmin: true,
             ativo: true,
             motoboyVinculadoId: true,
+            podeAcessarFinanceiro: true,
           },
         },
         empresaAtiva: { select: { nome: true } },
@@ -131,6 +136,10 @@ export const getSessaoEmpresa = cache(
       empresaEfetivoNome,
       motoboyVinculadoId: sessao.usuario.motoboyVinculadoId,
       temContaMotoboy: motoboyComMesmoEmail !== null,
+      podeAcessarFinanceiro:
+        sessao.usuario.role === "MASTER" ||
+        (sessao.usuario.superAdmin && sessao.empresaAtivaId !== null) ||
+        sessao.usuario.podeAcessarFinanceiro,
     };
   }
 );
@@ -197,6 +206,19 @@ export async function requireMaster(): Promise<
   if (sessao.role !== "MASTER" && !agindoComoDonoPorSerSuperAdmin) {
     redirect("/dashboard");
   }
+  return sessao;
+}
+
+/** Use no topo de /financeiro e das actions de lá (valores a cobrar dos
+ * clientes, notas fiscais de serviço, marcar como pago) — mais restrito
+ * que requireTenantCompleto: só MASTER ou quem foi explicitamente
+ * marcado com podeAcessarFinanceiro (ver convite/edição de membro da
+ * equipe). GESTOR_CAMPO nunca tem, mesma regra de requireTenantCompleto. */
+export async function requireFinanceiro(): Promise<
+  SessaoEmpresa & { empresaEfetivoId: number }
+> {
+  const sessao = await requireTenantCompleto();
+  if (!sessao.podeAcessarFinanceiro) redirect("/dashboard");
   return sessao;
 }
 
@@ -283,12 +305,13 @@ export async function tokenUsuarioRecenteExiste(
 export async function criarConviteEquipe(
   empresaId: number,
   email: string,
-  criadoPorUsuarioId: number
+  criadoPorUsuarioId: number,
+  podeAcessarFinanceiro: boolean = false
 ): Promise<string> {
   const token = randomBytes(32).toString("hex");
   const expiraEm = new Date(Date.now() + CONVITE_TTL_DIAS * 24 * 60 * 60 * 1000);
   await prisma.conviteEquipe.create({
-    data: { empresaId, email, token, criadoPorUsuarioId, expiraEm },
+    data: { empresaId, email, token, criadoPorUsuarioId, expiraEm, podeAcessarFinanceiro },
   });
   return token;
 }

@@ -271,6 +271,76 @@ export async function enviarEmailVerificacaoMotoboy(
   }
 }
 
+/** Manda a nota fiscal de serviço semanal (PDF em anexo) pro contato
+ * financeiro do Cliente — sem botão/link de propósito (diferente de
+ * layoutEmail): o conteúdo que importa é o anexo, o contato financeiro
+ * não tem login nenhum no ConectaLog pra "ver mais". */
+export async function enviarEmailFaturaCliente(params: {
+  destinatario: string;
+  nomeContato: string;
+  nomeCliente: string;
+  nomeCooperativa: string;
+  periodoInicio: string;
+  periodoFim: string;
+  valorTotal: string;
+  pdfBuffer: Buffer;
+  nomeArquivo: string;
+}): Promise<{ sucesso: boolean }> {
+  const resend = cliente();
+  if (!resend) {
+    console.warn("RESEND_API_KEY não configurada — nota fiscal não enviada.");
+    return { sucesso: false };
+  }
+
+  const primeiroNome = escaparHtml(params.nomeContato.split(" ")[0] || params.nomeContato);
+  const periodo = `${params.periodoInicio.split("-").reverse().join("/")} até ${params.periodoFim.split("-").reverse().join("/")}`;
+  const html = `<!DOCTYPE html>
+<html lang="pt-BR">
+<body style="margin:0;padding:0;background:#F3F5F7;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#F3F5F7;padding:32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:480px;background:#FFFFFF;border-radius:16px;overflow:hidden;">
+          <tr>
+            <td style="background:#0D1B2A;padding:28px 32px;" align="left">
+              <span style="font-size:20px;font-weight:900;color:#FFFFFF;letter-spacing:-.01em;">Conecta<span style="color:#00C896;">Log</span></span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px 32px 8px;">
+              <h1 style="margin:0 0 16px;font-size:21px;font-weight:900;color:#14171A;letter-spacing:-.01em;">Nota fiscal de serviço — ${escaparHtml(params.nomeCliente)}</h1>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3D4952;">Oi, ${primeiroNome}! Segue em anexo a nota fiscal de serviço da <strong>${escaparHtml(params.nomeCooperativa)}</strong> referente ao período de <strong>${periodo}</strong>.</p>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3D4952;">Valor total do período: <strong>R$ ${escaparHtml(params.valorTotal)}</strong>.</p>
+              <p style="margin:0;font-size:15px;line-height:1.6;color:#3D4952;">Qualquer dúvida sobre os valores, é só responder este e-mail.</p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:18px 32px 32px;background:#F3F5F7;border-top:1px solid #DCE1E7;">
+              <p style="margin:0;font-size:11.5px;color:#8A93A0;">ConectaLog · Gestão de motoboys, do início ao fim do turno.</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
+
+  try {
+    await resend.emails.send({
+      from: REMETENTE,
+      to: params.destinatario,
+      subject: `Nota fiscal de serviço — ${params.nomeCliente} (${periodo})`,
+      html,
+      attachments: [{ filename: params.nomeArquivo, content: params.pdfBuffer }],
+    });
+    return { sucesso: true };
+  } catch (err) {
+    console.error("Falha ao enviar nota fiscal de serviço:", err);
+    return { sucesso: false };
+  }
+}
+
 /** Avisa o dono da plataforma que alguém pediu contato pela landing
  * comercial (raiz do domínio) — o lead em si já fica salvo no banco
  * (LeadComercial), isso aqui é só o alerta em tempo real. O botão vira

@@ -38,6 +38,16 @@ export default function ConvidarForm() {
           {pending ? "Enviando..." : "Enviar convite"}
         </button>
       </div>
+      <label className="flex items-center gap-2">
+        <input
+          type="checkbox"
+          name="podeAcessarFinanceiro"
+          className="h-3.5 w-3.5 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
+        />
+        <span className="text-xs text-stone-500">
+          Dar acesso ao financeiro (valores a cobrar dos clientes, notas fiscais)
+        </span>
+      </label>
       {state?.erro && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
           {state.erro}

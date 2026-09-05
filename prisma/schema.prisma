@@ -68,6 +68,16 @@ enum StatusPagamento {
   CONCLUIDO
 }
 
+/// Status da nota fiscal de serviço semanal de um Cliente (ver
+/// FaturaCliente) — PENDENTE (gerada, ainda não mandada), ENVIADA (PDF
+/// mandado pro contato financeiro), PAGA (cooperativa confirmou o
+/// recebimento).
+enum StatusFatura {
+  PENDENTE
+  ENVIADA
+  PAGA
+}
+
 enum TipoMeta {
   BANDAS
   VALOR
@@ -136,6 +146,12 @@ model Empresa {
   /// gerar desconto, e quanto desconta pra cada turno (cada um com seu
   /// valor, personalizável aqui).
   toleranciaAtrasoMinutos  Int      @default(30)
+  /// Dia em que a semana financeira começa (ver src/app/(painel)/
+  /// financeiro) — convenção Date.getDay() (0=domingo...6=sábado).
+  /// Padrão segunda-feira; a nota fiscal semanal de cada cliente cobre
+  /// esse dia até o dia anterior da semana seguinte (ex.: segunda a
+  /// domingo, se ficar no padrão).
+  diaInicioSemanaFinanceira Int     @default(1)
   valorDescontoAtrasoManha Decimal  @default(15) @db.Decimal(10, 2)
   valorDescontoAtrasoTarde Decimal  @default(10) @db.Decimal(10, 2)
   valorDescontoAtrasoNoite Decimal  @default(20) @db.Decimal(10, 2)
@@ -154,6 +170,7 @@ model Empresa {
   vales         Vale[]
   convites      ConviteEquipe[]
   sessoesAtivas Sessao[]
+  faturas       FaturaCliente[]
 }
 
 /// Login do painel (dono/gestor da cooperativa) — sistema de sessão
@@ -178,6 +195,11 @@ model Usuario {
   /// no link de convite já prova posse do e-mail.
   emailVerificadoEm  DateTime?
   ativo              Boolean     @default(true)
+  /// Acesso à tela /financeiro (valores a cobrar dos clientes, notas
+  /// fiscais de serviço, marcar como pago) — mais restrito que o role
+  /// GESTOR normal, ver requireFinanceiro em auth-empresa.ts. MASTER
+  /// sempre tem acesso independente desse campo (é o dono).
+  podeAcessarFinanceiro Boolean  @default(false)
   criadoEm           DateTime    @default(now())
   /// Só preenchido pra role GESTOR_CAMPO — este login de painel foi
   /// criado automaticamente quando um Motoboy virou Gestor (ver
@@ -227,6 +249,9 @@ model ConviteEquipe {
   expiraEm           DateTime
   aceitoEm           DateTime?
   criadoEm           DateTime  @default(now())
+  /// Repassado pro Usuario.podeAcessarFinanceiro quando o convite for
+  /// aceito — decidido na hora de convidar, não depois.
+  podeAcessarFinanceiro Boolean @default(false)
 
   empresa          Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   criadoPorUsuario Usuario @relation(fields: [criadoPorUsuarioId], references: [id])
@@ -272,6 +297,14 @@ model Cliente {
   // deixar aberto/salvo no navegador. null = link ainda não gerado.
   tokenPortal String? @unique
 
+  // Quem recebe a nota fiscal de serviço em PDF por e-mail (ver
+  // src/app/(painel)/financeiro) — null enquanto a cooperativa não
+  // cadastrar; a tela de financeiro avisa e bloqueia o envio até
+  // preencher, mas o resto do cadastro do cliente funciona normalmente
+  // sem isso.
+  contatoFinanceiroNome  String?
+  contatoFinanceiroEmail String?
+
   // Horários dos turnos fixos e quantidade de motos contratada em cada um
   // — usado pro alerta de "equipe incompleta" no dashboard da cooperativa.
   // motosFixasManha/Tarde/Noite: 7 posições, índice = Date.getDay()
@@ -308,6 +341,7 @@ model Cliente {
   solicitacoesApoio   SolicitacaoApoio[]
   taxasExtras         ClienteTaxaExtra[]
   turnosFixos         ClienteTurnoFixo[]
+  faturas             FaturaCliente[]
 
   @@index([empresaId])
 }
@@ -881,6 +915,32 @@ model Pagamento {
   descontosAssiduidade DescontoAssiduidade[]
 
   @@index([motoboyId, status])
+}
+
+/// Nota fiscal de serviço semanal cobrada de um Cliente — snapshot dos
+/// valores calculados na hora que a cooperativa gerou (Turno/Apoio
+/// continuam sendo a fonte de verdade; isso aqui é só o "recibo" que foi
+/// mandado, pra ter histórico mesmo se os turnos do período forem
+/// corrigidos depois). Só existe um FaturaCliente por Cliente+período —
+/// gerar de novo no mesmo período atualiza os valores em vez de duplicar.
+model FaturaCliente {
+  id            Int          @id @default(autoincrement())
+  clienteId     Int
+  empresaId     Int
+  periodoInicio DateTime     @db.Date
+  periodoFim    DateTime     @db.Date
+  valorTotal    Decimal      @db.Decimal(10, 2)
+  totalBandas   Int
+  status        StatusFatura @default(PENDENTE)
+  enviadaEm     DateTime?
+  pagaEm        DateTime?
+  criadoEm      DateTime     @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  empresa Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
+
+  @@unique([clienteId, periodoInicio, periodoFim])
+  @@index([empresaId, status])
 }
 
 /// Vale (adiantamento) dado pela cooperativa a um motoboy — aparece no app

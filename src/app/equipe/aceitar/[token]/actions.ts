@@ -42,6 +42,7 @@ export async function aceitarConvite(
         senhaHash,
         role: "GESTOR",
         emailVerificadoEm: new Date(),
+        podeAcessarFinanceiro: convite.podeAcessarFinanceiro,
       },
     });
     await tx.conviteEquipe.update({

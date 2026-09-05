@@ -28,7 +28,13 @@ export async function convidarMembro(
     select: { nome: true },
   });
 
-  const token = await criarConviteEquipe(sessao.empresaEfetivoId, email, sessao.usuarioId);
+  const podeAcessarFinanceiro = formData.get("podeAcessarFinanceiro") === "on";
+  const token = await criarConviteEquipe(
+    sessao.empresaEfetivoId,
+    email,
+    sessao.usuarioId,
+    podeAcessarFinanceiro
+  );
   await enviarEmailConviteEquipe(email, empresa.nome, token);
 
   revalidatePath("/equipe");
@@ -50,6 +56,20 @@ export async function alternarAtivoMembro(usuarioId: number, ativo: boolean) {
   await prisma.usuario.updateMany({
     where: { id: usuarioId, empresaId: sessao.empresaEfetivoId, role: "GESTOR" },
     data: { ativo },
+  });
+  revalidatePath("/equipe");
+}
+
+/** Liga/desliga o acesso à tela /financeiro de um membro já cadastrado
+ * (só pra quem já tem conta — pra convites ainda pendentes, o próprio
+ * ConviteEquipe.podeAcessarFinanceiro decide, escolhido na hora de
+ * convidar). Só GESTOR/GESTOR_CAMPO passam por aqui — MASTER sempre tem
+ * acesso independente desse campo (ver requireFinanceiro). */
+export async function alternarFinanceiroMembro(usuarioId: number, podeAcessarFinanceiro: boolean) {
+  const sessao = await requireMaster();
+  await prisma.usuario.updateMany({
+    where: { id: usuarioId, empresaId: sessao.empresaEfetivoId, role: { not: "MASTER" } },
+    data: { podeAcessarFinanceiro },
   });
   revalidatePath("/equipe");
 }

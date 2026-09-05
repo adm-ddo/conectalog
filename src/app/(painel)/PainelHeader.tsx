@@ -18,6 +18,7 @@ const LINKS = [
   { href: "/motoboys", label: "Motoboys", gestorCampo: false },
   { href: "/pagamentos", label: "Pagamentos", gestorCampo: false },
   { href: "/relatorios", label: "Relatórios", gestorCampo: false },
+  { href: "/financeiro", label: "Financeiro", financeiroOnly: true, gestorCampo: false },
   { href: "/equipe", label: "Equipe", masterOnly: true, gestorCampo: false },
   { href: "/configuracoes", label: "Configurações", masterOnly: true, gestorCampo: false },
 ];
@@ -29,6 +30,7 @@ export default function PainelHeader({
   logoUrl,
   ehMaster,
   ehGestorCampo,
+  podeAcessarFinanceiro,
   temContaMotoboy,
   solicitacoesPendentes,
 }: {
@@ -38,6 +40,7 @@ export default function PainelHeader({
   logoUrl: string | null;
   ehMaster: boolean;
   ehGestorCampo: boolean;
+  podeAcessarFinanceiro: boolean;
   temContaMotoboy: boolean;
   solicitacoesPendentes: number;
 }) {
@@ -45,6 +48,7 @@ export default function PainelHeader({
   const links = LINKS.filter((link) => {
     if (link.soGestorCampo) return ehGestorCampo;
     if (ehGestorCampo && link.gestorCampo === false) return false;
+    if (link.financeiroOnly) return podeAcessarFinanceiro;
     return !link.masterOnly || ehMaster;
   });
 

@@ -118,7 +118,7 @@ export default async function RelatoriosPage({
 
           {relatorio && (
             <>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
                 <div className="rounded-2xl border border-stone-200 bg-white p-5">
                   <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
                     {relatorio.clienteNome} deve pagar
@@ -138,6 +138,18 @@ export default async function RelatoriosPage({
                     Motoboys que atenderam
                   </p>
                   <p className="text-2xl font-bold text-navy-900 mt-1">{relatorio.motoboys.length}</p>
+                </div>
+                <div className="rounded-2xl border border-stone-200 bg-white p-5">
+                  <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
+                    Escaladas
+                  </p>
+                  <p className="text-2xl font-bold text-navy-900 mt-1">{relatorio.totalEscalas}</p>
+                </div>
+                <div className="rounded-2xl border border-stone-200 bg-white p-5">
+                  <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
+                    Confirmaram
+                  </p>
+                  <p className="text-2xl font-bold text-navy-900 mt-1">{relatorio.totalConfirmados}</p>
                 </div>
               </div>
 
