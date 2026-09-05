@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
-import { turnoAtivoAgora, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
+import { turnoAtivoAgora, turnoRelevanteHoje, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
 import { formatarHora, dataISOBrasil } from "@/lib/data";
 import DashboardAutoRefresh from "../DashboardAutoRefresh";
 import SolicitacaoApoioAlert from "./SolicitacaoApoioAlert";
@@ -129,28 +129,29 @@ export default async function DashboardPage() {
 
   const resumoClientes = clientesAtivos
     .map((cliente) => {
-      // escaladas/confirmadas contam o dia inteiro (todos os turnos que o
-      // cliente usa hoje), não só o turno rolando neste minuto — senão,
-      // fora da janela do turno (ex.: de manhã, esperando a escala da
-      // noite), o card mostrava 0 escalados mesmo já tendo gente escalada
-      // pra mais tarde. "presentes" continua sendo o turno atual mesmo,
-      // porque só faz sentido comparar "quem chegou" com o turno que já
-      // deveria estar rolando agora.
+      // As 4 métricas do card são todas do MESMO turno — o que está
+      // rolando agora, ou (fora da janela) o próximo que vai começar
+      // hoje (ver turnoRelevanteHoje) — nunca a soma dos 3 turnos do
+      // dia. Somar dava um número "contratadas" sem sentido pra cliente
+      // com mais de um turno ativo (ex.: 1 de manhã + 4 de tarde + 1 de
+      // noite virava "6 contratadas", que não bate com nenhum turno de
+      // verdade) — e mostrar sempre o turno atual (só o que já está
+      // rolando) zerava tudo fora da janela, escondendo quem já tinha
+      // sido escalado pro turno seguinte.
       const turnoAtual = turnoAtivoAgora(cliente);
-      const contratadasAtual = motosContratadasNoTurno(cliente, turnoAtual);
-      const escalasDoClienteHoje = escalasHoje.filter((e) => e.clienteId === cliente.id);
-      let contratadasHoje = 0;
-      if (cliente.turnoManhaAtivo) contratadasHoje += motosContratadasNoTurno(cliente, "MANHA");
-      if (cliente.turnoTardeAtivo) contratadasHoje += motosContratadasNoTurno(cliente, "TARDE");
-      if (cliente.turnoNoiteAtivo) contratadasHoje += motosContratadasNoTurno(cliente, "NOITE");
+      const turnoRelevante = turnoRelevanteHoje(cliente);
+      const contratadas = motosContratadasNoTurno(cliente, turnoRelevante);
+      const escalasDoTurno = turnoRelevante
+        ? escalasHoje.filter((e) => e.clienteId === cliente.id && e.turno === turnoRelevante)
+        : [];
       return {
         id: cliente.id,
         nome: cliente.nome,
         turnoAtual,
-        contratadasAtual,
-        contratadas: contratadasHoje,
-        escaladas: escalasDoClienteHoje.length,
-        confirmadas: escalasDoClienteHoje.filter((e) => e.statusConfirmacao === "CONFIRMADO").length,
+        turnoRelevante,
+        contratadas,
+        escaladas: escalasDoTurno.length,
+        confirmadas: escalasDoTurno.filter((e) => e.statusConfirmacao === "CONFIRMADO").length,
         presentes: presentesPorCliente.get(cliente.id) ?? 0,
       };
     })
@@ -316,14 +317,17 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {resumoClientes.map((c) => {
               const faltaEscalar = c.contratadas > 0 && c.escaladas < c.contratadas;
-              const faltaGente = c.contratadasAtual > 0 && c.presentes < c.contratadasAtual;
+              // presentes só compara com o turno que está DE FATO rolando
+              // agora — pra um turno que ainda vai começar, ninguém
+              // deveria estar lá mesmo, então não é "falta gente".
+              const faltaGente = c.turnoAtual !== null && c.contratadas > 0 && c.presentes < c.contratadas;
               const equipeIncompleta = faltaEscalar || faltaGente;
               const conteudo = (
                 <>
                   <div className="flex items-center justify-between gap-2">
                     <p className="font-semibold text-navy-900 truncate">{c.nome}</p>
                     <span className="shrink-0 text-xs text-stone-500 capitalize">
-                      {c.turnoAtual ? LABEL_TURNO[c.turnoAtual] : "fora de turno"}
+                      {c.turnoRelevante ? LABEL_TURNO[c.turnoRelevante] : "sem turno hoje"}
                     </span>
                   </div>
                   <div className="grid grid-cols-4 gap-1 mt-3 text-center">
@@ -353,7 +357,7 @@ export default async function DashboardPage() {
               const classe = `rounded-2xl border p-4 ${
                 equipeIncompleta ? "border-red-300 bg-red-50" : "border-stone-200 bg-white"
               }`;
-              const href = `/escala?clienteId=${c.id}&data=${hojeISO}${c.turnoAtual ? `&turno=${c.turnoAtual}` : ""}`;
+              const href = `/escala?clienteId=${c.id}&data=${hojeISO}${c.turnoRelevante ? `&turno=${c.turnoRelevante}` : ""}`;
               // /escala (dia) é uma das exceções que Gestor de campo pode
               // acessar (ver comentário em requireTenantCompleto), então
               // esse card é clicável pros dois papéis — diferente do que

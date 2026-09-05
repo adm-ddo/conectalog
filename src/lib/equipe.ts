@@ -91,6 +91,49 @@ export function motosContratadasNoTurno(
   return cliente.motosFixasNoite[diaSemana] ?? 0;
 }
 
+/** Qual turno mostrar quando não tem nenhum rolando agora (turnoAtivoAgora
+ * === null): o próximo que vai começar hoje, ou — se já passaram todos —
+ * o último configurado. Existe pra telas com UM número por cliente (ex.:
+ * quadradinho do dashboard) não terem que escolher entre "somar os 3
+ * turnos do dia" (confuso pra cliente com mais de um turno ativo, mistura
+ * números de horários diferentes numa conta só) ou "zerar tudo fora da
+ * janela" (escondia informação real — foi o que gerava confusão antes:
+ * fora do horário, o card mostrava 0 contratadas mesmo já tendo gente
+ * escalada pro turno de daqui a pouco). Sempre о turno de UM horário só,
+ * nunca a soma. */
+export function turnoRelevanteHoje(
+  cliente: HorariosCliente,
+  agora: Date = new Date()
+): TurnoAtual {
+  const atual = turnoAtivoAgora(cliente, agora);
+  if (atual) return atual;
+
+  const candidatos: { turno: Exclude<TurnoAtual, null>; inicioMin: number }[] = [];
+  if (cliente.turnoManhaAtivo && cliente.turnoManhaInicio) {
+    const inicio = paraMinutos(cliente.turnoManhaInicio);
+    if (inicio !== null) candidatos.push({ turno: "MANHA", inicioMin: inicio });
+  }
+  if (cliente.turnoTardeAtivo && cliente.turnoTardeInicio) {
+    const inicio = paraMinutos(cliente.turnoTardeInicio);
+    if (inicio !== null) candidatos.push({ turno: "TARDE", inicioMin: inicio });
+  }
+  if (cliente.turnoNoiteAtivo && cliente.turnoNoiteInicio) {
+    const inicio = paraMinutos(cliente.turnoNoiteInicio);
+    if (inicio !== null) candidatos.push({ turno: "NOITE", inicioMin: inicio });
+  }
+  if (candidatos.length === 0) return null;
+
+  const minutosAgora = minutosDesdeMeiaNoiteBrasil(agora);
+  const futuros = candidatos
+    .filter((c) => c.inicioMin > minutosAgora)
+    .sort((a, b) => a.inicioMin - b.inicioMin);
+  if (futuros.length > 0) return futuros[0].turno;
+
+  // Nenhum turno começa mais hoje — mostra o último configurado (o mais
+  // recente já rolou e encerrou).
+  return candidatos.sort((a, b) => b.inicioMin - a.inicioMin)[0].turno;
+}
+
 export const LABEL_TURNO: Record<Exclude<TurnoAtual, null>, string> = {
   MANHA: "manhã",
   TARDE: "tarde",

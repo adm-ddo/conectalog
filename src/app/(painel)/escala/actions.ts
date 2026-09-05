@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { LABEL_TURNO } from "@/lib/equipe";
+import { instanteBrasil } from "@/lib/data";
 import type { TurnoEscala } from "@/generated/prisma/enums";
 
 /** Formata a data (Date @db.Date, sem fuso relevante) como dd/mm — usado
@@ -12,6 +13,18 @@ function dataCurta(data: Date): string {
   const dia = String(data.getUTCDate()).padStart(2, "0");
   const mes = String(data.getUTCMonth() + 1).padStart(2, "0");
   return `${dia}/${mes}`;
+}
+
+/** Meia-noite de Brasília (como instante de verdade) do dia que essa
+ * Date @db.Date representa — usa getUTC* de propósito (mesmo motivo de
+ * dataCurta acima): um valor @db.Date não tem fuso, então lê os campos
+ * UTC do Date pra não vazar 1 dia por causa da conversão de fuso do
+ * helper genérico (inicioDoDiaBrasil espera um INSTANTE de verdade, não
+ * um valor de calendário puro). */
+function inicioDoDiaBrasilDeDataCalendario(data: Date): Date {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const iso = `${data.getUTCFullYear()}-${pad(data.getUTCMonth() + 1)}-${pad(data.getUTCDate())}`;
+  return instanteBrasil(iso);
 }
 
 /** Avisa o motoboy dentro do app que ele foi escalado — hoje só no app;
@@ -52,16 +65,28 @@ async function escalarSeNovo(
   });
   if (jaExiste) return;
 
-  // Se o motoboy já está com um turno ABERTO nesse cliente (ex.: entrou
-  // como "livre"/apoio antes de alguém montar a escala do dia — a
+  // Se o motoboy já está com um turno ABERTO nesse cliente HOJE (ex.:
+  // entrou como "livre"/apoio antes de alguém montar a escala do dia — a
   // cooperativa às vezes só formaliza a escala depois de já ver quem
   // apareceu), a escala nasce já vinculada, senão o portal do cliente
   // continua achando que ele "ainda não chegou" mesmo estando lá desde
   // antes. Espelha vincularEscalaSeExistir (turno/iniciar/actions.ts),
   // que faz o link no sentido contrário (turno já existe, escala chega
   // depois — aqui é o inverso).
+  //
+  // horaInicio filtrado a partir da meia-noite do dia da escala é
+  // crítico: sem isso, um turno de ONTEM que o motoboy esqueceu de
+  // encerrar (ainda ABERTO na hora em que essa escala de HOJE é criada)
+  // fica linkado errado — foi exatamente o que aconteceu com o Luciano
+  // (turno de ontem só fechou às 15:59 de hoje, minutos depois da escala
+  // de hoje ter sido criada e pego ele "por acidente").
   const turnoAbertoNesseCliente = await prisma.turno.findFirst({
-    where: { motoboyId, clienteId, status: "ABERTO" },
+    where: {
+      motoboyId,
+      clienteId,
+      status: "ABERTO",
+      horaInicio: { gte: inicioDoDiaBrasilDeDataCalendario(data) },
+    },
   });
 
   const escala = await prisma.escalaTurno.create({
