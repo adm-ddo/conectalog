@@ -35,7 +35,7 @@ export default async function DashboardPage() {
       }),
       prisma.escalaTurno.findMany({
         where: { data: hoje, cliente: { empresaId: sessao.empresaEfetivoId, ...filtroCliente } },
-        select: { clienteId: true, turno: true, statusConfirmacao: true, motoboyId: true },
+        select: { clienteId: true, turno: true, statusConfirmacao: true },
       }),
       escopoGestor
         ? prisma.motoboyCliente
@@ -91,7 +91,20 @@ export default async function DashboardPage() {
     presentesPorCliente.set(t.clienteId, (presentesPorCliente.get(t.clienteId) ?? 0) + 1);
   }
 
-  const boysEscaladosHoje = new Set(escalasHoje.map((e) => e.motoboyId)).size;
+  // Motos necessárias hoje somando os 3 turnos de cada cliente (não só o
+  // que tá rolando agora) — o número que a cooperativa precisa bater ao
+  // montar a escala do dia inteiro.
+  const totalContratadasHoje = clientesAtivos.reduce((soma, cliente) => {
+    let total = 0;
+    if (cliente.turnoManhaAtivo) total += motosContratadasNoTurno(cliente, "MANHA");
+    if (cliente.turnoTardeAtivo) total += motosContratadasNoTurno(cliente, "TARDE");
+    if (cliente.turnoNoiteAtivo) total += motosContratadasNoTurno(cliente, "NOITE");
+    return soma + total;
+  }, 0);
+  const totalEscaladasHoje = escalasHoje.length;
+  const confirmadasHoje = escalasHoje.filter((e) => e.statusConfirmacao === "CONFIRMADO").length;
+  const pendentesHoje = escalasHoje.filter((e) => e.statusConfirmacao === "PENDENTE").length;
+  const recusadasHoje = escalasHoje.filter((e) => e.statusConfirmacao === "RECUSADO").length;
 
   const resumoClientes = clientesAtivos
     .map((cliente) => {
@@ -133,7 +146,7 @@ export default async function DashboardPage() {
         }))}
       />
 
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
             {escopoGestor ? "Seus clientes" : "Clientes ativos"}
@@ -142,9 +155,21 @@ export default async function DashboardPage() {
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
-            Boys escalados hoje
+            Motos necessárias hoje
           </p>
-          <p className="text-3xl font-bold text-navy-900 mt-1">{boysEscaladosHoje}</p>
+          <p className="text-3xl font-bold text-navy-900 mt-1">{totalContratadasHoje}</p>
+        </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
+            Motos escaladas hoje
+          </p>
+          <p
+            className={`text-3xl font-bold mt-1 ${
+              totalEscaladasHoje < totalContratadasHoje ? "text-red-600" : "text-navy-900"
+            }`}
+          >
+            {totalEscaladasHoje}
+          </p>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
@@ -152,6 +177,43 @@ export default async function DashboardPage() {
           </p>
           <p className="text-3xl font-bold text-navy-900 mt-1">{totalMotoboysAtivos}</p>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <Link
+          href="/dashboard/confirmacoes?status=CONFIRMADO"
+          className="rounded-2xl border border-stone-200 bg-white p-5 hover:border-brand-300 hover:shadow-sm transition"
+        >
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
+            Já confirmaram
+          </p>
+          <p className="text-3xl font-bold text-brand-700 mt-1">{confirmadasHoje}</p>
+        </Link>
+        <Link
+          href="/dashboard/confirmacoes?status=PENDENTE"
+          className="rounded-2xl border border-stone-200 bg-white p-5 hover:border-brand-300 hover:shadow-sm transition"
+        >
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
+            Ainda não responderam
+          </p>
+          <p className="text-3xl font-bold text-amber-600 mt-1">{pendentesHoje}</p>
+        </Link>
+        <Link
+          href="/dashboard/confirmacoes?status=RECUSADO"
+          className="rounded-2xl border border-stone-200 bg-white p-5 hover:border-brand-300 hover:shadow-sm transition"
+        >
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">Recusaram</p>
+          <p className="text-3xl font-bold text-red-600 mt-1">{recusadasHoje}</p>
+        </Link>
+        <Link
+          href="/dashboard/ativos"
+          className="rounded-2xl border border-stone-200 bg-white p-5 hover:border-brand-300 hover:shadow-sm transition"
+        >
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
+            Ativos agora
+          </p>
+          <p className="text-3xl font-bold text-navy-900 mt-1">{turnosAbertos.length}</p>
+        </Link>
       </div>
 
       {divergencias.length > 0 && (
