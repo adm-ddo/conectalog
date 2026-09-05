@@ -347,12 +347,17 @@ model ClienteTurnoFixo {
   valorExcedenteCliente Decimal  @db.Decimal(10, 2)
   /// false (padrão): cliente paga valorExcedenteCliente sobre TODAS as
   /// bandas do turno, desde a primeira, sem carência — modelo confirmado
-  /// pra KERO SUSHI e Turi gastronomia. true: cliente ganha a mesma
-  /// carência do motoboy — valorGarantidoCliente já cobre bandasIncluidas
-  /// e só as bandas que passarem disso são cobradas, a valorExcedenteCliente
-  /// cada uma — pra clientes que negociarem esse outro modelo (ver
+  /// pra KERO SUSHI e Turi gastronomia. true: cliente ganha carência
+  /// igual em espírito à do motoboy, mas com seu PRÓPRIO número de
+  /// entregas incluídas (bandasIncluidasCliente, independente de
+  /// bandasIncluidas do motoboy — tem cliente que a cooperativa garante
+  /// só 9 pro cliente mas 10 pro motoboy) — valorGarantidoCliente já
+  /// cobre bandasIncluidasCliente e só as que passarem disso são
+  /// cobradas, a valorExcedenteCliente cada uma (ver
   /// src/lib/precificacao.ts).
   carenciaCliente       Boolean  @default(false)
+  /// Só é usado quando carenciaCliente=true — ver comentário acima.
+  bandasIncluidasCliente Int     @default(0)
   criadoEm              DateTime @default(now())
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)

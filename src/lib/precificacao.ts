@@ -14,6 +14,7 @@ export type PerfilTurnoFixo = {
   valorExcedenteMotoboy: unknown;
   valorExcedenteCliente: unknown;
   carenciaCliente: boolean;
+  bandasIncluidasCliente: number;
 };
 
 type ClientePreco = {
@@ -107,12 +108,15 @@ export function encontrarPerfilFixo(
  * do cliente, cada perfil escolhe um dos dois modelos (carenciaCliente):
  * por padrão (false) o cliente paga o valor fixo da moto parada MAIS a
  * tarifa por banda sobre TODAS as bandas feitas, desde a primeira, sem
- * carência nenhuma; com carenciaCliente=true ele ganha a mesma carência
- * do motoboy (valorGarantidoCliente já cobre bandasIncluidas, só cobra
- * valorExcedenteCliente nas que passarem disso) — pra clientes que
- * negociarem esse outro modelo. Cada perfil vale só nos dias da semana
- * configurados nele (ex.: um perfil "Noite" pra semana normal e outro só
- * pro domingo, com valores diferentes).
+ * carência nenhuma; com carenciaCliente=true ele ganha uma carência no
+ * mesmo espírito da do motoboy, mas com seu PRÓPRIO número de entregas
+ * incluídas (bandasIncluidasCliente — pode ser diferente de
+ * bandasIncluidas do motoboy: tem cliente em que a cooperativa garante
+ * 10 entregas pro motoboy mas só 9 pro cliente): valorGarantidoCliente já
+ * cobre bandasIncluidasCliente, só cobra valorExcedenteCliente nas que
+ * passarem disso. Cada perfil vale só nos dias da semana configurados
+ * nele (ex.: um perfil "Noite" pra semana normal e outro só pro domingo,
+ * com valores diferentes).
  *
  * Taxas extras somam por cima dos dois modelos, faixa a faixa (cada
  * Cliente tem sua própria lista de faixas — ver ClienteTaxaExtra — não
@@ -136,9 +140,10 @@ export function calcularValores(
       paraNumero(perfil.valorGarantidoMotoboy) + excedentes * paraNumero(perfil.valorExcedenteMotoboy);
     // Sem carência (padrão): cliente paga a moto parada fixa mais a
     // tarifa por banda sobre TODAS as bandas do turno, desde a primeira.
-    // Com carência: mesma regra do motoboy, só cobra o que passar de
-    // bandasIncluidas.
-    const bandasCobradasCliente = perfil.carenciaCliente ? excedentes : quantidadeBandas;
+    // Com carência: mesmo espírito do motoboy, mas com o próprio número
+    // de entregas incluídas do cliente (pode ser diferente do motoboy).
+    const excedentesCliente = Math.max(0, quantidadeBandas - perfil.bandasIncluidasCliente);
+    const bandasCobradasCliente = perfil.carenciaCliente ? excedentesCliente : quantidadeBandas;
     valorCliente =
       paraNumero(perfil.valorGarantidoCliente) + bandasCobradasCliente * paraNumero(perfil.valorExcedenteCliente);
   } else {

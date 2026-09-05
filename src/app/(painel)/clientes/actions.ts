@@ -65,6 +65,7 @@ type TurnoFixoInput = {
   valorExcedenteMotoboy: number;
   valorExcedenteCliente: number;
   carenciaCliente: boolean;
+  bandasIncluidasCliente: number;
 };
 
 /** Monta a lista de perfis de "valor fixo por turno" a partir dos campos
@@ -90,6 +91,7 @@ function parseTurnosFixos(formData: FormData): TurnoFixoInput[] {
       valorExcedenteMotoboy: decimalOpcional(formData, `turnoFixoValorExcedenteMotoboy_${i}`) ?? 0,
       valorExcedenteCliente: decimalOpcional(formData, `turnoFixoValorExcedenteCliente_${i}`) ?? 0,
       carenciaCliente: formData.get(`turnoFixoCarenciaCliente_${i}`) === "on",
+      bandasIncluidasCliente: intOpcional(formData, `turnoFixoBandasIncluidasCliente_${i}`) ?? 0,
     });
   }
   return itens;

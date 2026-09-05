@@ -30,6 +30,7 @@ type TurnoFixo = {
   valorExcedenteMotoboy: number;
   valorExcedenteCliente: number;
   carenciaCliente: boolean;
+  bandasIncluidasCliente: number;
 };
 
 export type ValoresCliente = {
@@ -263,6 +264,7 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
                 valorExcedenteMotoboy: 0,
                 valorExcedenteCliente: 0,
                 carenciaCliente: false,
+                bandasIncluidasCliente: 0,
               },
             ])
           }
@@ -385,9 +387,7 @@ function BlocoTurnoFixo({
           />
         </div>
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-stone-500">
-            Entregas incluídas no valor garantido (motoboy{perfil.carenciaCliente ? " e cliente" : ""})
-          </span>
+          <span className="text-xs text-stone-500">Entregas incluídas — motoboy</span>
           <input
             type="number"
             min="0"
@@ -409,6 +409,24 @@ function BlocoTurnoFixo({
             Cliente também tem carência (só cobra depois de passar as incluídas)
           </span>
         </label>
+        {perfil.carenciaCliente && (
+          <label className="flex flex-col gap-1">
+            <span className="text-xs text-stone-500">
+              Entregas incluídas — cliente (pode ser diferente do motoboy)
+            </span>
+            <input
+              type="number"
+              min="0"
+              name={`turnoFixoBandasIncluidasCliente_${indice}`}
+              value={perfil.bandasIncluidasCliente}
+              onChange={(e) => onChange({ ...perfil, bandasIncluidasCliente: Number(e.target.value) })}
+              className={inputClasse}
+            />
+          </label>
+        )}
+        {!perfil.carenciaCliente && (
+          <input type="hidden" name={`turnoFixoBandasIncluidasCliente_${indice}`} value={perfil.bandasIncluidasCliente} />
+        )}
         <div>
           <CampoMoedaControlado
             label="Excedente — motoboy recebe por entrega"
