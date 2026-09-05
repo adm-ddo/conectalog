@@ -116,18 +116,28 @@ export default async function DashboardPage() {
 
   const resumoClientes = clientesAtivos
     .map((cliente) => {
+      // escaladas/confirmadas contam o dia inteiro (todos os turnos que o
+      // cliente usa hoje), não só o turno rolando neste minuto — senão,
+      // fora da janela do turno (ex.: de manhã, esperando a escala da
+      // noite), o card mostrava 0 escalados mesmo já tendo gente escalada
+      // pra mais tarde. "presentes" continua sendo o turno atual mesmo,
+      // porque só faz sentido comparar "quem chegou" com o turno que já
+      // deveria estar rolando agora.
       const turnoAtual = turnoAtivoAgora(cliente);
-      const contratadas = motosContratadasNoTurno(cliente, turnoAtual);
-      const escalasDoTurno = turnoAtual
-        ? escalasHoje.filter((e) => e.clienteId === cliente.id && e.turno === turnoAtual)
-        : [];
+      const contratadasAtual = motosContratadasNoTurno(cliente, turnoAtual);
+      const escalasDoClienteHoje = escalasHoje.filter((e) => e.clienteId === cliente.id);
+      let contratadasHoje = 0;
+      if (cliente.turnoManhaAtivo) contratadasHoje += motosContratadasNoTurno(cliente, "MANHA");
+      if (cliente.turnoTardeAtivo) contratadasHoje += motosContratadasNoTurno(cliente, "TARDE");
+      if (cliente.turnoNoiteAtivo) contratadasHoje += motosContratadasNoTurno(cliente, "NOITE");
       return {
         id: cliente.id,
         nome: cliente.nome,
         turnoAtual,
-        contratadas,
-        escaladas: escalasDoTurno.length,
-        confirmadas: escalasDoTurno.filter((e) => e.statusConfirmacao === "CONFIRMADO").length,
+        contratadasAtual,
+        contratadas: contratadasHoje,
+        escaladas: escalasDoClienteHoje.length,
+        confirmadas: escalasDoClienteHoje.filter((e) => e.statusConfirmacao === "CONFIRMADO").length,
         presentes: presentesPorCliente.get(cliente.id) ?? 0,
       };
     })
@@ -275,7 +285,7 @@ export default async function DashboardPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {resumoClientes.map((c) => {
               const faltaEscalar = c.contratadas > 0 && c.escaladas < c.contratadas;
-              const faltaGente = c.contratadas > 0 && c.presentes < c.contratadas;
+              const faltaGente = c.contratadasAtual > 0 && c.presentes < c.contratadasAtual;
               const equipeIncompleta = faltaEscalar || faltaGente;
               const conteudo = (
                 <>
