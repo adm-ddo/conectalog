@@ -26,7 +26,7 @@ export default async function InicioMotoboyPage() {
     prisma.notificacao.findMany({
       where: { motoboyId: sessao.motoboyId, lida: false },
       orderBy: { criadoEm: "desc" },
-      select: { id: true, mensagem: true },
+      select: { id: true, mensagem: true, escalaId: true },
     }),
   ]);
 

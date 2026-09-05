@@ -16,13 +16,22 @@ function dataCurta(data: Date): string {
 
 /** Avisa o motoboy dentro do app que ele foi escalado — hoje só no app;
  * "futuramente vamos colocar um aviso por email" (pedido do Thiago) é só
- * adicionar um envio aqui depois, a notificação já existe pra isso. */
-async function avisarEscalado(motoboyId: number, clienteNome: string, data: Date, turno: TurnoEscala) {
+ * adicionar um envio aqui depois, a notificação já existe pra isso.
+ * Carrega o escalaId pra dar pra confirmar/recusar direto no banner da
+ * notificação, sem precisar ir em "Minha escala" (pedido do Thiago). */
+async function avisarEscalado(
+  motoboyId: number,
+  clienteNome: string,
+  data: Date,
+  turno: TurnoEscala,
+  escalaId: number
+) {
   await prisma.notificacao.create({
     data: {
       motoboyId,
       tipo: "ESCALADO",
-      mensagem: `Você foi escalado em ${clienteNome} no turno da ${LABEL_TURNO[turno]} de ${dataCurta(data)}.`,
+      escalaId,
+      mensagem: `Você foi escalado em ${clienteNome} no turno da ${LABEL_TURNO[turno]} de ${dataCurta(data)}. Confirma que vai poder ir?`,
     },
   });
 }
@@ -55,7 +64,7 @@ async function escalarSeNovo(
     where: { motoboyId, clienteId, status: "ABERTO" },
   });
 
-  await prisma.escalaTurno.create({
+  const escala = await prisma.escalaTurno.create({
     data: {
       clienteId,
       motoboyId,
@@ -65,7 +74,7 @@ async function escalarSeNovo(
       turnoId: turnoAbertoNesseCliente?.id,
     },
   });
-  await avisarEscalado(motoboyId, clienteNome, data, turno);
+  await avisarEscalado(motoboyId, clienteNome, data, turno, escala.id);
 }
 
 export async function escalarMotoboy(

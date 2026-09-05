@@ -393,10 +393,11 @@ model EscalaTurno {
   statusConfirmacao  StatusConfirmacaoEscala @default(PENDENTE)
   confirmadoEm       DateTime?
 
-  cliente          Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  motoboy          Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
-  turnoVinculado   Turno?  @relation(fields: [turnoId], references: [id], onDelete: SetNull)
-  criadoPorUsuario Usuario @relation(fields: [criadoPorUsuarioId], references: [id])
+  cliente          Cliente        @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  motoboy          Motoboy        @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  turnoVinculado   Turno?         @relation(fields: [turnoId], references: [id], onDelete: SetNull)
+  criadoPorUsuario Usuario        @relation(fields: [criadoPorUsuarioId], references: [id])
+  notificacoes     Notificacao[]
 
   @@unique([clienteId, motoboyId, data, turno])
   @@index([clienteId, data])
@@ -509,8 +510,14 @@ model Notificacao {
   mensagem  String
   lida      Boolean         @default(false)
   criadoEm  DateTime        @default(now())
+  /// Preenchido só no tipo ESCALADO — dá pra responder confirmar/recusar
+  /// direto no banner da notificação, sem precisar ir em "Minha escala".
+  /// SetNull (não Cascade) porque a notificação em si continua fazendo
+  /// sentido como histórico mesmo se a escala for removida depois.
+  escalaId  Int?
 
-  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  motoboy Motoboy      @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  escala  EscalaTurno? @relation(fields: [escalaId], references: [id], onDelete: SetNull)
 
   @@index([motoboyId, lida])
 }
