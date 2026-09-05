@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
-import { dataISOBrasil, formatarHora } from "@/lib/data";
+import { dataISOBrasil, formatarHora, instanteBrasil } from "@/lib/data";
 import { LABEL_TURNO } from "@/lib/equipe";
 import EscalaRow from "./EscalaRow";
 import CandidatoRow from "./CandidatoRow";
@@ -133,7 +133,7 @@ export default async function EscalaPage({
 
   const dataSemanaPassada = seteDiasAntes(data);
 
-  const [escalados, candidatosBrutos, escaladosSemanaPassada] = await Promise.all([
+  const [escalados, candidatosBrutos, escaladosSemanaPassada, turnosSemEscalaBrutos] = await Promise.all([
     prisma.escalaTurno.findMany({
       where: { clienteId, data: new Date(data), turno },
       include: {
@@ -155,10 +155,37 @@ export default async function EscalaPage({
       where: { clienteId, data: new Date(dataSemanaPassada), turno },
       include: { motoboy: { select: { nomeCompleto: true } } },
     }),
+    // Quem já bateu o ponto nesse cliente+turno hoje mas ninguém formalizou
+    // a escala ainda (ex.: entrou "livre"/apoio antes de alguém montar a
+    // escala do dia) — pedido do Thiago pra não ficar "escondido" na tela.
+    // Filtra por motoboyId fora de escaladosIds abaixo (não dá pra fazer
+    // aqui dentro do Promise.all, que roda em paralelo).
+    prisma.turno.findMany({
+      where: {
+        clienteId,
+        turnoPredefinido: turno,
+        horaInicio: { gte: instanteBrasil(data), lt: instanteBrasil(data, 24 * 60) },
+      },
+      include: { motoboy: { select: { id: true, nomeCompleto: true, tipoEquipamento: true } } },
+      orderBy: { horaInicio: "desc" },
+    }),
   ]);
 
   const escaladosIds = new Set(escalados.map((e) => e.motoboyId));
   const candidatos = candidatosBrutos.filter((m) => !escaladosIds.has(m.id));
+
+  // Um motoboy pode ter mais de um Turno nesse dia+turno (ex.: fechou e
+  // reabriu) — mantém só o mais recente (orderBy desc acima), já que é o
+  // que escalarSeNovo vai de fato linkar se alguém clicar "+ Escalar".
+  const turnosSemEscalaMap = new Map<number, (typeof turnosSemEscalaBrutos)[number]>();
+  for (const t of turnosSemEscalaBrutos) {
+    if (!escaladosIds.has(t.motoboyId) && !turnosSemEscalaMap.has(t.motoboyId)) {
+      turnosSemEscalaMap.set(t.motoboyId, t);
+    }
+  }
+  const turnosSemEscala = Array.from(turnosSemEscalaMap.values());
+  const semEscalaIds = new Set(turnosSemEscala.map((t) => t.motoboyId));
+  const candidatosFiltrados = candidatos.filter((m) => !semEscalaIds.has(m.id));
 
   const confirmaram = escalados.filter((e) => e.statusConfirmacao === "CONFIRMADO").length;
   const recusaram = escalados.filter((e) => e.statusConfirmacao === "RECUSADO").length;
@@ -310,17 +337,47 @@ export default async function EscalaPage({
         )}
       </div>
 
+      {turnosSemEscala.length > 0 && (
+        <div className="flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-navy-900">
+            Chegaram sem estar escalados ({turnosSemEscala.length})
+          </h2>
+          <p className="text-xs text-stone-500 -mt-1">
+            Já bateram o ponto nesse cliente hoje, mas ninguém formalizou a escala ainda — escalar
+            agora só confirma o que já aconteceu, não avisa de novo.
+          </p>
+          <ul className="flex flex-col gap-2">
+            {turnosSemEscala.map((t) => (
+              <CandidatoRow
+                key={t.motoboyId}
+                clienteId={clienteId}
+                motoboyId={t.motoboy.id}
+                nome={t.motoboy.nomeCompleto}
+                tipoEquipamento={t.motoboy.tipoEquipamento}
+                data={data}
+                turno={turno}
+                podeVerPerfil={!escopoGestor}
+                jaChegou={{
+                  texto: t.status === "ABERTO" ? `Ativo desde ${formatarHora(t.horaInicio)}` : `Chegou às ${formatarHora(t.horaInicio)}`,
+                  ativoAgora: t.status === "ABERTO",
+                }}
+              />
+            ))}
+          </ul>
+        </div>
+      )}
+
       <div className="flex flex-col gap-2">
         <h2 className="text-sm font-semibold text-navy-900">
-          Disponíveis pra escalar ({candidatos.length})
+          Disponíveis pra escalar ({candidatosFiltrados.length})
         </h2>
-        {candidatos.length === 0 ? (
+        {candidatosFiltrados.length === 0 ? (
           <p className="text-sm text-stone-500">
             Nenhum motoboy liberado nesse cliente que já não esteja escalado.
           </p>
         ) : (
           <ul className="flex flex-col gap-2">
-            {candidatos.map((m) => (
+            {candidatosFiltrados.map((m) => (
               <CandidatoRow
                 key={m.id}
                 clienteId={clienteId}
