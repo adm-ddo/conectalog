@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { dataISOBrasil, diaSemanaBrasil, inicioDoDiaBrasil, instanteBrasil } from "@/lib/data";
+import { dataISOBrasil, diaSemanaBrasil, inicioDoDiaBrasil } from "@/lib/data";
 import { motosContratadasNoTurno } from "@/lib/equipe";
 import { encontrarPerfilFixo } from "@/lib/precificacao";
 import { paraNumero } from "@/lib/valores";
@@ -79,29 +79,27 @@ type ClienteComTurnos = Cliente & { turnosFixos: ClienteTurnoFixo[] };
  * fica em 0 — a tela mostra isso como "sem piso configurado", não como
  * "vai gerar zero". */
 export function previsaoMinimaHojeCliente(cliente: ClienteComTurnos, agora: Date = new Date()): number {
-  const hojeISO = dataISOBrasil(agora);
+  const diaSemana = diaSemanaBrasil(agora);
   let total = 0;
 
-  const turnosDoDia: { ativo: boolean; turno: "MANHA" | "TARDE" | "NOITE"; horaInicioConfig: string | null }[] = [
-    { ativo: cliente.turnoManhaAtivo, turno: "MANHA", horaInicioConfig: cliente.turnoManhaInicio },
-    { ativo: cliente.turnoTardeAtivo, turno: "TARDE", horaInicioConfig: cliente.turnoTardeInicio },
-    { ativo: cliente.turnoNoiteAtivo, turno: "NOITE", horaInicioConfig: cliente.turnoNoiteInicio },
+  const turnosDoDia: { ativo: boolean; turno: "MANHA" | "TARDE" | "NOITE" }[] = [
+    { ativo: cliente.turnoManhaAtivo, turno: "MANHA" },
+    { ativo: cliente.turnoTardeAtivo, turno: "TARDE" },
+    { ativo: cliente.turnoNoiteAtivo, turno: "NOITE" },
   ];
 
-  for (const { ativo, turno, horaInicioConfig } of turnosDoDia) {
-    if (!ativo || !horaInicioConfig) continue;
+  for (const { ativo, turno } of turnosDoDia) {
+    if (!ativo) continue;
     const contratadas = motosContratadasNoTurno(cliente, turno, agora);
     if (contratadas === 0) continue;
 
-    // Constrói o instante de início desse turno hoje (mesma data, hora
-    // configurada) e usa encontrarPerfilFixo de verdade — igual ao
-    // cálculo real de um turno (ver src/lib/precificacao.ts) — em vez de
-    // só bater o dia da semana, que pegava o primeiro perfil do array
-    // mesmo quando não era o perfil daquele horário específico (bug
-    // pego na validação: perfil "manhã" sendo usado pra prever a noite).
-    const [hora, minuto] = horaInicioConfig.split(":").map(Number);
-    const instanteDoTurno = instanteBrasil(hojeISO, hora * 60 + minuto);
-    const perfil = encontrarPerfilFixo(cliente.turnosFixos, instanteDoTurno);
+    // O perfil bate pelo TURNO que essas motos representam, não por
+    // horário de relógio (ver src/lib/precificacao.ts) — importante pra
+    // cliente com perfis de horário sobreposto (ex.: tarde até 18h e
+    // noite configurada pra começar às 17h): o turno da noite usa
+    // sempre o perfil da noite, mesmo que o horário real de início caia
+    // dentro da janela "da tarde".
+    const perfil = encontrarPerfilFixo(cliente.turnosFixos, turno, diaSemana);
     if (!perfil) continue;
     total += contratadas * paraNumero(perfil.valorGarantidoCliente);
   }

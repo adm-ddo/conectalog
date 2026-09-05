@@ -1,12 +1,13 @@
 import { paraNumero, valorEfetivo } from "@/lib/valores";
-import { diaSemanaBrasil, minutosDesdeMeiaNoiteBrasil } from "@/lib/data";
+import { diaSemanaBrasil } from "@/lib/data";
+import type { TurnoPredefinido, TurnoEscala } from "@/generated/prisma/enums";
 
 /** Um perfil de "valor fixo por turno" (ClienteTurnoFixo) — cobre um
- * horário e um conjunto de dias da semana; fora dessa janela o perfil
+ * TURNO de verdade (o que o motoboy representa, não o horário em que ele
+ * bateu ponto) e um conjunto de dias da semana; fora disso o perfil
  * simplesmente não se aplica. */
 export type PerfilTurnoFixo = {
-  horaInicio: string;
-  horaFim: string;
+  turno: TurnoEscala;
   diasSemana: number[];
   valorGarantidoMotoboy: unknown;
   valorGarantidoCliente: unknown;
@@ -64,34 +65,22 @@ export function aplicarRemuneracaoGestor(
   return quantidadeBandas * paraNumero(motoboy.valorBandaGestorEspecial);
 }
 
-function paraMinutos(hhmm: string): number | null {
-  const partes = hhmm.split(":").map(Number);
-  if (partes.length !== 2 || partes.some(Number.isNaN)) return null;
-  return partes[0] * 60 + partes[1];
-}
-
-function dentroDaJanela(agora: number, inicio: number, fim: number): boolean {
-  return inicio <= fim ? agora >= inicio && agora <= fim : agora >= inicio || agora <= fim;
-}
-
-/** Acha, entre os perfis do Cliente, o primeiro que bate com o dia da
- * semana E o horário de início do turno (ambos em Brasília) — é isso que
+/** Acha, entre os perfis do Cliente, o que bate com o TURNO que o
+ * motoboy está representando (o que ele foi escalado pra fazer / marcou
+ * no app) e o dia da semana do início do turno (Brasília) — é isso que
  * decide se um turno cai no modelo "valor fixo" (ex.: "Noite — domingo")
- * ou fica de fora e usa "por banda" normal. */
+ * ou fica de fora e usa "por banda" normal. Turno LIVRE nunca bate com
+ * nada aqui (não representa nenhum turno fixo de verdade) — quem chama
+ * já filtra isso antes de chegar aqui (ver calcularValores). Decisão
+ * confirmada com o Thiago: é o turno que o motoboy representa que
+ * importa, não o horário em que ele bateu ponto — motoboy adiantado ou
+ * atrasado pro turno da noite continua sendo noite. */
 export function encontrarPerfilFixo(
   turnosFixos: PerfilTurnoFixo[],
-  inicioTurno: Date
+  turno: TurnoEscala,
+  diaSemana: number
 ): PerfilTurnoFixo | null {
-  const diaSemana = diaSemanaBrasil(inicioTurno);
-  const minutos = minutosDesdeMeiaNoiteBrasil(inicioTurno);
-  for (const perfil of turnosFixos) {
-    if (!perfil.diasSemana.includes(diaSemana)) continue;
-    const inicio = paraMinutos(perfil.horaInicio);
-    const fim = paraMinutos(perfil.horaFim);
-    if (inicio === null || fim === null) continue;
-    if (dentroDaJanela(minutos, inicio, fim)) return perfil;
-  }
-  return null;
+  return turnosFixos.find((p) => p.turno === turno && p.diasSemana.includes(diaSemana)) ?? null;
 }
 
 /** Calcula quanto o motoboy recebe e quanto a cooperativa cobra da
@@ -101,8 +90,9 @@ export function encontrarPerfilFixo(
  * (1) "Por banda" (padrão): bandas × valor da banda, herdando o padrão
  * da Empresa quando o Cliente não tem valor próprio.
  *
- * (2) "Valor fixo por turno" (liga quando o horário de início do turno
- * bate com algum perfil em ClienteTurnoFixo — ver encontrarPerfilFixo):
+ * (2) "Valor fixo por turno" (liga quando o TURNO que o motoboy
+ * representa bate com algum perfil em ClienteTurnoFixo — ver
+ * encontrarPerfilFixo; turno LIVRE nunca liga esse modelo):
  * o motoboy sempre recebe com carência — um valor garantido que já cobre
  * N bandas, só as bandas além disso usam a tarifa de excedente. Do lado
  * do cliente, cada perfil escolhe um dos dois modelos (carenciaCliente):
@@ -126,10 +116,14 @@ export function calcularValores(
   cliente: ClientePreco,
   empresa: EmpresaPadrao,
   inicioTurno: Date,
+  turnoPredefinido: TurnoPredefinido,
   quantidadeBandas: number,
   taxasExtras: ItemTaxaExtraCalculo[]
 ): ResultadoCalculo {
-  const perfil = encontrarPerfilFixo(cliente.turnosFixos, inicioTurno);
+  const perfil =
+    turnoPredefinido !== "LIVRE"
+      ? encontrarPerfilFixo(cliente.turnosFixos, turnoPredefinido, diaSemanaBrasil(inicioTurno))
+      : null;
 
   let valorMotoboy: number;
   let valorCliente: number;

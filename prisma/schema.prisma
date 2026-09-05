@@ -391,8 +391,17 @@ model ClienteTurnoFixo {
   id                    Int      @id @default(autoincrement())
   clienteId             Int
   nome                  String
-  horaInicio            String
-  horaFim               String
+  /// Turno de VERDADE que o motoboy representa (o que ele foi escalado
+  /// pra fazer / marcou no app) — não é sobre que horas ele bateu o
+  /// ponto. Antes o perfil era escolhido comparando o horário de início
+  /// do turno contra uma janela horaInicio-horaFim configurada aqui, e
+  /// isso gerava confusão de verdade: cliente com perfis de tarde e
+  /// noite com horário sobreposto podia acabar usando o preço errado só
+  /// porque o motoboy chegou 10 minutos mais cedo ou mais tarde do que
+  /// o "normal". Motoboy que chegar adiantado ou atrasado pro turno da
+  /// noite continua sendo pago (e cobrado do cliente) como turno da
+  /// noite — decisão confirmada com o Thiago.
+  turno                 TurnoEscala
   diasSemana            Int[]
   valorGarantidoMotoboy Decimal  @db.Decimal(10, 2)
   valorGarantidoCliente Decimal  @db.Decimal(10, 2)

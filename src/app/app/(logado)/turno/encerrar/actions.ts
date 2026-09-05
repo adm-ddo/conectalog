@@ -6,6 +6,7 @@ import { requireMotoboyComEmpresa } from "@/lib/auth-motoboy";
 import { uploadDataUrl } from "@/lib/blob";
 import { valorEfetivo, paraNumero } from "@/lib/valores";
 import { calcularValores, encontrarPerfilFixo, aplicarRemuneracaoGestor } from "@/lib/precificacao";
+import { diaSemanaBrasil } from "@/lib/data";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type EncerrarTurnoState = { erro?: string } | undefined;
@@ -60,6 +61,7 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
     turno.cliente,
     empresa,
     turno.horaInicio,
+    turno.turnoPredefinido,
     dados.quantidadeBandas,
     itensComQuantidade.map((item) => ({
       valorMotoboy: item.valorMotoboyAplicado,
@@ -79,7 +81,10 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
   // Snapshot informativo do valor por banda em vigor — no valor fixo por
   // turno, é a tarifa de excedente do perfil que bateu (a única que de
   // fato varia com a quantidade).
-  const perfilFixo = encontrarPerfilFixo(turno.cliente.turnosFixos, turno.horaInicio);
+  const perfilFixo =
+    turno.turnoPredefinido !== "LIVRE"
+      ? encontrarPerfilFixo(turno.cliente.turnosFixos, turno.turnoPredefinido, diaSemanaBrasil(turno.horaInicio))
+      : null;
   const valorBandaAplicado = perfilFixo
     ? paraNumero(perfilFixo.valorExcedenteMotoboy)
     : valorEfetivo(turno.cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);

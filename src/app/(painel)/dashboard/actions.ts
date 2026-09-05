@@ -69,6 +69,7 @@ export async function resolverDivergenciaTurno(
     turno.cliente,
     empresa,
     turno.horaInicio,
+    turno.turnoPredefinido,
     quantidadeBandasFinal,
     turno.taxaExtraItens.map((item) => ({
       valorMotoboy: item.valorMotoboyAplicado,

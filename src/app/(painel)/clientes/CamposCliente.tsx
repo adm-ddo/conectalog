@@ -19,10 +19,15 @@ const DIAS_SEMANA: { dia: number; label: string }[] = [
   { dia: 0, label: "Dom" },
 ];
 
+const TURNOS_ESCALA: { turno: "MANHA" | "TARDE" | "NOITE"; label: string }[] = [
+  { turno: "MANHA", label: "Manhã" },
+  { turno: "TARDE", label: "Tarde" },
+  { turno: "NOITE", label: "Noite" },
+];
+
 type TurnoFixo = {
   nome: string;
-  horaInicio: string;
-  horaFim: string;
+  turno: "MANHA" | "TARDE" | "NOITE";
   diasSemana: number[];
   valorGarantidoMotoboy: number;
   valorGarantidoCliente: number;
@@ -322,9 +327,10 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
             padrão, é diferente: paga o valor fixo da moto parada mais o valor por entrega sobre
             TODAS as entregas do turno, desde a primeira — não só as que passaram de N. Se esse
             cliente específico negociou carência igual à do motoboy, marque a caixinha do perfil
-            pra também só cobrar dele a partir da entrega N+1. Cada perfil vale só nos dias da
-            semana marcados — se domingo à noite paga diferente do resto da semana, crie um perfil
-            só pra domingo.
+            pra também só cobrar dele a partir da entrega N+1. Cada perfil vale pro turno
+            (manhã/tarde/noite) que o motoboy está representando — não pela hora que ele bateu
+            ponto — e só nos dias da semana marcados; se domingo à noite paga diferente do resto da
+            semana, crie um perfil de noite só pra domingo.
           </p>
         </div>
 
@@ -355,8 +361,7 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
               ...turnosFixos,
               {
                 nome: "",
-                horaInicio: "",
-                horaFim: "",
+                turno: "NOITE",
                 diasSemana: [],
                 valorGarantidoMotoboy: 0,
                 valorGarantidoCliente: 0,
@@ -410,26 +415,23 @@ function BlocoTurnoFixo({
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-1 gap-2">
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-stone-500">Início</span>
-          <input
-            type="time"
-            name={`turnoFixoHoraInicio_${indice}`}
-            value={perfil.horaInicio}
-            onChange={(e) => onChange({ ...perfil, horaInicio: e.target.value })}
+          <span className="text-xs text-stone-500">
+            Turno que o motoboy representa (não é sobre a hora que ele chega)
+          </span>
+          <select
+            name={`turnoFixoTurno_${indice}`}
+            value={perfil.turno}
+            onChange={(e) => onChange({ ...perfil, turno: e.target.value as TurnoFixo["turno"] })}
             className={inputClasse}
-          />
-        </label>
-        <label className="flex flex-col gap-1">
-          <span className="text-xs text-stone-500">Fim</span>
-          <input
-            type="time"
-            name={`turnoFixoHoraFim_${indice}`}
-            value={perfil.horaFim}
-            onChange={(e) => onChange({ ...perfil, horaFim: e.target.value })}
-            className={inputClasse}
-          />
+          >
+            {TURNOS_ESCALA.map(({ turno, label }) => (
+              <option key={turno} value={turno}>
+                {label}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
 

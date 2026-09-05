@@ -174,8 +174,7 @@ export default async function ClienteDetalhePage({
           })),
           turnosFixos: cliente.turnosFixos.map((t) => ({
             nome: t.nome,
-            horaInicio: t.horaInicio,
-            horaFim: t.horaFim,
+            turno: t.turno,
             diasSemana: t.diasSemana,
             valorGarantidoMotoboy: paraNumero(t.valorGarantidoMotoboy),
             valorGarantidoCliente: paraNumero(t.valorGarantidoCliente),

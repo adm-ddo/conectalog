@@ -1,6 +1,6 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { dataISOBrasil, instanteBrasil } from "@/lib/data";
+import { dataISOBrasil, instanteBrasil, diaSemanaBrasil } from "@/lib/data";
 import { calcularValores, encontrarPerfilFixo, aplicarRemuneracaoGestor } from "@/lib/precificacao";
 import { paraNumero, valorEfetivo } from "@/lib/valores";
 import type { Cliente } from "@/generated/prisma/client";
@@ -97,6 +97,7 @@ export async function fecharTurnosEsquecidos(agora: Date = new Date()): Promise<
         turno.cliente,
         empresa,
         turno.horaInicio,
+        turno.turnoPredefinido,
         quantidadeBandas,
         turno.taxaExtraItens.map((item) => ({
           valorMotoboy: item.valorMotoboyAplicado,
@@ -111,7 +112,13 @@ export async function fecharTurnosEsquecidos(agora: Date = new Date()): Promise<
       const valorMotoboyFinal =
         aplicarRemuneracaoGestor(valorMotoboy - totalTaxasMotoboy, quantidadeBandas, turno.motoboy) +
         totalTaxasMotoboy;
-      const perfilFixo = encontrarPerfilFixo(turno.cliente.turnosFixos, turno.horaInicio);
+      // turnoPredefinido nunca é LIVRE aqui (query já filtrou), mas o tipo
+      // de encontrarPerfilFixo não aceita LIVRE — a checagem serve só pra
+      // isso, TypeScript não sabe do filtro da query.
+      const perfilFixo =
+        turno.turnoPredefinido !== "LIVRE"
+          ? encontrarPerfilFixo(turno.cliente.turnosFixos, turno.turnoPredefinido, diaSemanaBrasil(turno.horaInicio))
+          : null;
       const valorBandaAplicado = perfilFixo
         ? paraNumero(perfilFixo.valorExcedenteMotoboy)
         : valorEfetivo(turno.cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);

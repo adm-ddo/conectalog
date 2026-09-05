@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 import { requireTenantCompleto } from "@/lib/auth-empresa";
+import type { TurnoEscala } from "@/generated/prisma/enums";
 
 export type ClienteFormState = { erro?: string } | undefined;
 
@@ -56,8 +57,7 @@ function parseTaxasExtras(formData: FormData): TaxaExtraInput[] {
 
 type TurnoFixoInput = {
   nome: string;
-  horaInicio: string;
-  horaFim: string;
+  turno: TurnoEscala;
   diasSemana: number[];
   valorGarantidoMotoboy: number;
   valorGarantidoCliente: number;
@@ -80,10 +80,11 @@ function parseTurnosFixos(formData: FormData): TurnoFixoInput[] {
     const diasSemana = Array.from({ length: 7 }, (_, dia) => dia).filter(
       (dia) => formData.get(`turnoFixoDia_${i}_${dia}`) === "on"
     );
+    const turnoBruto = String(formData.get(`turnoFixoTurno_${i}`) ?? "");
+    const turno: TurnoEscala = turnoBruto === "MANHA" || turnoBruto === "TARDE" ? turnoBruto : "NOITE";
     itens.push({
       nome,
-      horaInicio: String(formData.get(`turnoFixoHoraInicio_${i}`) ?? "").trim() || "00:00",
-      horaFim: String(formData.get(`turnoFixoHoraFim_${i}`) ?? "").trim() || "23:59",
+      turno,
       diasSemana,
       valorGarantidoMotoboy: decimalOpcional(formData, `turnoFixoValorGarantidoMotoboy_${i}`) ?? 0,
       valorGarantidoCliente: decimalOpcional(formData, `turnoFixoValorGarantidoCliente_${i}`) ?? 0,
