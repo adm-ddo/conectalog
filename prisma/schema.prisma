@@ -98,6 +98,14 @@ enum TurnoEscala {
   NOITE
 }
 
+/// Resposta do motoboy a uma EscalaTurno (tela "Minha escala" no app) —
+/// nasce PENDENTE (cooperativa escalou, motoboy ainda não respondeu).
+enum StatusConfirmacaoEscala {
+  PENDENTE
+  CONFIRMADO
+  RECUSADO
+}
+
 /// Tenant — a cooperativa dona das motos. Cada Empresa é um cliente pagante
 /// do ConectaLog (hoje só uma; o modelo já nasce multi-tenant pra revenda).
 model Empresa {
@@ -378,6 +386,12 @@ model EscalaTurno {
   turnoId            Int?
   criadoPorUsuarioId Int
   criadoEm           DateTime    @default(now())
+  /// Confirmação do motoboy de que vai aparecer (tela "Minha escala" no
+  /// app) — independente de turnoId, que só é preenchido quando ele de
+  /// fato bate o início do turno. Nasce PENDENTE; o motoboy pode mudar de
+  /// ideia livremente até lá (não é um voto único).
+  statusConfirmacao  StatusConfirmacaoEscala @default(PENDENTE)
+  confirmadoEm       DateTime?
 
   cliente          Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   motoboy          Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)

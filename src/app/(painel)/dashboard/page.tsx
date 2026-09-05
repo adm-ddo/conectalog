@@ -2,12 +2,10 @@ import Link from "next/link";
 import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { turnoAtivoAgora, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
-import { formatarHora } from "@/lib/data";
+import { formatarHora, dataISOBrasil } from "@/lib/data";
 import DashboardAutoRefresh from "../DashboardAutoRefresh";
-import EquipamentoBadge from "@/components/EquipamentoBadge";
 import SolicitacaoApoioAlert from "./SolicitacaoApoioAlert";
 import DivergenciaRow from "./DivergenciaRow";
-import type { TipoEquipamento } from "@/generated/prisma/enums";
 import type { Prisma } from "@/generated/prisma/client";
 
 export default async function DashboardPage() {
@@ -22,7 +20,9 @@ export default async function DashboardPage() {
     ? { id: { in: idsResponsaveis } }
     : {};
 
-  const [turnosAbertos, totalMotoboysAtivos, clientesAtivos, solicitacoesApoio, turnosDivergentes] =
+  const hoje = new Date(dataISOBrasil());
+
+  const [turnosAbertos, escalasHoje, totalMotoboysAtivos, clientesAtivos, solicitacoesApoio, turnosDivergentes] =
     await Promise.all([
       prisma.turno.findMany({
         where: {
@@ -30,13 +30,11 @@ export default async function DashboardPage() {
           motoboy: { empresaId: sessao.empresaEfetivoId },
           cliente: filtroCliente,
         },
-        orderBy: { horaInicio: "asc" },
-        select: {
-          id: true,
-          horaInicio: true,
-          motoboy: { select: { id: true, nomeCompleto: true, tipoEquipamento: true } },
-          cliente: { select: { id: true, nome: true } },
-        },
+        select: { clienteId: true },
+      }),
+      prisma.escalaTurno.findMany({
+        where: { data: hoje, cliente: { empresaId: sessao.empresaEfetivoId, ...filtroCliente } },
+        select: { clienteId: true, turno: true, statusConfirmacao: true, motoboyId: true },
       }),
       escopoGestor
         ? prisma.motoboyCliente
@@ -87,39 +85,31 @@ export default async function DashboardPage() {
       t.taxaExtraItens.some((item) => item.quantidade !== (item.quantidadeCliente ?? 0))
   );
 
-  const porCliente = new Map<
-    number,
-    {
-      nome: string;
-      motoboys: {
-        id: number;
-        motoboyId: number;
-        nome: string;
-        horaInicio: Date;
-        tipoEquipamento: TipoEquipamento | null;
-      }[];
-    }
-  >();
+  const presentesPorCliente = new Map<number, number>();
   for (const t of turnosAbertos) {
-    const atual = porCliente.get(t.cliente.id) ?? { nome: t.cliente.nome, motoboys: [] };
-    atual.motoboys.push({
-      id: t.id,
-      motoboyId: t.motoboy.id,
-      nome: t.motoboy.nomeCompleto,
-      horaInicio: t.horaInicio,
-      tipoEquipamento: t.motoboy.tipoEquipamento,
-    });
-    porCliente.set(t.cliente.id, atual);
+    presentesPorCliente.set(t.clienteId, (presentesPorCliente.get(t.clienteId) ?? 0) + 1);
   }
 
-  const equipesIncompletas = clientesAtivos
+  const boysEscaladosHoje = new Set(escalasHoje.map((e) => e.motoboyId)).size;
+
+  const resumoClientes = clientesAtivos
     .map((cliente) => {
       const turnoAtual = turnoAtivoAgora(cliente);
       const contratadas = motosContratadasNoTurno(cliente, turnoAtual);
-      const presentes = porCliente.get(cliente.id)?.motoboys.length ?? 0;
-      return { id: cliente.id, nome: cliente.nome, turnoAtual, contratadas, presentes };
+      const escalasDoTurno = turnoAtual
+        ? escalasHoje.filter((e) => e.clienteId === cliente.id && e.turno === turnoAtual)
+        : [];
+      return {
+        id: cliente.id,
+        nome: cliente.nome,
+        turnoAtual,
+        contratadas,
+        escaladas: escalasDoTurno.length,
+        confirmadas: escalasDoTurno.filter((e) => e.statusConfirmacao === "CONFIRMADO").length,
+        presentes: presentesPorCliente.get(cliente.id) ?? 0,
+      };
     })
-    .filter((c) => c.turnoAtual !== null && c.contratadas > 0 && c.presentes < c.contratadas);
+    .sort((a, b) => a.nome.localeCompare(b.nome, "pt-BR"));
 
   return (
     <div className="flex flex-col gap-6">
@@ -145,9 +135,15 @@ export default async function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
-            Turnos abertos agora
+            {escopoGestor ? "Seus clientes" : "Clientes ativos"}
           </p>
-          <p className="text-3xl font-bold text-navy-900 mt-1">{turnosAbertos.length}</p>
+          <p className="text-3xl font-bold text-navy-900 mt-1">{clientesAtivos.length}</p>
+        </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
+            Boys escalados hoje
+          </p>
+          <p className="text-3xl font-bold text-navy-900 mt-1">{boysEscaladosHoje}</p>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
@@ -155,36 +151,7 @@ export default async function DashboardPage() {
           </p>
           <p className="text-3xl font-bold text-navy-900 mt-1">{totalMotoboysAtivos}</p>
         </div>
-        <div className="rounded-2xl border border-stone-200 bg-white p-5">
-          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
-            {escopoGestor ? "Seus clientes" : "Clientes ativos"}
-          </p>
-          <p className="text-3xl font-bold text-navy-900 mt-1">{clientesAtivos.length}</p>
-        </div>
       </div>
-
-      {equipesIncompletas.length > 0 && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 flex flex-col gap-2">
-          <h2 className="text-sm font-semibold text-red-700">
-            Equipe incompleta agora ({equipesIncompletas.length})
-          </h2>
-          <ul className="flex flex-col gap-1">
-            {equipesIncompletas.map((c) => (
-              <li key={c.id} className="text-sm text-red-700">
-                {escopoGestor ? (
-                  <span className="font-medium">{c.nome}</span>
-                ) : (
-                  <Link href={`/clientes/${c.id}`} className="font-medium hover:underline">
-                    {c.nome}
-                  </Link>
-                )}{" "}
-                — {c.presentes} de {c.contratadas} motos no turno de{" "}
-                {c.turnoAtual && LABEL_TURNO[c.turnoAtual]}
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
 
       {divergencias.length > 0 && (
         <div className="rounded-2xl border border-red-200 bg-red-50 p-5 flex flex-col gap-3">
@@ -212,44 +179,63 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="rounded-2xl border border-stone-200 bg-white p-5">
-        <h2 className="text-sm font-semibold text-navy-900 mb-3">Quem está em turno agora</h2>
-        {porCliente.size === 0 ? (
-          <p className="text-sm text-stone-500">Nenhum motoboy com turno aberto no momento.</p>
+      <div>
+        <h2 className="text-sm font-semibold text-navy-900 mb-3">Clientes agora</h2>
+        {resumoClientes.length === 0 ? (
+          <p className="text-sm text-stone-500">Nenhum cliente ativo.</p>
         ) : (
-          <div className="flex flex-col gap-4">
-            {[...porCliente.entries()].map(([clienteId, grupo]) => (
-              <div key={clienteId} className="flex flex-col gap-2">
-                {escopoGestor ? (
-                  <span className="text-sm font-semibold text-navy-900">
-                    {grupo.nome} · {grupo.motoboys.length}{" "}
-                    {grupo.motoboys.length === 1 ? "motoboy" : "motoboys"}
-                  </span>
-                ) : (
-                  <Link
-                    href={`/clientes/${clienteId}`}
-                    className="text-sm font-semibold text-navy-900 hover:underline"
-                  >
-                    {grupo.nome} · {grupo.motoboys.length}{" "}
-                    {grupo.motoboys.length === 1 ? "motoboy" : "motoboys"}
-                  </Link>
-                )}
-                <ul className="flex flex-col gap-1 pl-3 border-l-2 border-brand-200">
-                  {grupo.motoboys.map((m) => (
-                    <li key={m.id} className="text-sm text-stone-600 flex items-center gap-2">
-                      {escopoGestor ? (
-                        m.nome
-                      ) : (
-                        <Link href={`/motoboys/${m.motoboyId}`} className="hover:underline">
-                          {m.nome}
-                        </Link>
-                      )}
-                      <EquipamentoBadge tipo={m.tipoEquipamento} />— desde {formatarHora(m.horaInicio)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {resumoClientes.map((c) => {
+              const equipeIncompleta = c.turnoAtual !== null && c.contratadas > 0 && c.presentes < c.contratadas;
+              const conteudo = (
+                <>
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="font-semibold text-navy-900 truncate">{c.nome}</p>
+                    <span className="shrink-0 text-xs text-stone-500 capitalize">
+                      {c.turnoAtual ? LABEL_TURNO[c.turnoAtual] : "fora de turno"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 mt-3 text-center">
+                    <div>
+                      <p className="text-lg font-bold text-navy-900">{c.contratadas}</p>
+                      <p className="text-[10px] text-stone-500 leading-tight">contratadas</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-navy-900">{c.escaladas}</p>
+                      <p className="text-[10px] text-stone-500 leading-tight">escaladas</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-navy-900">{c.confirmadas}</p>
+                      <p className="text-[10px] text-stone-500 leading-tight">confirmaram</p>
+                    </div>
+                    <div>
+                      <p
+                        className={`text-lg font-bold ${equipeIncompleta ? "text-red-600" : "text-navy-900"}`}
+                      >
+                        {c.presentes}
+                      </p>
+                      <p className="text-[10px] text-stone-500 leading-tight">presentes</p>
+                    </div>
+                  </div>
+                </>
+              );
+              const classe = `rounded-2xl border p-4 ${
+                equipeIncompleta ? "border-red-200 bg-red-50" : "border-stone-200 bg-white"
+              }`;
+              return escopoGestor ? (
+                <div key={c.id} className={classe}>
+                  {conteudo}
+                </div>
+              ) : (
+                <Link
+                  key={c.id}
+                  href={`/clientes/${c.id}`}
+                  className={`${classe} hover:border-brand-300 hover:shadow-sm transition`}
+                >
+                  {conteudo}
+                </Link>
+              );
+            })}
           </div>
         )}
       </div>

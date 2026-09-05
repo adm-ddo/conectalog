@@ -2,7 +2,8 @@ import { requireMotoboy } from "@/lib/auth-motoboy";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil } from "@/lib/data";
 import { LABEL_TURNO } from "@/lib/equipe";
-import type { TurnoEscala } from "@/generated/prisma/enums";
+import ResponderEscalaButtons from "./ResponderEscalaButtons";
+import type { TurnoEscala, StatusConfirmacaoEscala } from "@/generated/prisma/enums";
 
 const DIAS = 7;
 const LABEL_DIA_SEMANA = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
@@ -47,11 +48,19 @@ export default async function EscalaMotoboyPage() {
     orderBy: { data: "asc" },
   });
 
-  const porDia = new Map<string, { turno: TurnoEscala; clienteNome: string }[]>();
+  const porDia = new Map<
+    string,
+    { id: number; turno: TurnoEscala; clienteNome: string; statusConfirmacao: StatusConfirmacaoEscala }[]
+  >();
   for (const e of escalas) {
     const dia = paraISO(e.data);
     const lista = porDia.get(dia) ?? [];
-    lista.push({ turno: e.turno, clienteNome: e.cliente.nome });
+    lista.push({
+      id: e.id,
+      turno: e.turno,
+      clienteNome: e.cliente.nome,
+      statusConfirmacao: e.statusConfirmacao,
+    });
     porDia.set(dia, lista);
   }
 
@@ -77,13 +86,16 @@ export default async function EscalaMotoboyPage() {
               <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
                 {LABEL_DIA_SEMANA[diaSemanaDaData(dia)]} · {formatarDiaCurto(dia)}
               </p>
-              <ul className="flex flex-col gap-1.5">
-                {porDia.get(dia)!.map((item, i) => (
-                  <li key={i} className="text-sm text-navy-900 flex items-center justify-between gap-2">
-                    <span className="truncate">{item.clienteNome}</span>
-                    <span className="shrink-0 text-xs text-stone-500 capitalize">
-                      {LABEL_TURNO[item.turno]}
-                    </span>
+              <ul className="flex flex-col gap-2">
+                {porDia.get(dia)!.map((item) => (
+                  <li key={item.id} className="flex flex-col gap-1.5 border-b border-stone-100 pb-2 last:border-0 last:pb-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="truncate text-sm text-navy-900">{item.clienteNome}</span>
+                      <span className="shrink-0 text-xs text-stone-500 capitalize">
+                        {LABEL_TURNO[item.turno]}
+                      </span>
+                    </div>
+                    <ResponderEscalaButtons escalaId={item.id} statusAtual={item.statusConfirmacao} />
                   </li>
                 ))}
               </ul>
