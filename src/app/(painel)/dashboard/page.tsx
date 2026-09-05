@@ -93,14 +93,22 @@ export default async function DashboardPage() {
 
   // Motos necessárias hoje somando os 3 turnos de cada cliente (não só o
   // que tá rolando agora) — o número que a cooperativa precisa bater ao
-  // montar a escala do dia inteiro.
-  const totalContratadasHoje = clientesAtivos.reduce((soma, cliente) => {
-    let total = 0;
-    if (cliente.turnoManhaAtivo) total += motosContratadasNoTurno(cliente, "MANHA");
-    if (cliente.turnoTardeAtivo) total += motosContratadasNoTurno(cliente, "TARDE");
-    if (cliente.turnoNoiteAtivo) total += motosContratadasNoTurno(cliente, "NOITE");
-    return soma + total;
-  }, 0);
+  // montar a escala do dia inteiro. Guardado também por turno, pra dar
+  // pra ver de relance se o buraco é de manhã, tarde ou noite.
+  const contratadasPorTurno = { MANHA: 0, TARDE: 0, NOITE: 0 };
+  for (const cliente of clientesAtivos) {
+    if (cliente.turnoManhaAtivo) contratadasPorTurno.MANHA += motosContratadasNoTurno(cliente, "MANHA");
+    if (cliente.turnoTardeAtivo) contratadasPorTurno.TARDE += motosContratadasNoTurno(cliente, "TARDE");
+    if (cliente.turnoNoiteAtivo) contratadasPorTurno.NOITE += motosContratadasNoTurno(cliente, "NOITE");
+  }
+  const totalContratadasHoje =
+    contratadasPorTurno.MANHA + contratadasPorTurno.TARDE + contratadasPorTurno.NOITE;
+
+  const escaladasPorTurno = {
+    MANHA: escalasHoje.filter((e) => e.turno === "MANHA").length,
+    TARDE: escalasHoje.filter((e) => e.turno === "TARDE").length,
+    NOITE: escalasHoje.filter((e) => e.turno === "NOITE").length,
+  };
   const totalEscaladasHoje = escalasHoje.length;
   const confirmadasHoje = escalasHoje.filter((e) => e.statusConfirmacao === "CONFIRMADO").length;
   const pendentesHoje = escalasHoje.filter((e) => e.statusConfirmacao === "PENDENTE").length;
@@ -158,6 +166,10 @@ export default async function DashboardPage() {
             Motos necessárias hoje
           </p>
           <p className="text-3xl font-bold text-navy-900 mt-1">{totalContratadasHoje}</p>
+          <p className="text-[11px] text-stone-500 mt-1">
+            Manhã {contratadasPorTurno.MANHA} · Tarde {contratadasPorTurno.TARDE} · Noite{" "}
+            {contratadasPorTurno.NOITE}
+          </p>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
@@ -169,6 +181,19 @@ export default async function DashboardPage() {
             }`}
           >
             {totalEscaladasHoje}
+          </p>
+          <p className="text-[11px] text-stone-500 mt-1">
+            <span className={escaladasPorTurno.MANHA < contratadasPorTurno.MANHA ? "text-red-600" : ""}>
+              Manhã {escaladasPorTurno.MANHA}
+            </span>
+            {" · "}
+            <span className={escaladasPorTurno.TARDE < contratadasPorTurno.TARDE ? "text-red-600" : ""}>
+              Tarde {escaladasPorTurno.TARDE}
+            </span>
+            {" · "}
+            <span className={escaladasPorTurno.NOITE < contratadasPorTurno.NOITE ? "text-red-600" : ""}>
+              Noite {escaladasPorTurno.NOITE}
+            </span>
           </p>
         </div>
         <div className="rounded-2xl border border-stone-200 bg-white p-5">
