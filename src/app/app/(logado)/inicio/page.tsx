@@ -6,6 +6,7 @@ import { paraNumero } from "@/lib/valores";
 import EstrelasMedia from "@/components/EstrelasMedia";
 import NotificacoesBanner from "./NotificacoesBanner";
 import SairCooperativaButton from "./SairCooperativaButton";
+import AutoRefresh from "@/components/AutoRefresh";
 
 export default async function InicioMotoboyPage() {
   const sessao = await requireMotoboy();
@@ -39,6 +40,7 @@ export default async function InicioMotoboyPage() {
     const totalBandasApoios = turnoAberto.apoios.reduce((s, a) => s + a.quantidadeBandas, 0);
     return (
       <div className="flex flex-col gap-5">
+        <AutoRefresh />
         {avisos}
         {minhaNota}
 
@@ -87,6 +89,7 @@ export default async function InicioMotoboyPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <AutoRefresh />
       {avisos}
       {minhaNota}
 

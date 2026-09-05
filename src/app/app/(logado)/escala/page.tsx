@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { dataISOBrasil } from "@/lib/data";
 import { LABEL_TURNO } from "@/lib/equipe";
 import ResponderEscalaButtons from "./ResponderEscalaButtons";
+import AutoRefresh from "@/components/AutoRefresh";
 import type { TurnoEscala, StatusConfirmacaoEscala } from "@/generated/prisma/enums";
 
 const DIAS = 7;
@@ -70,6 +71,7 @@ export default async function EscalaMotoboyPage() {
 
   return (
     <div className="flex flex-col gap-5">
+      <AutoRefresh />
       <div>
         <h1 className="text-lg font-semibold text-navy-900">Minha escala</h1>
         <p className="text-sm text-stone-500 mt-1">

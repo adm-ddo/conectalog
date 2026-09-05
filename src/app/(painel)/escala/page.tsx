@@ -7,7 +7,7 @@ import EscalaRow from "./EscalaRow";
 import CandidatoRow from "./CandidatoRow";
 import ManterEscalaAnteriorBanner from "./ManterEscalaAnteriorBanner";
 import AutoSubmitForm from "./AutoSubmitForm";
-import DashboardAutoRefresh from "../DashboardAutoRefresh";
+import AutoRefresh from "@/components/AutoRefresh";
 import type { TurnoEscala } from "@/generated/prisma/enums";
 
 /** Dia da semana (Date.getDay(): 0=domingo...6=sábado) de uma data
@@ -166,7 +166,7 @@ export default async function EscalaPage({
 
   return (
     <div className="flex flex-col gap-6">
-      <DashboardAutoRefresh />
+      <AutoRefresh />
       <div>
         <h1 className="text-2xl font-semibold text-navy-900">Escala</h1>
         <p className="text-stone-600 mt-1 text-sm">

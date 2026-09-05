@@ -57,7 +57,11 @@ export default function EscalaRow({
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 shrink-0">
         <span className={`text-xs font-medium ${confirmacao.classe}`}>{confirmacao.texto}</span>
         <span className="text-xs text-stone-500">
-          {ativoAgora ? "Ativo agora" : chegou ? `Chegou às ${horaChegada}` : "Ainda não chegou"}
+          {ativoAgora
+            ? `Ativo desde ${horaChegada}`
+            : chegou
+              ? `Chegou às ${horaChegada}`
+              : "Ainda não chegou"}
         </span>
         <button
           type="button"

@@ -3,7 +3,7 @@ import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { turnoAtivoAgora, turnoRelevanteHoje, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
 import { formatarHora, dataISOBrasil } from "@/lib/data";
-import DashboardAutoRefresh from "../DashboardAutoRefresh";
+import AutoRefresh from "@/components/AutoRefresh";
 import SolicitacaoApoioAlert from "./SolicitacaoApoioAlert";
 import DivergenciaRow from "./DivergenciaRow";
 import type { Prisma } from "@/generated/prisma/client";
@@ -159,7 +159,7 @@ export default async function DashboardPage() {
 
   return (
     <div className="flex flex-col gap-6">
-      <DashboardAutoRefresh />
+      <AutoRefresh />
       <div>
         <h1 className="text-2xl font-semibold text-navy-900">Dashboard</h1>
         <p className="text-stone-600 mt-1 text-sm">
