@@ -23,7 +23,7 @@ export default async function DashboardPage() {
   const hojeISO = dataISOBrasil();
   const hoje = new Date(hojeISO);
 
-  const [turnosAbertos, escalasHoje, totalMotoboysAtivos, clientesAtivos, solicitacoesApoio, turnosDivergentes] =
+  const [turnosAbertos, escalasHoje, totalMotoboysAtivos, clientesAtivos, solicitacoesApoio, turnosDivergentes, turnosPendentes] =
     await Promise.all([
       prisma.turno.findMany({
         where: {
@@ -78,6 +78,19 @@ export default async function DashboardPage() {
           taxaExtraItens: { orderBy: { ordem: "asc" } },
         },
       }),
+      // Correção de fechamento automático é bloqueada pra Gestor de campo
+      // (mesma tela /turnos/[id] usa requireTenantCompleto) — nem conta
+      // pra esse papel, senão o alerta apontaria pra um lugar que ele não
+      // pode abrir.
+      escopoGestor
+        ? Promise.resolve(0)
+        : prisma.turno.count({
+            where: {
+              motoboy: { empresaId: sessao.empresaEfetivoId },
+              fechamentoAutomatico: true,
+              resolvidoDivergenciaEm: null,
+            },
+          }),
     ]);
 
   const divergencias = turnosDivergentes.filter(
@@ -275,6 +288,24 @@ export default async function DashboardPage() {
             ))}
           </ul>
         </div>
+      )}
+
+      {turnosPendentes > 0 && (
+        <Link
+          href="/turnos/pendentes"
+          className="rounded-2xl border border-amber-300 bg-amber-50 p-5 flex items-center justify-between gap-3 hover:border-amber-400 transition-colors"
+        >
+          <div>
+            <h2 className="text-sm font-semibold text-amber-800">
+              Turnos pendentes de confirmação ({turnosPendentes})
+            </h2>
+            <p className="text-xs text-amber-800 mt-1">
+              Motoboy não encerrou e o cliente também não fechou pelo portal — precisa perguntar a
+              quantidade de entregas e corrigir.
+            </p>
+          </div>
+          <span className="shrink-0 text-xs font-semibold text-amber-800">Ver →</span>
+        </Link>
       )}
 
       <div>

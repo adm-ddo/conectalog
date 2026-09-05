@@ -94,8 +94,17 @@ export default async function TurnoDetalhePage({
 
       {turno.fechamentoAutomatico && turno.resolvidoDivergenciaEm !== null && (
         <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5 text-sm text-brand-800">
-          Turno tinha fechado sozinho (motoboy não encerrou) — {turno.resolvidoPorUsuario?.nome ?? "a cooperativa"}{" "}
-          corrigiu pra {turno.quantidadeBandas} entregas em {formatarDataHora(turno.resolvidoDivergenciaEm)}.
+          {turno.resolvidoPorUsuario ? (
+            <>
+              Turno tinha fechado sozinho (motoboy não encerrou) — {turno.resolvidoPorUsuario.nome} corrigiu pra{" "}
+              {turno.quantidadeBandas} entregas em {formatarDataHora(turno.resolvidoDivergenciaEm)}.
+            </>
+          ) : (
+            <>
+              Motoboy não encerrou dentro do prazo — o sistema fechou sozinho usando a contagem que
+              o cliente informou no portal: {turno.quantidadeBandas} entregas.
+            </>
+          )}
         </div>
       )}
 
