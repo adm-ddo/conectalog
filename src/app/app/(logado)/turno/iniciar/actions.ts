@@ -126,7 +126,15 @@ export async function iniciarTurno(dados: DadosIniciarTurno): Promise<IniciarTur
  * ou não bateu com nenhuma, tenta qualquer escala do dia ainda sem turno
  * vinculado (evita perder o vínculo por causa de uma pequena diferença
  * de rótulo). Não bloqueia nada se não achar — apoio ao vivo sem escala
- * prévia é normal e esperado. */
+ * prévia é normal e esperado.
+ *
+ * Já aproveita e confirma a escala (statusConfirmacao=CONFIRMADO) — bater
+ * o ponto de verdade é a prova mais forte possível de que ele "vai poder
+ * ir" (é o próprio ir acontecendo), mais forte até que ter tocado
+ * "Confirmar" antes. Sobrescreve mesmo se ele tinha respondido RECUSADO
+ * antes (mudou de ideia e apareceu mesmo assim) — pedido do Thiago pra
+ * não deixar a escala presa em "pendente"/"recusado" com o motoboy
+ * fisicamente lá dentro do cliente. */
 async function vincularEscalaSeExistir(
   motoboyId: number,
   clienteId: number,
@@ -150,7 +158,10 @@ async function vincularEscalaSeExistir(
     }));
 
   if (escalaFinal) {
-    await prisma.escalaTurno.update({ where: { id: escalaFinal.id }, data: { turnoId } });
+    await prisma.escalaTurno.update({
+      where: { id: escalaFinal.id },
+      data: { turnoId, statusConfirmacao: "CONFIRMADO", confirmadoEm: new Date() },
+    });
   }
 }
 

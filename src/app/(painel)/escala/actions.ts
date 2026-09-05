@@ -97,6 +97,11 @@ async function escalarSeNovo(
       turno,
       criadoPorUsuarioId,
       turnoId: turnoAbertoNesseCliente?.id,
+      // Se já tem um turno aberto pra linkar, ele já está lá trabalhando
+      // — mesma lógica de vincularEscalaSeExistir (turno/iniciar/
+      // actions.ts): bater o ponto de verdade conta como confirmação,
+      // mais forte que qualquer clique de "Confirmar".
+      ...(turnoAbertoNesseCliente ? { statusConfirmacao: "CONFIRMADO", confirmadoEm: new Date() } : {}),
     },
   });
   await avisarEscalado(motoboyId, clienteNome, data, turno, escala.id);
