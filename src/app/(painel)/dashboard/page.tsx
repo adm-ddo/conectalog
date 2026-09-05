@@ -6,10 +6,13 @@ import { formatarHora, dataISOBrasil } from "@/lib/data";
 import AutoRefresh from "@/components/AutoRefresh";
 import SolicitacaoApoioAlert from "./SolicitacaoApoioAlert";
 import DivergenciaRow from "./DivergenciaRow";
+import { expirarEscalasVencidas } from "@/lib/escala";
 import type { Prisma } from "@/generated/prisma/client";
 
 export default async function DashboardPage() {
   const sessao = await requireTenant();
+
+  await expirarEscalasVencidas(new Date(), { empresaId: sessao.empresaEfetivoId });
 
   // Gestor de campo só vê o que diz respeito aos clientes que ele é
   // responsável (ver MotoboyCliente.gestor) — dono/equipe normal vê tudo
@@ -126,6 +129,7 @@ export default async function DashboardPage() {
   const confirmadasHoje = escalasHoje.filter((e) => e.statusConfirmacao === "CONFIRMADO").length;
   const pendentesHoje = escalasHoje.filter((e) => e.statusConfirmacao === "PENDENTE").length;
   const recusadasHoje = escalasHoje.filter((e) => e.statusConfirmacao === "RECUSADO").length;
+  const expiradasHoje = escalasHoje.filter((e) => e.statusConfirmacao === "EXPIRADA").length;
 
   const resumoClientes = clientesAtivos
     .map((cliente) => {
@@ -228,7 +232,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
         <Link
           href="/dashboard/confirmacoes?status=CONFIRMADO"
           className="rounded-2xl border border-stone-200 bg-white p-5 hover:border-brand-300 hover:shadow-sm transition"
@@ -253,6 +257,15 @@ export default async function DashboardPage() {
         >
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">Recusaram</p>
           <p className="text-3xl font-bold text-red-600 mt-1">{recusadasHoje}</p>
+        </Link>
+        <Link
+          href="/dashboard/confirmacoes?status=EXPIRADA"
+          className="rounded-2xl border border-stone-200 bg-white p-5 hover:border-brand-300 hover:shadow-sm transition"
+        >
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
+            Não confirmaram a tempo
+          </p>
+          <p className="text-3xl font-bold text-amber-600 mt-1">{expiradasHoje}</p>
         </Link>
         <Link
           href="/dashboard/ativos"

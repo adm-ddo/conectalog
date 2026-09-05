@@ -4,6 +4,7 @@ import { dataISOBrasil } from "@/lib/data";
 import { LABEL_TURNO } from "@/lib/equipe";
 import ResponderEscalaButtons from "./ResponderEscalaButtons";
 import AutoRefresh from "@/components/AutoRefresh";
+import { expirarEscalasVencidas } from "@/lib/escala";
 import type { TurnoEscala, StatusConfirmacaoEscala } from "@/generated/prisma/enums";
 
 const DIAS = 7;
@@ -36,6 +37,8 @@ function paraISO(data: Date): string {
 
 export default async function EscalaMotoboyPage() {
   const sessao = await requireMotoboy();
+
+  await expirarEscalasVencidas(new Date(), { motoboyId: sessao.motoboyId });
 
   const hoje = dataISOBrasil();
   const fimExclusivo = somarDias(hoje, DIAS);

@@ -110,10 +110,17 @@ enum TurnoEscala {
 
 /// Resposta do motoboy a uma EscalaTurno (tela "Minha escala" no app) —
 /// nasce PENDENTE (cooperativa escalou, motoboy ainda não respondeu).
+/// EXPIRADA: "caiu" sozinha porque o motoboy não confirmou nem recusou
+/// até 1h antes do horário configurado de início do turno (ver
+/// src/lib/escala.ts) — pedido do Thiago pra criar urgência de resposta;
+/// fica registrado como histórico de confiabilidade, mas não bloqueia o
+/// motoboy de aparecer de verdade depois (bater o ponto sempre confirma,
+/// mesmo a partir de EXPIRADA — ver vincularEscalaSeExistir).
 enum StatusConfirmacaoEscala {
   PENDENTE
   CONFIRMADO
   RECUSADO
+  EXPIRADA
 }
 
 /// Tenant — a cooperativa dona das motos. Cada Empresa é um cliente pagante

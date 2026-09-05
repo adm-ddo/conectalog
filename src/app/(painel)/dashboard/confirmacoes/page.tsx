@@ -6,6 +6,7 @@ import { dataISOBrasil } from "@/lib/data";
 import { LABEL_TURNO } from "@/lib/equipe";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import BotaoVoltar from "@/components/BotaoVoltar";
+import { expirarEscalasVencidas } from "@/lib/escala";
 import type { Prisma } from "@/generated/prisma/client";
 import type { StatusConfirmacaoEscala } from "@/generated/prisma/enums";
 
@@ -13,9 +14,10 @@ const TITULO: Record<StatusConfirmacaoEscala, string> = {
   CONFIRMADO: "Já confirmaram",
   PENDENTE: "Ainda não responderam",
   RECUSADO: "Recusaram",
+  EXPIRADA: "Não confirmaram a tempo",
 };
 
-const STATUS_VALIDOS = new Set(["CONFIRMADO", "PENDENTE", "RECUSADO"]);
+const STATUS_VALIDOS = new Set(["CONFIRMADO", "PENDENTE", "RECUSADO", "EXPIRADA"]);
 
 export default async function ConfirmacoesEscalaPage({
   searchParams,
@@ -26,6 +28,8 @@ export default async function ConfirmacoesEscalaPage({
   const { status } = await searchParams;
   if (!status || !STATUS_VALIDOS.has(status)) notFound();
   const statusConfirmacao = status as StatusConfirmacaoEscala;
+
+  await expirarEscalasVencidas(new Date(), { empresaId: sessao.empresaEfetivoId });
 
   const idsResponsaveis = await clientesResponsaveisIds(sessao);
   const escopoGestor = sessao.role === "GESTOR_CAMPO";

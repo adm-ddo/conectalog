@@ -3,6 +3,7 @@ import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, formatarHora, instanteBrasil } from "@/lib/data";
 import { LABEL_TURNO } from "@/lib/equipe";
+import { expirarEscalasVencidas } from "@/lib/escala";
 import EscalaRow from "./EscalaRow";
 import CandidatoRow from "./CandidatoRow";
 import ManterEscalaAnteriorBanner from "./ManterEscalaAnteriorBanner";
@@ -34,6 +35,8 @@ export default async function EscalaPage({
 }) {
   const sessao = await requireTenant();
   const params = await searchParams;
+
+  await expirarEscalasVencidas(new Date(), { empresaId: sessao.empresaEfetivoId });
 
   // Gestor de campo só monta escala pros clientes que ele é responsável
   // (ver MotoboyCliente.gestor) — dono/equipe normal vê todos.
@@ -189,6 +192,7 @@ export default async function EscalaPage({
 
   const confirmaram = escalados.filter((e) => e.statusConfirmacao === "CONFIRMADO").length;
   const recusaram = escalados.filter((e) => e.statusConfirmacao === "RECUSADO").length;
+  const expiraram = escalados.filter((e) => e.statusConfirmacao === "EXPIRADA").length;
   const faltamEscalar = Math.max(0, motosContratadas - escalados.length);
 
   return (
@@ -253,6 +257,9 @@ export default async function EscalaPage({
         <Link href={`/escala/semana?clienteId=${clienteId}&inicio=${data}`} className="text-sm text-brand-700 hover:underline">
           Ver semana inteira →
         </Link>
+        <Link href="/escala/expiradas" className="text-sm text-brand-700 hover:underline">
+          Não confirmaram a tempo →
+        </Link>
       </AutoSubmitForm>
 
       {turnosDisponiveis.length === 1 && (
@@ -261,7 +268,7 @@ export default async function EscalaPage({
         </p>
       )}
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
         <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-center">
           <p className="text-2xl font-bold text-navy-900">{motosContratadas}</p>
           <p className="text-[11px] text-stone-500 leading-tight">necessárias</p>
@@ -285,6 +292,12 @@ export default async function EscalaPage({
             {recusaram}
           </p>
           <p className="text-[11px] text-stone-500 leading-tight">recusaram</p>
+        </div>
+        <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-center">
+          <p className={`text-2xl font-bold ${expiraram > 0 ? "text-amber-600" : "text-navy-900"}`}>
+            {expiraram}
+          </p>
+          <p className="text-[11px] text-stone-500 leading-tight">não confirmaram a tempo</p>
         </div>
         <div className="rounded-xl border border-stone-200 bg-white px-4 py-3 text-center">
           <p className={`text-2xl font-bold ${faltamEscalar > 0 ? "text-red-600" : "text-navy-900"}`}>

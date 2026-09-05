@@ -10,6 +10,7 @@ const LABEL_CONFIRMACAO: Record<StatusConfirmacaoEscala, { texto: string; classe
   CONFIRMADO: { texto: "✓ Confirmou", classe: "text-brand-700" },
   RECUSADO: { texto: "Não vai poder", classe: "text-red-600" },
   PENDENTE: { texto: "Aguardando resposta", classe: "text-stone-400" },
+  EXPIRADA: { texto: "Não confirmou a tempo", classe: "text-amber-600" },
 };
 
 export default function EscalaRow({

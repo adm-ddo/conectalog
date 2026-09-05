@@ -49,6 +49,14 @@ export default function ResponderEscalaButtons({
     );
   }
 
+  if (statusAtual === "EXPIRADA") {
+    return (
+      <span className="text-xs font-medium text-amber-600">
+        Essa escala caiu — você não confirmou a tempo
+      </span>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3 shrink-0">
       <button
