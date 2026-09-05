@@ -67,6 +67,18 @@ export default async function FinanceiroPage({
   const faturaPorCliente = new Map(faturasPeriodo.map((f) => [f.clienteId, f]));
   const totalPeriodo = resumosPeriodo.reduce((soma, r) => soma + (r?.valorTotalCliente ?? 0), 0);
 
+  // Resumo do dia inteiro (todos os clientes somados) — o "P&L" mínimo
+  // garantido de hoje e o que já é de verdade, lado a lado.
+  const totalHoje = hojePorCliente.reduce(
+    (soma, c) => ({
+      previsaoCliente: soma.previsaoCliente + c.previsaoMinima.cliente,
+      previsaoMotoboy: soma.previsaoMotoboy + c.previsaoMinima.motoboy,
+      confirmadoCliente: soma.confirmadoCliente + c.confirmado.cliente,
+      confirmadoMotoboy: soma.confirmadoMotoboy + c.confirmado.motoboy,
+    }),
+    { previsaoCliente: 0, previsaoMotoboy: 0, confirmadoCliente: 0, confirmadoMotoboy: 0 }
+  );
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -74,6 +86,44 @@ export default async function FinanceiroPage({
         <p className="text-stone-600 mt-1 text-sm">
           Valores a cobrar dos clientes, em tempo real e por período — acesso restrito.
         </p>
+      </div>
+
+      <div className="flex flex-col gap-3">
+        <h2 className="text-sm font-semibold text-navy-900">Resumo financeiro de hoje</h2>
+        <div className="rounded-2xl border border-navy-200 bg-navy-900 text-white p-5">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-[11px] text-navy-200 uppercase tracking-wide font-semibold mb-2">
+                Piso garantido (mínimo do dia)
+              </p>
+              <LinhaResumo label="Cobrado dos clientes" valor={totalHoje.previsaoCliente} />
+              <LinhaResumo label="Devido aos motoboys" valor={totalHoje.previsaoMotoboy} />
+              <LinhaResumo
+                label="Lucro mínimo"
+                valor={totalHoje.previsaoCliente - totalHoje.previsaoMotoboy}
+                destaque
+              />
+            </div>
+            <div>
+              <p className="text-[11px] text-navy-200 uppercase tracking-wide font-semibold mb-2">
+                Confirmado até agora
+              </p>
+              <LinhaResumo label="Cobrado dos clientes" valor={totalHoje.confirmadoCliente} />
+              <LinhaResumo label="Devido aos motoboys" valor={totalHoje.confirmadoMotoboy} />
+              <LinhaResumo
+                label="Lucro"
+                valor={totalHoje.confirmadoCliente - totalHoje.confirmadoMotoboy}
+                destaque
+              />
+            </div>
+          </div>
+          <p className="text-[11px] text-navy-300 mt-4">
+            &quot;Piso garantido&quot; é o valor mínimo travado pela configuração de cada cliente — em
+            cliente sem carência, o garantido do motoboy costuma ser maior que o fixo cobrado dele,
+            então o lucro mínimo nasce negativo de propósito: só fecha positivo depois que as
+            entregas de verdade acontecerem.
+          </p>
+        </div>
       </div>
 
       <div>
@@ -84,19 +134,53 @@ export default async function FinanceiroPage({
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {hojePorCliente.map((c) => (
               <div key={c.id} className="rounded-2xl border border-stone-200 bg-white p-4">
-                <p className="font-semibold text-navy-900 truncate">{c.nome}</p>
-                <div className="grid grid-cols-2 gap-2 mt-3">
-                  <div>
-                    <p className="text-lg font-bold text-navy-900">
-                      {c.previsaoMinima > 0 ? `R$ ${formatarMoeda(c.previsaoMinima)}` : "—"}
-                    </p>
-                    <p className="text-[10px] text-stone-500 leading-tight">previsão mínima hoje</p>
-                  </div>
-                  <div>
-                    <p className="text-lg font-bold text-brand-700">R$ {formatarMoeda(c.confirmado)}</p>
-                    <p className="text-[10px] text-stone-500 leading-tight">confirmado hoje</p>
-                  </div>
-                </div>
+                <p className="font-semibold text-navy-900 truncate mb-3">{c.nome}</p>
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-stone-400">
+                      <th className="text-left font-medium"></th>
+                      <th className="text-right font-medium">Previsto</th>
+                      <th className="text-right font-medium">Confirmado</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td className="text-stone-500 py-0.5">Cliente</td>
+                      <td className="text-right font-semibold text-navy-900">
+                        {formatarMoeda(c.previsaoMinima.cliente)}
+                      </td>
+                      <td className="text-right font-semibold text-navy-900">
+                        {formatarMoeda(c.confirmado.cliente)}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="text-stone-500 py-0.5">Motoboys</td>
+                      <td className="text-right font-semibold text-navy-900">
+                        {formatarMoeda(c.previsaoMinima.motoboy)}
+                      </td>
+                      <td className="text-right font-semibold text-navy-900">
+                        {formatarMoeda(c.confirmado.motoboy)}
+                      </td>
+                    </tr>
+                    <tr className="border-t border-stone-100">
+                      <td className="text-stone-500 py-0.5 pt-1.5">Lucro</td>
+                      <td
+                        className={`text-right font-bold pt-1.5 ${
+                          c.previsaoMinima.lucro < 0 ? "text-red-600" : "text-brand-700"
+                        }`}
+                      >
+                        {formatarMoeda(c.previsaoMinima.lucro)}
+                      </td>
+                      <td
+                        className={`text-right font-bold pt-1.5 ${
+                          c.confirmado.lucro < 0 ? "text-red-600" : "text-brand-700"
+                        }`}
+                      >
+                        {formatarMoeda(c.confirmado.lucro)}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             ))}
           </div>
@@ -188,6 +272,27 @@ export default async function FinanceiroPage({
           })}
         </ul>
       </div>
+    </div>
+  );
+}
+
+function LinhaResumo({
+  label,
+  valor,
+  destaque,
+}: {
+  label: string;
+  valor: number;
+  destaque?: boolean;
+}) {
+  return (
+    <div className={`flex items-center justify-between gap-3 ${destaque ? "mt-1 pt-1 border-t border-white/15" : ""}`}>
+      <span className={`text-sm ${destaque ? "font-semibold" : "text-navy-200"}`}>{label}</span>
+      <span
+        className={`text-sm font-bold ${destaque ? (valor < 0 ? "text-red-300" : "text-brand-300") : ""}`}
+      >
+        R$ {formatarMoeda(valor)}
+      </span>
     </div>
   );
 }

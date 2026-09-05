@@ -70,17 +70,37 @@ export function resolverContatoFinanceiro(
 
 type ClienteComTurnos = Cliente & { turnosFixos: ClienteTurnoFixo[] };
 
-/** Previsão mínima de hoje pra esse cliente: soma, pra cada turno
- * (manhã/tarde/noite) que ele tem ativo hoje, motos contratadas × valor
- * garantido do perfil de turno fixo que bate com aquele horário — o piso
- * que ele deve gerar mesmo que nenhum motoboy faça uma entrega sequer.
- * Só faz sentido pra cliente no modelo "valor fixo por turno"; cliente
- * "por banda" simples não tem piso nenhum (é puramente por uso), então
- * fica em 0 — a tela mostra isso como "sem piso configurado", não como
- * "vai gerar zero". */
-export function previsaoMinimaHojeCliente(cliente: ClienteComTurnos, agora: Date = new Date()): number {
+export type ResumoFinanceiroValores = {
+  cliente: number;
+  motoboy: number;
+  lucro: number;
+};
+
+function comLucro(cliente: number, motoboy: number): ResumoFinanceiroValores {
+  return { cliente, motoboy, lucro: cliente - motoboy };
+}
+
+/** Piso mínimo de hoje pra esse cliente, dos dois lados: soma, pra cada
+ * turno (manhã/tarde/noite) que ele tem ativo hoje, motos contratadas ×
+ * valor garantido do perfil de turno fixo que bate com aquele turno — o
+ * que a cooperativa vai cobrar do cliente e o que ela é OBRIGADA a pagar
+ * aos motoboys, mesmo que ninguém faça uma entrega sequer (o garantido
+ * do motoboy não depende de banda nenhuma). `lucro` é a diferença — em
+ * cliente sem carência (ex.: KERO SUSHI, PRIME PARRILLA: cliente paga
+ * por entrega desde a primeira, sem piso por banda, só o fixo da moto
+ * parada) o garantido do motoboy costuma ser MAIOR que o fixo cobrado do
+ * cliente, então esse "lucro mínimo" nasce negativo de propósito — só
+ * fecha no positivo depois que as entregas de verdade acontecem e entram
+ * na conta (ver confirmadoHojeCliente). Só faz sentido pro modelo "valor
+ * fixo por turno"; cliente "por banda" simples não tem piso nenhum (é
+ * puramente por uso), fica em 0 dos dois lados. */
+export function previsaoMinimaHojeCliente(
+  cliente: ClienteComTurnos,
+  agora: Date = new Date()
+): ResumoFinanceiroValores {
   const diaSemana = diaSemanaBrasil(agora);
-  let total = 0;
+  let totalCliente = 0;
+  let totalMotoboy = 0;
 
   const turnosDoDia: { ativo: boolean; turno: "MANHA" | "TARDE" | "NOITE" }[] = [
     { ativo: cliente.turnoManhaAtivo, turno: "MANHA" },
@@ -101,32 +121,38 @@ export function previsaoMinimaHojeCliente(cliente: ClienteComTurnos, agora: Date
     // dentro da janela "da tarde".
     const perfil = encontrarPerfilFixo(cliente.turnosFixos, turno, diaSemana);
     if (!perfil) continue;
-    total += contratadas * paraNumero(perfil.valorGarantidoCliente);
+    totalCliente += contratadas * paraNumero(perfil.valorGarantidoCliente);
+    totalMotoboy += contratadas * paraNumero(perfil.valorGarantidoMotoboy);
   }
 
-  return total;
+  return comLucro(totalCliente, totalMotoboy);
 }
 
 /** Quanto já é valor CONFIRMADO hoje pra esse cliente (turnos/apoios já
- * concluídos, valor real batido) — cresce ao longo do dia conforme os
- * turnos vão fechando, complementando previsaoMinimaHojeCliente (que é
- * só a configuração, fixo o dia inteiro). */
-export async function confirmadoHojeCliente(clienteId: number): Promise<number> {
+ * concluídos, valor real batido), dos dois lados — cresce ao longo do
+ * dia conforme os turnos vão fechando, complementando
+ * previsaoMinimaHojeCliente (que é só a configuração, fixo o dia
+ * inteiro). `lucro` aqui é o de verdade, não mais o mínimo garantido. */
+export async function confirmadoHojeCliente(clienteId: number): Promise<ResumoFinanceiroValores> {
   const inicioHoje = inicioDoDiaBrasil();
 
   const [turnos, apoios] = await Promise.all([
     prisma.turno.findMany({
       where: { clienteId, horaInicio: { gte: inicioHoje }, status: { in: ["CONCLUIDO", "PAGO"] } },
-      select: { valorCobradoCliente: true },
+      select: { valorCobradoCliente: true, valorTotal: true },
     }),
     prisma.apoio.findMany({
       where: { clienteId, turno: { horaInicio: { gte: inicioHoje } } },
-      select: { valorCobradoCliente: true },
+      select: { valorCobradoCliente: true, valorTotal: true },
     }),
   ]);
 
-  return (
+  const totalCliente =
     turnos.reduce((soma, t) => soma + paraNumero(t.valorCobradoCliente), 0) +
-    apoios.reduce((soma, a) => soma + paraNumero(a.valorCobradoCliente), 0)
-  );
+    apoios.reduce((soma, a) => soma + paraNumero(a.valorCobradoCliente), 0);
+  const totalMotoboy =
+    turnos.reduce((soma, t) => soma + paraNumero(t.valorTotal), 0) +
+    apoios.reduce((soma, a) => soma + paraNumero(a.valorTotal), 0);
+
+  return comLucro(totalCliente, totalMotoboy);
 }
