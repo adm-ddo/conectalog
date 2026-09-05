@@ -7,6 +7,7 @@ import { formatarMoeda } from "@/lib/valores";
 import { LABEL_TURNO } from "@/lib/equipe";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import BotaoVoltar from "@/components/BotaoVoltar";
+import CorrigirFechamentoAutomaticoForm from "./CorrigirFechamentoAutomaticoForm";
 
 const LABEL_STATUS: Record<string, string> = {
   ABERTO: "Aberto",
@@ -60,6 +61,13 @@ export default async function TurnoDetalhePage({
         </p>
       </div>
 
+      {turno.fechamentoAutomatico && turno.resolvidoDivergenciaEm === null && (
+        <CorrigirFechamentoAutomaticoForm
+          turnoId={turno.id}
+          taxas={turno.taxaExtraItens.map((item) => ({ itemId: item.id, descricao: item.descricao }))}
+        />
+      )}
+
       <div className="rounded-2xl border border-stone-200 bg-white p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
         <p>
           <span className="text-stone-500">Início:</span> {formatarDataHora(turno.horaInicio)}
@@ -84,7 +92,14 @@ export default async function TurnoDetalhePage({
         </p>
       </div>
 
-      {turno.resolvidoDivergenciaEm && turno.quantidadeBandasMotoboyOriginal !== null && (
+      {turno.fechamentoAutomatico && turno.resolvidoDivergenciaEm !== null && (
+        <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5 text-sm text-brand-800">
+          Turno tinha fechado sozinho (motoboy não encerrou) — {turno.resolvidoPorUsuario?.nome ?? "a cooperativa"}{" "}
+          corrigiu pra {turno.quantidadeBandas} entregas em {formatarDataHora(turno.resolvidoDivergenciaEm)}.
+        </div>
+      )}
+
+      {!turno.fechamentoAutomatico && turno.resolvidoDivergenciaEm && turno.quantidadeBandasMotoboyOriginal !== null && (
         <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 flex flex-col gap-2">
           <h2 className="text-sm font-semibold text-amber-800">Divergência resolvida</h2>
           <p className="text-sm text-amber-800">

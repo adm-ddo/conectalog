@@ -613,6 +613,13 @@ model Turno {
   status                StatusTurno      @default(ABERTO)
   pagamentoId           Int?
   criadoEm              DateTime         @default(now())
+  /// true quando o motoboy esqueceu de encerrar e o cron
+  /// (fecharTurnosEsquecidos, ver src/lib/fechamento-automatico.ts) fechou
+  /// sozinho no horário em que o turno configurado do Cliente deveria
+  /// acabar — nasce com quantidadeBandas=0/valorTotal=0 (sem o garantido
+  /// do turno fixo, que não se aplica aqui) até a cooperativa perguntar
+  /// pro motoboy e corrigir a quantidade de verdade na tela do turno.
+  fechamentoAutomatico  Boolean          @default(false)
 
   /// Contagem que o CLIENTE (restaurante) informa pelo portal ao
   /// encerrar o motoboy do lado dele — null enquanto ele não fechou.

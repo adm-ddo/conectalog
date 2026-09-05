@@ -173,6 +173,12 @@ export default async function RelatorioMotoboyPage({
                 {" · R$ "}
                 {formatarMoeda(t.valorTotal)}
               </div>
+              {t.fechamentoAutomatico && t.resolvidoDivergenciaEm === null && (
+                <p className="text-xs text-amber-700 mt-1">
+                  Você esqueceu de encerrar esse turno — a cooperativa ainda vai confirmar quantas
+                  entregas você fez pra esse valor ficar certo.
+                </p>
+              )}
               {t.apoios.map((a, i) => (
                 <div key={i} className="text-xs text-stone-400 mt-0.5">
                   ↳ apoio em {a.cliente.nome}: {a.quantidadeBandas} bandas
