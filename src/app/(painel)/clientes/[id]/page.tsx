@@ -111,6 +111,7 @@ export default async function ClienteDetalhePage({
             bandasIncluidas: t.bandasIncluidas,
             valorExcedenteMotoboy: paraNumero(t.valorExcedenteMotoboy),
             valorExcedenteCliente: paraNumero(t.valorExcedenteCliente),
+            carenciaCliente: t.carenciaCliente,
           })),
         }}
       />

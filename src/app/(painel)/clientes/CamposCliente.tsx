@@ -29,6 +29,7 @@ type TurnoFixo = {
   bandasIncluidas: number;
   valorExcedenteMotoboy: number;
   valorExcedenteCliente: number;
+  carenciaCliente: boolean;
 };
 
 export type ValoresCliente = {
@@ -216,11 +217,13 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
           </span>
           <p className="text-xs text-stone-500">
             Regra fixa, mas os valores podem mudar por perfil. O motoboy recebe um valor garantido
-            que já cobre N entregas, e só ganha por fora depois de passar disso. O cliente é
-            diferente: paga o valor fixo da moto parada mais o valor por entrega sobre TODAS as
-            entregas do turno, desde a primeira — não só as que passaram de N. Cada perfil vale só
-            nos dias da semana marcados — se domingo à noite paga diferente do resto da semana,
-            crie um perfil só pra domingo.
+            que já cobre N entregas, e só ganha por fora depois de passar disso. O cliente, por
+            padrão, é diferente: paga o valor fixo da moto parada mais o valor por entrega sobre
+            TODAS as entregas do turno, desde a primeira — não só as que passaram de N. Se esse
+            cliente específico negociou carência igual à do motoboy, marque a caixinha do perfil
+            pra também só cobrar dele a partir da entrega N+1. Cada perfil vale só nos dias da
+            semana marcados — se domingo à noite paga diferente do resto da semana, crie um perfil
+            só pra domingo.
           </p>
         </div>
 
@@ -259,6 +262,7 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
                 bandasIncluidas: 0,
                 valorExcedenteMotoboy: 0,
                 valorExcedenteCliente: 0,
+                carenciaCliente: false,
               },
             ])
           }
@@ -382,7 +386,7 @@ function BlocoTurnoFixo({
         </div>
         <label className="flex flex-col gap-1">
           <span className="text-xs text-stone-500">
-            Entregas incluídas no valor garantido do motoboy
+            Entregas incluídas no valor garantido (motoboy{perfil.carenciaCliente ? " e cliente" : ""})
           </span>
           <input
             type="number"
@@ -393,7 +397,18 @@ function BlocoTurnoFixo({
             className={inputClasse}
           />
         </label>
-        <div />
+        <label className="flex items-center gap-2 self-end pb-2">
+          <input
+            type="checkbox"
+            name={`turnoFixoCarenciaCliente_${indice}`}
+            checked={perfil.carenciaCliente}
+            onChange={(e) => onChange({ ...perfil, carenciaCliente: e.target.checked })}
+            className="h-3.5 w-3.5 rounded border-stone-300 text-brand-600 focus:ring-brand-500"
+          />
+          <span className="text-xs text-stone-500">
+            Cliente também tem carência (só cobra depois de passar as incluídas)
+          </span>
+        </label>
         <div>
           <CampoMoedaControlado
             label="Excedente — motoboy recebe por entrega"
@@ -408,7 +423,11 @@ function BlocoTurnoFixo({
         </div>
         <div>
           <CampoMoedaControlado
-            label="Cooperativa cobra por entrega (todas, sem carência)"
+            label={
+              perfil.carenciaCliente
+                ? "Excedente — cooperativa cobra por entrega (só acima das incluídas)"
+                : "Cooperativa cobra por entrega (todas, sem carência)"
+            }
             valor={perfil.valorExcedenteCliente}
             onChange={(v) => onChange({ ...perfil, valorExcedenteCliente: v })}
           />
