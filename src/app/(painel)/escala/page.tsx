@@ -136,7 +136,7 @@ export default async function EscalaPage({
       where: { clienteId, data: new Date(data), turno },
       include: {
         motoboy: { select: { id: true, nomeCompleto: true, tipoEquipamento: true } },
-        turnoVinculado: { select: { horaInicio: true } },
+        turnoVinculado: { select: { horaInicio: true, status: true } },
       },
       orderBy: { criadoEm: "asc" },
     }),
@@ -261,7 +261,9 @@ export default async function EscalaPage({
                 nome={e.motoboy.nomeCompleto}
                 tipoEquipamento={e.motoboy.tipoEquipamento}
                 chegou={e.turnoVinculado !== null}
+                ativoAgora={e.turnoVinculado?.status === "ABERTO"}
                 horaChegada={e.turnoVinculado ? formatarHora(e.turnoVinculado.horaInicio) : null}
+                statusConfirmacao={e.statusConfirmacao}
                 podeVerPerfil={!escopoGestor}
               />
             ))}

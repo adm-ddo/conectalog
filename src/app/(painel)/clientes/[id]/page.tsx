@@ -1,9 +1,10 @@
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { paraNumero } from "@/lib/valores";
-import { turnoAtivoAgora, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
-import { formatarHora, formatarData } from "@/lib/data";
+import { motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
+import { formatarHora, formatarData, dataISOBrasil } from "@/lib/data";
 import { resumoDiaCliente } from "@/lib/resumoDia";
 import EditarClienteForm from "./EditarClienteForm";
 import LinkPortalSection from "./LinkPortalSection";
@@ -11,6 +12,7 @@ import AvaliacoesRecebidasSection from "./AvaliacoesRecebidasSection";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
 import BotaoVoltar from "@/components/BotaoVoltar";
+import type { TurnoEscala } from "@/generated/prisma/enums";
 
 export default async function ClienteDetalhePage({
   params,
@@ -19,8 +21,9 @@ export default async function ClienteDetalhePage({
 }) {
   const sessao = await requireTenantCompleto();
   const clienteId = Number((await params).id);
+  const hojeISO = dataISOBrasil();
 
-  const [cliente, mediaAvaliacoes, avaliacoesRecebidas, resumoDia] = await Promise.all([
+  const [cliente, mediaAvaliacoes, avaliacoesRecebidas, resumoDia, escalasHoje] = await Promise.all([
     prisma.cliente.findFirst({
       where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
       include: {
@@ -34,6 +37,7 @@ export default async function ClienteDetalhePage({
           select: {
             id: true,
             horaInicio: true,
+            turnoPredefinido: true,
             motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
           },
         },
@@ -53,12 +57,32 @@ export default async function ClienteDetalhePage({
       include: { motoboy: { select: { nomeCompleto: true } } },
     }),
     resumoDiaCliente(clienteId),
+    prisma.escalaTurno.findMany({
+      where: { clienteId, data: new Date(hojeISO) },
+      select: { turno: true, statusConfirmacao: true },
+    }),
   ]);
   if (!cliente) notFound();
 
-  const turnoAtual = turnoAtivoAgora(cliente);
-  const contratadas = motosContratadasNoTurno(cliente, turnoAtual);
-  const equipeIncompleta = turnoAtual !== null && contratadas > 0 && cliente.turnos.length < contratadas;
+  // Um bloco por turno que o cliente de fato usa (não só o que tá rolando
+  // agora) — pra cooperativa saber desde cedo, de manhã, se a noite já
+  // tem gente escalada o bastante, sem precisar esperar o turno começar.
+  const turnosDoDia: { turno: TurnoEscala; label: string }[] = [
+    ...(cliente.turnoManhaAtivo ? [{ turno: "MANHA" as const, label: LABEL_TURNO.MANHA }] : []),
+    ...(cliente.turnoTardeAtivo ? [{ turno: "TARDE" as const, label: LABEL_TURNO.TARDE }] : []),
+    ...(cliente.turnoNoiteAtivo ? [{ turno: "NOITE" as const, label: LABEL_TURNO.NOITE }] : []),
+  ];
+  const resumoTurnosHoje = turnosDoDia.map(({ turno, label }) => {
+    const escalasDoTurno = escalasHoje.filter((e) => e.turno === turno);
+    return {
+      turno,
+      label,
+      contratadas: motosContratadasNoTurno(cliente, turno),
+      escaladas: escalasDoTurno.length,
+      confirmadas: escalasDoTurno.filter((e) => e.statusConfirmacao === "CONFIRMADO").length,
+      presentes: cliente.turnos.filter((t) => t.turnoPredefinido === turno).length,
+    };
+  });
 
   return (
     <div className="flex flex-col gap-6">
@@ -68,10 +92,49 @@ export default async function ClienteDetalhePage({
         <p className="text-stone-600 mt-1 text-sm">{cliente.endereco || "Sem endereço"}</p>
       </div>
 
-      {equipeIncompleta && (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          Faltam motos no turno de {turnoAtual && LABEL_TURNO[turnoAtual]}: {cliente.turnos.length}{" "}
-          de {contratadas} contratadas presentes agora.
+      {resumoTurnosHoje.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-navy-900 mb-3">Hoje</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            {resumoTurnosHoje.map((r) => {
+              const faltaEscalar = r.contratadas > 0 && r.escaladas < r.contratadas;
+              const faltaGente = r.contratadas > 0 && r.presentes < r.contratadas;
+              const incompleto = faltaEscalar || faltaGente;
+              return (
+                <Link
+                  key={r.turno}
+                  href={`/escala?clienteId=${clienteId}&data=${hojeISO}&turno=${r.turno}`}
+                  className={`rounded-2xl border p-4 hover:border-brand-300 hover:shadow-sm transition ${
+                    incompleto ? "border-red-300 bg-red-50" : "border-stone-200 bg-white"
+                  }`}
+                >
+                  <p className="font-semibold text-navy-900 capitalize">{r.label}</p>
+                  <div className="grid grid-cols-4 gap-1 mt-3 text-center">
+                    <div>
+                      <p className="text-lg font-bold text-navy-900">{r.contratadas}</p>
+                      <p className="text-[10px] text-stone-500 leading-tight">contratadas</p>
+                    </div>
+                    <div>
+                      <p className={`text-lg font-bold ${faltaEscalar ? "text-red-600" : "text-navy-900"}`}>
+                        {r.escaladas}
+                      </p>
+                      <p className="text-[10px] text-stone-500 leading-tight">escaladas</p>
+                    </div>
+                    <div>
+                      <p className="text-lg font-bold text-navy-900">{r.confirmadas}</p>
+                      <p className="text-[10px] text-stone-500 leading-tight">confirmaram</p>
+                    </div>
+                    <div>
+                      <p className={`text-lg font-bold ${faltaGente ? "text-red-600" : "text-navy-900"}`}>
+                        {r.presentes}
+                      </p>
+                      <p className="text-[10px] text-stone-500 leading-tight">presentes</p>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
         </div>
       )}
 

@@ -4,7 +4,13 @@ import { useTransition } from "react";
 import Link from "next/link";
 import { removerEscala } from "./actions";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
-import type { TipoEquipamento } from "@/generated/prisma/enums";
+import type { TipoEquipamento, StatusConfirmacaoEscala } from "@/generated/prisma/enums";
+
+const LABEL_CONFIRMACAO: Record<StatusConfirmacaoEscala, { texto: string; classe: string }> = {
+  CONFIRMADO: { texto: "✓ Confirmou", classe: "text-brand-700" },
+  RECUSADO: { texto: "Não vai poder", classe: "text-red-600" },
+  PENDENTE: { texto: "Aguardando resposta", classe: "text-stone-400" },
+};
 
 export default function EscalaRow({
   escalaId,
@@ -12,7 +18,9 @@ export default function EscalaRow({
   nome,
   tipoEquipamento,
   chegou,
+  ativoAgora,
   horaChegada,
+  statusConfirmacao,
   podeVerPerfil,
 }: {
   escalaId: number;
@@ -20,16 +28,19 @@ export default function EscalaRow({
   nome: string;
   tipoEquipamento: TipoEquipamento | null;
   chegou: boolean;
+  ativoAgora: boolean;
   horaChegada: string | null;
+  statusConfirmacao: StatusConfirmacaoEscala;
   podeVerPerfil: boolean;
 }) {
   const [pending, startTransition] = useTransition();
+  const confirmacao = LABEL_CONFIRMACAO[statusConfirmacao];
 
   return (
-    <li className="flex items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
+    <li className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 sm:gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
       <div className="flex items-center gap-2 min-w-0">
         <span
-          className={`h-2.5 w-2.5 rounded-full shrink-0 ${chegou ? "bg-brand-500" : "bg-stone-300"}`}
+          className={`h-2.5 w-2.5 rounded-full shrink-0 ${ativoAgora ? "bg-brand-500" : "bg-stone-300"}`}
         />
         {podeVerPerfil ? (
           <Link
@@ -43,9 +54,10 @@ export default function EscalaRow({
         )}
         <EquipamentoBadge tipo={tipoEquipamento} />
       </div>
-      <div className="flex items-center gap-3 shrink-0">
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 shrink-0">
+        <span className={`text-xs font-medium ${confirmacao.classe}`}>{confirmacao.texto}</span>
         <span className="text-xs text-stone-500">
-          {chegou ? `Chegou às ${horaChegada}` : "Aguardando"}
+          {ativoAgora ? "Ativo agora" : chegou ? `Chegou às ${horaChegada}` : "Ainda não chegou"}
         </span>
         <button
           type="button"

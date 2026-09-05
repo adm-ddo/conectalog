@@ -20,7 +20,8 @@ export default async function DashboardPage() {
     ? { id: { in: idsResponsaveis } }
     : {};
 
-  const hoje = new Date(dataISOBrasil());
+  const hojeISO = dataISOBrasil();
+  const hoje = new Date(hojeISO);
 
   const [turnosAbertos, escalasHoje, totalMotoboysAtivos, clientesAtivos, solicitacoesApoio, turnosDivergentes] =
     await Promise.all([
@@ -186,7 +187,9 @@ export default async function DashboardPage() {
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
             {resumoClientes.map((c) => {
-              const equipeIncompleta = c.turnoAtual !== null && c.contratadas > 0 && c.presentes < c.contratadas;
+              const faltaEscalar = c.contratadas > 0 && c.escaladas < c.contratadas;
+              const faltaGente = c.contratadas > 0 && c.presentes < c.contratadas;
+              const equipeIncompleta = faltaEscalar || faltaGente;
               const conteudo = (
                 <>
                   <div className="flex items-center justify-between gap-2">
@@ -201,7 +204,9 @@ export default async function DashboardPage() {
                       <p className="text-[10px] text-stone-500 leading-tight">contratadas</p>
                     </div>
                     <div>
-                      <p className="text-lg font-bold text-navy-900">{c.escaladas}</p>
+                      <p className={`text-lg font-bold ${faltaEscalar ? "text-red-600" : "text-navy-900"}`}>
+                        {c.escaladas}
+                      </p>
                       <p className="text-[10px] text-stone-500 leading-tight">escaladas</p>
                     </div>
                     <div>
@@ -209,9 +214,7 @@ export default async function DashboardPage() {
                       <p className="text-[10px] text-stone-500 leading-tight">confirmaram</p>
                     </div>
                     <div>
-                      <p
-                        className={`text-lg font-bold ${equipeIncompleta ? "text-red-600" : "text-navy-900"}`}
-                      >
+                      <p className={`text-lg font-bold ${faltaGente ? "text-red-600" : "text-navy-900"}`}>
                         {c.presentes}
                       </p>
                       <p className="text-[10px] text-stone-500 leading-tight">presentes</p>
@@ -220,16 +223,17 @@ export default async function DashboardPage() {
                 </>
               );
               const classe = `rounded-2xl border p-4 ${
-                equipeIncompleta ? "border-red-200 bg-red-50" : "border-stone-200 bg-white"
+                equipeIncompleta ? "border-red-300 bg-red-50" : "border-stone-200 bg-white"
               }`;
-              return escopoGestor ? (
-                <div key={c.id} className={classe}>
-                  {conteudo}
-                </div>
-              ) : (
+              const href = `/escala?clienteId=${c.id}&data=${hojeISO}${c.turnoAtual ? `&turno=${c.turnoAtual}` : ""}`;
+              // /escala (dia) é uma das exceções que Gestor de campo pode
+              // acessar (ver comentário em requireTenantCompleto), então
+              // esse card é clicável pros dois papéis — diferente do que
+              // acontecia quando o destino era /clientes/[id].
+              return (
                 <Link
                   key={c.id}
-                  href={`/clientes/${c.id}`}
+                  href={href}
                   className={`${classe} hover:border-brand-300 hover:shadow-sm transition`}
                 >
                   {conteudo}
