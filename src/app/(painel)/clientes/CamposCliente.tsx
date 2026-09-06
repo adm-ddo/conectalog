@@ -319,7 +319,7 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
-            Valor fixo por turno que o motoboy recebe
+            Valor fixo por turno que a cooperativa cobra e o motoboy recebe
           </span>
           <p className="text-xs text-stone-500">
             Regra fixa, mas os valores podem mudar por perfil. O motoboy recebe um valor garantido
