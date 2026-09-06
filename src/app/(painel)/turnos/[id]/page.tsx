@@ -7,7 +7,8 @@ import { formatarMoeda } from "@/lib/valores";
 import { LABEL_TURNO } from "@/lib/equipe";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import BotaoVoltar from "@/components/BotaoVoltar";
-import CorrigirFechamentoAutomaticoForm from "./CorrigirFechamentoAutomaticoForm";
+import CorrigirContagemForm from "./CorrigirContagemForm";
+import { PRAZO_CONFIRMACAO_MIN } from "@/lib/confirmacaoBandas";
 
 const LABEL_STATUS: Record<string, string> = {
   ABERTO: "Aberto",
@@ -48,6 +49,16 @@ export default async function TurnoDetalhePage({
 
   const turnoLabel = LABEL_TURNO[turno.turnoPredefinido as keyof typeof LABEL_TURNO] ?? "livre";
 
+  // Só faz sentido corrigir enquanto os dois lados não baterem — se
+  // batem (ou se o cliente nunca confirmou nada), fica valendo a
+  // contagem do motoboy sem precisar de intervenção nenhuma; se
+  // divergem, a cooperativa sempre pode reconciliar aqui, mesmo que já
+  // tenha corrigido antes (não é uma ação de uso único).
+  const bandasBatem = turno.quantidadeBandasCliente !== null && turno.quantidadeBandasCliente === turno.quantidadeBandas;
+  const podeCorrigirContagem = turno.status !== "ABERTO" && !bandasBatem;
+  const prazoClienteEncerrado =
+    turno.horaFim !== null && new Date() > new Date(turno.horaFim.getTime() + PRAZO_CONFIRMACAO_MIN * 60_000);
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -61,10 +72,18 @@ export default async function TurnoDetalhePage({
         </p>
       </div>
 
-      {turno.fechamentoAutomatico && turno.resolvidoDivergenciaEm === null && (
-        <CorrigirFechamentoAutomaticoForm
+      {podeCorrigirContagem && (
+        <CorrigirContagemForm
           turnoId={turno.id}
-          taxas={turno.taxaExtraItens.map((item) => ({ itemId: item.id, descricao: item.descricao }))}
+          bandasMotoboy={turno.quantidadeBandas}
+          bandasCliente={turno.quantidadeBandasCliente}
+          prazoClienteEncerrado={prazoClienteEncerrado}
+          taxas={turno.taxaExtraItens.map((item) => ({
+            itemId: item.id,
+            descricao: item.descricao,
+            motoboy: item.quantidade,
+            cliente: item.quantidadeCliente,
+          }))}
         />
       )}
 
@@ -78,9 +97,10 @@ export default async function TurnoDetalhePage({
         </p>
         <p>
           <span className="text-stone-500">Bandas (motoboy):</span> {turno.quantidadeBandas}
-          {turno.quantidadeBandasCliente !== null &&
-            turno.quantidadeBandasCliente !== turno.quantidadeBandas &&
-            ` — cliente informou ${turno.quantidadeBandasCliente}`}
+        </p>
+        <p>
+          <span className="text-stone-500">Bandas (cliente):</span>{" "}
+          {turno.quantidadeBandasCliente ?? "ainda não confirmou"}
         </p>
         <p>
           <span className="text-stone-500">Motoboy recebe:</span>{" "}

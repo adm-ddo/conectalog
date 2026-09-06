@@ -3,10 +3,11 @@ import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, instanteBrasil, diaSemanaBrasil } from "@/lib/data";
 import { calcularValores, encontrarPerfilFixo, aplicarRemuneracaoGestor } from "@/lib/precificacao";
 import { paraNumero, valorEfetivo } from "@/lib/valores";
+import { PRAZO_CONFIRMACAO_MIN } from "@/lib/confirmacaoBandas";
 import type { Cliente } from "@/generated/prisma/client";
 import type { TurnoPredefinido } from "@/generated/prisma/enums";
 
-const CARENCIA_MIN = 60;
+const CARENCIA_MIN = PRAZO_CONFIRMACAO_MIN;
 
 function paraMinutos(hhmm: string | null): number | null {
   if (!hhmm) return null;
@@ -38,7 +39,7 @@ function minutosFimConfigurado(
  * cron (ver vercel.json e src/app/api/cron/fechar-turnos/route.ts) duas
  * vezes por dia, mesmo espírito do fecharTurnosAtrasados do extras-app.
  *
- * Dá 1h de carência depois do horário configurado de fim do turno (pedido
+ * Dá 2h de carência depois do horário configurado de fim do turno (pedido
  * do Thiago: motoboy ainda tem chance de encerrar direito antes do
  * sistema mexer) — só depois disso fecha sozinho, sempre com horaFim no
  * horário em que o turno deveria ter acabado (não "agora"/não o fim da

@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { resolverClientePortal } from "@/lib/portal";
+import { PRAZO_CONFIRMACAO_MIN } from "@/lib/confirmacaoBandas";
 import type { Prisma } from "@/generated/prisma/client";
 
 export type EncerrarPortalState = { erro?: string } | undefined;
@@ -23,11 +24,18 @@ export type DadosEncerrarPortal = {
  * que ELE viu acontecer + avaliação do motoboy. Guardado separado do
  * que o motoboy informou (Turno.quantidadeBandas / TurnoTaxaExtraItem.
  * quantidade); se os números não baterem, o turno aparece na tela de
- * divergências do painel da cooperativa pra alguém resolver manualmente —
- * decisão confirmada com o Thiago: nenhum dos dois lados vale mais
- * automaticamente. Os itens de taxa extra já existem desde o início do
- * turno (ver turno/iniciar/actions.ts), então o cliente pode fechar aqui
- * antes ou depois do motoboy encerrar o turno dele. */
+ * divergências do painel da cooperativa pra alguém resolver manualmente.
+ * Cliente tem só PRAZO_CONFIRMACAO_CLIENTE_MIN depois do fim do turno pra
+ * confirmar (ou corrigir uma confirmação já feita) — passado isso, vale
+ * a contagem do motoboy até a cooperativa corrigir manualmente (decisão
+ * revista com o Thiago: antes nenhum dos dois lados valia mais
+ * automaticamente e não tinha prazo nenhum, o que deixava divergência
+ * antiga reaparecendo do nada). Os itens de taxa extra já existem desde o
+ * início do turno (ver turno/iniciar/actions.ts), então o cliente pode
+ * fechar aqui antes ou depois do motoboy encerrar o turno dele — o prazo
+ * só existe a partir do momento em que o turno de fato acaba
+ * (turno.horaFim), então fechar cedo (turno ainda ABERTO) nunca esbarra
+ * nele. */
 export async function encerrarPeloCliente(
   dados: DadosEncerrarPortal
 ): Promise<EncerrarPortalState> {
@@ -39,6 +47,15 @@ export async function encerrarPeloCliente(
     include: { taxaExtraItens: { select: { id: true } } },
   });
   if (!turno) return { erro: "Turno não encontrado." };
+
+  if (turno.horaFim) {
+    const prazo = new Date(turno.horaFim.getTime() + PRAZO_CONFIRMACAO_MIN * 60_000);
+    if (new Date() > prazo) {
+      return {
+        erro: "O prazo de 2 horas após o fim do turno pra confirmar já passou. Fale com a cooperativa se precisar corrigir.",
+      };
+    }
+  }
 
   if (dados.quantidadeBandas < 0) {
     return { erro: "Quantidade inválida." };

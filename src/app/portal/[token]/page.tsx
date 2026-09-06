@@ -147,12 +147,20 @@ export default async function PortalEscalaPage({
             })}
           </span>
         </h1>
-        <Link
-          href={`/portal/${token}/apoio`}
-          className="rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold px-3 py-1.5 transition-colors shrink-0"
-        >
-          🆘 Pedir apoio
-        </Link>
+        <div className="flex items-center gap-2 shrink-0">
+          <Link
+            href={`/portal/${token}/historico`}
+            className="rounded-lg border border-stone-300 text-stone-600 hover:border-brand-300 text-xs font-semibold px-3 py-1.5 transition-colors"
+          >
+            Outros dias
+          </Link>
+          <Link
+            href={`/portal/${token}/apoio`}
+            className="rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold px-3 py-1.5 transition-colors"
+          >
+            🆘 Pedir apoio
+          </Link>
+        </div>
       </div>
 
       <ResumoDiaClienteCard

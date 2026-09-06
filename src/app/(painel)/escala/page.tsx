@@ -7,7 +7,7 @@ import { expirarEscalasVencidas } from "@/lib/escala";
 import EscalaRow from "./EscalaRow";
 import CandidatoRow from "./CandidatoRow";
 import ManterEscalaAnteriorBanner from "./ManterEscalaAnteriorBanner";
-import AutoSubmitForm from "./AutoSubmitForm";
+import AutoSubmitForm from "@/components/AutoSubmitForm";
 import AutoRefresh from "@/components/AutoRefresh";
 import type { TurnoEscala } from "@/generated/prisma/enums";
 
