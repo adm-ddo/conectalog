@@ -6,6 +6,7 @@ import { dataISOBrasil, diaSemanaBrasil, inicioDoDiaBrasil, formatarHora } from 
 import { resumoDiaCliente } from "@/lib/resumoDia";
 import { baixarComoDataUrl } from "@/lib/blob";
 import { turnoAtivoAgora, type TurnoAtual } from "@/lib/equipe";
+import { formatarTelefone } from "@/lib/telefone";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
 import WhatsAppLink from "@/components/WhatsAppLink";
@@ -298,7 +299,7 @@ function SecaoTurno({
                 </span>
               )}
               <span className="text-sm text-stone-500 whitespace-nowrap flex items-center gap-1.5">
-                {i.motoboy.telefoneCelular}
+                {formatarTelefone(i.motoboy.telefoneCelular)}
                 <WhatsAppLink telefone={i.motoboy.telefoneCelular} />
               </span>
               {i.turnoVinculado && (

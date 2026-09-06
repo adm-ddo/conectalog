@@ -3,6 +3,7 @@
 import { useTransition } from "react";
 import { aprovarSolicitacaoMotoboy, rejeitarSolicitacaoMotoboy } from "./actions";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
+import { formatarTelefone } from "@/lib/telefone";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
 
 export default function SolicitacaoRow({
@@ -38,7 +39,7 @@ export default function SolicitacaoRow({
           <EquipamentoBadge tipo={motoboy.tipoEquipamento} />
         </span>
         <span className="text-xs text-stone-500 truncate">
-          {motoboy.email} · {motoboy.telefoneCelular} · pediu em {motoboy.data}
+          {motoboy.email} · {formatarTelefone(motoboy.telefoneCelular)} · pediu em {motoboy.data}
         </span>
       </div>
       <div className="flex items-center gap-2 shrink-0">

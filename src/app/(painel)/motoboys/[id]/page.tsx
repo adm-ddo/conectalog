@@ -3,6 +3,7 @@ import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
 import { formatarData, formatarDataHora } from "@/lib/data";
+import { formatarTelefone } from "@/lib/telefone";
 import { paraNumero } from "@/lib/valores";
 import { baixarComoDataUrl } from "@/lib/blob";
 import LiberacaoClientes from "./LiberacaoClientes";
@@ -132,10 +133,10 @@ export default async function MotoboyDetalhePage({
           {formatarData(motoboy.dataNascimento)}
         </p>
         <p>
-          <span className="text-stone-500">Celular:</span> {motoboy.telefoneCelular}
+          <span className="text-stone-500">Celular:</span> {formatarTelefone(motoboy.telefoneCelular)}
         </p>
         <p>
-          <span className="text-stone-500">Emergência:</span> {motoboy.telefoneEmergencia}
+          <span className="text-stone-500">Emergência:</span> {formatarTelefone(motoboy.telefoneEmergencia)}
         </p>
         <p>
           <span className="text-stone-500">Chave PIX:</span> {motoboy.chavePix} (

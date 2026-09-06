@@ -2,6 +2,7 @@
 
 import { useActionState, useRef, useEffect, useState } from "react";
 import { criarMotoboyManual } from "./actions";
+import CampoTelefone from "@/components/CampoTelefone";
 
 export default function NovoMotoboyForm() {
   const [state, formAction, pending] = useActionState(criarMotoboyManual, undefined);
@@ -96,19 +97,11 @@ export default function NovoMotoboyForm() {
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-stone-500">Celular</label>
-          <input
-            name="telefoneCelular"
-            required
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
+          <CampoTelefone name="telefoneCelular" required />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-stone-500">Telefone de emergência</label>
-          <input
-            name="telefoneEmergencia"
-            required
-            className="border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-          />
+          <CampoTelefone name="telefoneEmergencia" required />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-stone-500">Tipo de chave PIX</label>

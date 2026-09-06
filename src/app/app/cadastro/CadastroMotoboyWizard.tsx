@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import CameraCapture from "@/components/CameraCapture";
+import { mascaraTelefone } from "@/lib/telefone";
 import { cadastrarMotoboy, solicitarVagaMotoboy, type DadosCadastroMotoboy } from "./actions";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
 
@@ -59,6 +60,17 @@ export default function CadastroMotoboyWizard({ origem }: { origem: Origem }) {
       value: dados[chave],
       onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
         setDados((d) => ({ ...d, [chave]: e.target.value })),
+    };
+  }
+
+  /** Mesma ideia de campo(), mas mascarando "(DDD) NNNNN-NNNN" a cada
+   * tecla — pedido do Thiago pra todo telefone de motoboy ficar no mesmo
+   * formato, desde o cadastro. */
+  function campoTelefone(chave: "telefoneCelular" | "telefoneEmergencia") {
+    return {
+      value: dados[chave],
+      onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
+        setDados((d) => ({ ...d, [chave]: mascaraTelefone(e.target.value) })),
     };
   }
 
@@ -233,10 +245,22 @@ export default function CadastroMotoboyWizard({ origem }: { origem: Origem }) {
             </Campo>
           </div>
           <Campo label="Celular">
-            <input {...campo("telefoneCelular")} className={inputClasse} />
+            <input
+              {...campoTelefone("telefoneCelular")}
+              type="tel"
+              inputMode="numeric"
+              placeholder="(11) 91234-5678"
+              className={inputClasse}
+            />
           </Campo>
           <Campo label="Telefone de emergência (contato de outra pessoa)">
-            <input {...campo("telefoneEmergencia")} className={inputClasse} />
+            <input
+              {...campoTelefone("telefoneEmergencia")}
+              type="tel"
+              inputMode="numeric"
+              placeholder="(11) 91234-5678"
+              className={inputClasse}
+            />
           </Campo>
         </div>
       )}

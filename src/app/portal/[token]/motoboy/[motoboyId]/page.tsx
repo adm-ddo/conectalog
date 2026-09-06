@@ -3,6 +3,7 @@ import { resolverClientePortal } from "@/lib/portal";
 import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, inicioDoDiaBrasil } from "@/lib/data";
 import { baixarComoDataUrl } from "@/lib/blob";
+import { formatarTelefone } from "@/lib/telefone";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import WhatsAppLink from "@/components/WhatsAppLink";
 import BotaoVoltar from "@/components/BotaoVoltar";
@@ -79,11 +80,11 @@ export default async function PortalMotoboyPage({
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-3 text-sm">
         <p className="flex items-center gap-1.5">
-          <span className="text-stone-500">Celular:</span> {motoboy.telefoneCelular}
+          <span className="text-stone-500">Celular:</span> {formatarTelefone(motoboy.telefoneCelular)}
           <WhatsAppLink telefone={motoboy.telefoneCelular} />
         </p>
         <p>
-          <span className="text-stone-500">Emergência:</span> {motoboy.telefoneEmergencia}
+          <span className="text-stone-500">Emergência:</span> {formatarTelefone(motoboy.telefoneEmergencia)}
         </p>
       </div>
     </div>
