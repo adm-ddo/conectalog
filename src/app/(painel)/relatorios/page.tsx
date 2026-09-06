@@ -118,15 +118,24 @@ export default async function RelatoriosPage({
 
           {relatorio && (
             <>
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
-                <div className="rounded-2xl border border-stone-200 bg-white p-5">
-                  <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
-                    {relatorio.clienteNome} deve pagar
+              <div className="rounded-2xl border border-navy-200 bg-navy-900 text-white p-5 flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <p className="text-xs text-navy-200 uppercase tracking-wide font-semibold">
+                    Total que {relatorio.clienteNome} vai pagar no período
                   </p>
-                  <p className="text-2xl font-bold text-navy-900 mt-1">
-                    R$ {formatarMoeda(relatorio.valorTotalCliente)}
+                  <p className="text-3xl font-bold mt-1">R$ {formatarMoeda(relatorio.valorTotalCliente)}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-navy-200 uppercase tracking-wide font-semibold">
+                    Lucro da cooperativa
+                  </p>
+                  <p className={`text-2xl font-bold mt-1 ${relatorio.lucroTotal < 0 ? "text-red-300" : "text-brand-300"}`}>
+                    R$ {formatarMoeda(relatorio.lucroTotal)}
                   </p>
                 </div>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                 <div className="rounded-2xl border border-stone-200 bg-white p-5">
                   <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
                     Bandas no período
@@ -179,7 +188,7 @@ export default async function RelatoriosPage({
                           {LABEL_STATUS[m.statusPagamento]}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
                         <div>
                           <p className="text-xs text-stone-500">Bandas</p>
                           <p className="font-medium text-navy-900">{m.bandas}</p>
@@ -191,6 +200,12 @@ export default async function RelatoriosPage({
                         <div>
                           <p className="text-xs text-stone-500">Cliente paga</p>
                           <p className="font-medium text-navy-900">R$ {formatarMoeda(m.valorCliente)}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-stone-500">Lucro que ele deixa</p>
+                          <p className={`font-semibold ${m.lucro < 0 ? "text-red-600" : "text-brand-700"}`}>
+                            R$ {formatarMoeda(m.lucro)}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs text-stone-500">Atendimentos</p>

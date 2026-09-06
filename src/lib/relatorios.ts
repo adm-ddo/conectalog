@@ -19,6 +19,12 @@ export type LinhaMotoboyRelatorio = {
   bandas: number;
   valorRecebe: number;
   valorCliente: number;
+  /// Margem que ESSE motoboy deixou pra cooperativa no período — o que o
+  /// cliente pagou pelo trabalho dele menos o que ele recebeu. KPI pedido
+  /// pelo Thiago pra saber quem mais dá lucro, não só quem mais entrega
+  /// (bandas e lucro nem sempre andam juntos: turno fixo/garantido pode
+  /// gerar bandas altas com margem baixa, e vice-versa).
+  lucro: number;
   itensTotal: number;
   itensPagos: number;
   statusPagamento: "PAGO" | "PARCIAL" | "PENDENTE" | "SEM_ATENDIMENTO";
@@ -32,6 +38,7 @@ export type RelatorioCliente = {
   dataInicio: string;
   dataFim: string;
   valorTotalCliente: number;
+  lucroTotal: number;
   totalBandas: number;
   turnosAbertosNaoIncluidos: number;
   totalEscalas: number;
@@ -164,6 +171,7 @@ export async function gerarRelatorioCliente(
     bandas: dados.bandas,
     valorRecebe: dados.valorRecebe,
     valorCliente: dados.valorCliente,
+    lucro: dados.valorCliente - dados.valorRecebe,
     itensTotal: dados.itensTotal,
     itensPagos: dados.itensPagos,
     statusPagamento:
@@ -208,6 +216,7 @@ export async function gerarRelatorioCliente(
     dataInicio,
     dataFim,
     valorTotalCliente: motoboys.reduce((soma, m) => soma + m.valorCliente, 0),
+    lucroTotal: motoboys.reduce((soma, m) => soma + m.lucro, 0),
     totalBandas: motoboys.reduce((soma, m) => soma + m.bandas, 0),
     turnosAbertosNaoIncluidos: turnosAbertos,
     totalEscalas: escalas.length,

@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
-import { formatarDataHora } from "@/lib/data";
+import { formatarDataHora, dataISOBrasil, inicioDoDiaBrasil, instanteBrasil } from "@/lib/data";
 import { formatarMoeda } from "@/lib/valores";
 import { LABEL_TURNO } from "@/lib/equipe";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
+import FiltroPeriodo from "./FiltroPeriodo";
+import type { Prisma } from "@/generated/prisma/client";
 
 const LIMITE = 100;
 
@@ -20,10 +22,42 @@ const COR_STATUS: Record<string, string> = {
   PAGO: "bg-brand-100 text-brand-800",
 };
 
+const TURNOS_PREDEFINIDOS = ["MANHA", "TARDE", "NOITE"] as const;
+
+/** Intervalo [início, fim exclusivo) em Brasília pro período escolhido —
+ * null quando "Todos" (sem filtro de data) ou quando "Escolher datas"
+ * ainda não tem as duas pontas preenchidas. */
+function intervaloDoPeriodo(
+  periodo: string | undefined,
+  inicioParam: string | undefined,
+  fimParam: string | undefined
+): { gte: Date; lt: Date } | null {
+  if (periodo === "HOJE") {
+    const inicio = inicioDoDiaBrasil();
+    return { gte: inicio, lt: new Date(inicio.getTime() + 24 * 60 * 60_000) };
+  }
+  if (periodo === "ONTEM") {
+    const inicioHoje = inicioDoDiaBrasil();
+    return { gte: new Date(inicioHoje.getTime() - 24 * 60 * 60_000), lt: inicioHoje };
+  }
+  if (periodo === "PERSONALIZADO" && inicioParam && fimParam) {
+    return { gte: instanteBrasil(inicioParam), lt: instanteBrasil(fimParam, 24 * 60) };
+  }
+  return null;
+}
+
 export default async function TurnosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ motoboyId?: string; clienteId?: string; status?: string }>;
+  searchParams: Promise<{
+    motoboyId?: string;
+    clienteId?: string;
+    status?: string;
+    periodo?: string;
+    inicio?: string;
+    fim?: string;
+    turnoPredefinido?: string;
+  }>;
 }) {
   const sessao = await requireTenantCompleto();
   const params = await searchParams;
@@ -31,6 +65,22 @@ export default async function TurnosPage({
   const motoboyId = Number(params.motoboyId) || undefined;
   const clienteId = Number(params.clienteId) || undefined;
   const status = params.status && params.status !== "TODOS" ? params.status : undefined;
+  const periodo = params.periodo ?? "TODOS";
+  const hojeISO = dataISOBrasil();
+  const turnoPredefinido =
+    params.turnoPredefinido && TURNOS_PREDEFINIDOS.includes(params.turnoPredefinido as (typeof TURNOS_PREDEFINIDOS)[number])
+      ? (params.turnoPredefinido as (typeof TURNOS_PREDEFINIDOS)[number])
+      : undefined;
+  const intervaloData = intervaloDoPeriodo(periodo, params.inicio, params.fim);
+
+  const whereTurnos: Prisma.TurnoWhereInput = {
+    motoboy: { empresaId: sessao.empresaEfetivoId },
+    ...(motoboyId ? { motoboyId } : {}),
+    ...(clienteId ? { clienteId } : {}),
+    ...(status ? { status: status as "ABERTO" | "CONCLUIDO" | "PAGO" } : {}),
+    ...(turnoPredefinido ? { turnoPredefinido } : {}),
+    ...(intervaloData ? { horaInicio: intervaloData } : {}),
+  };
 
   const [motoboys, clientes, turnos] = await Promise.all([
     prisma.motoboy.findMany({
@@ -44,12 +94,7 @@ export default async function TurnosPage({
       select: { id: true, nome: true },
     }),
     prisma.turno.findMany({
-      where: {
-        motoboy: { empresaId: sessao.empresaEfetivoId },
-        ...(motoboyId ? { motoboyId } : {}),
-        ...(clienteId ? { clienteId } : {}),
-        ...(status ? { status: status as "ABERTO" | "CONCLUIDO" | "PAGO" } : {}),
-      },
+      where: whereTurnos,
       orderBy: { horaInicio: "desc" },
       take: LIMITE,
       select: {
@@ -59,6 +104,7 @@ export default async function TurnosPage({
         turnoPredefinido: true,
         status: true,
         quantidadeBandas: true,
+        quantidadeBandasCliente: true,
         valorTotal: true,
         motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
         cliente: { select: { nome: true } },
@@ -119,6 +165,24 @@ export default async function TurnosPage({
             <option value="PAGO">Pago</option>
           </select>
         </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-stone-500">Turno</label>
+          <select
+            name="turnoPredefinido"
+            defaultValue={turnoPredefinido ?? "TODOS"}
+            className="border border-stone-300 rounded-lg px-3 py-2 text-sm min-w-[140px]"
+          >
+            <option value="TODOS">Todos</option>
+            <option value="MANHA">Manhã</option>
+            <option value="TARDE">Tarde</option>
+            <option value="NOITE">Noite</option>
+          </select>
+        </div>
+        <FiltroPeriodo
+          periodoInicial={periodo}
+          inicioInicial={params.inicio ?? hojeISO}
+          fimInicial={params.fim ?? hojeISO}
+        />
         <button
           type="submit"
           className="rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-5 py-2.5 transition-colors"
@@ -150,7 +214,20 @@ export default async function TurnosPage({
                     </span>
                   </div>
                   <div className="flex items-center gap-3 shrink-0">
-                    <span className="text-xs text-stone-500">{t.quantidadeBandas} bandas</span>
+                    <div className="text-right leading-tight">
+                      <p className="text-xs text-stone-500">
+                        Motoboy: <span className="font-semibold text-navy-900">{t.quantidadeBandas}</span>
+                      </p>
+                      <p
+                        className={`text-xs ${
+                          t.quantidadeBandasCliente !== null && t.quantidadeBandasCliente !== t.quantidadeBandas
+                            ? "text-red-600 font-semibold"
+                            : "text-stone-500"
+                        }`}
+                      >
+                        Cliente: {t.quantidadeBandasCliente ?? "—"}
+                      </p>
+                    </div>
                     <span className="text-sm font-semibold text-navy-900">
                       {t.valorTotal ? `R$ ${formatarMoeda(t.valorTotal)}` : "—"}
                     </span>
