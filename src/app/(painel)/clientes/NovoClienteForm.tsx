@@ -4,7 +4,11 @@ import { useActionState, useRef, useEffect, useState } from "react";
 import { criarCliente } from "./actions";
 import CamposCliente from "./CamposCliente";
 
-export default function NovoClienteForm() {
+export default function NovoClienteForm({
+  clientes = [],
+}: {
+  clientes?: { id: number; nome: string }[];
+}) {
   const [state, formAction, pending] = useActionState(criarCliente, undefined);
   const formRef = useRef<HTMLFormElement>(null);
   const enviandoRef = useRef(false);
@@ -47,7 +51,7 @@ export default function NovoClienteForm() {
         </button>
       </div>
 
-      <CamposCliente />
+      <CamposCliente clientesParaReplicar={clientes} />
 
       {state?.erro && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">

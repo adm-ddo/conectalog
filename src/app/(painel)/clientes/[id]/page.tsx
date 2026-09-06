@@ -23,7 +23,7 @@ export default async function ClienteDetalhePage({
   const clienteId = Number((await params).id);
   const hojeISO = dataISOBrasil();
 
-  const [cliente, mediaAvaliacoes, avaliacoesRecebidas, resumoDia, escalasHoje] = await Promise.all([
+  const [cliente, mediaAvaliacoes, avaliacoesRecebidas, resumoDia, escalasHoje, outrosClientes] = await Promise.all([
     prisma.cliente.findFirst({
       where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
       include: {
@@ -60,6 +60,11 @@ export default async function ClienteDetalhePage({
     prisma.escalaTurno.findMany({
       where: { clienteId, data: new Date(hojeISO) },
       select: { turno: true, statusConfirmacao: true },
+    }),
+    prisma.cliente.findMany({
+      where: { empresaId: sessao.empresaEfetivoId, id: { not: clienteId } },
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true },
     }),
   ]);
   if (!cliente) notFound();
@@ -142,6 +147,7 @@ export default async function ClienteDetalhePage({
 
       <EditarClienteForm
         clienteId={cliente.id}
+        outrosClientes={outrosClientes}
         valores={{
           nome: cliente.nome,
           endereco: cliente.endereco,

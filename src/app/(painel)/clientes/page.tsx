@@ -69,7 +69,7 @@ export default async function ClientesPage() {
         </ul>
       )}
 
-      <NovoClienteForm />
+      <NovoClienteForm clientes={clientes.map((c) => ({ id: c.id, nome: c.nome }))} />
     </div>
   );
 }

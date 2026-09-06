@@ -213,6 +213,43 @@ export async function atualizarCliente(
   revalidatePath(`/clientes/${clienteId}`);
 }
 
+/** Pra replicar as taxas extras e os perfis de valor fixo por turno de
+ * um cliente já cadastrado pro formulário de outro (novo ou em edição) —
+ * pedido do Thiago pra não ficar recadastrando tudo na mão toda vez que
+ * um cliente novo tem o mesmo acordo comercial de um que já existe.
+ * Só lê (não grava nada); quem chama decide se aplica ou não no form. */
+export async function buscarConfigParaReplicar(clienteOrigemId: number) {
+  const sessao = await requireTenantCompleto();
+  const cliente = await prisma.cliente.findFirst({
+    where: { id: clienteOrigemId, empresaId: sessao.empresaEfetivoId },
+    include: {
+      taxasExtras: { orderBy: { ordem: "asc" } },
+      turnosFixos: { orderBy: { criadoEm: "asc" } },
+    },
+  });
+  if (!cliente) return null;
+
+  return {
+    taxasExtras: cliente.taxasExtras.map((t) => ({
+      descricao: t.descricao,
+      valorMotoboy: Number(t.valorMotoboy),
+      valorCliente: Number(t.valorCliente),
+    })),
+    turnosFixos: cliente.turnosFixos.map((t) => ({
+      nome: t.nome,
+      turno: t.turno,
+      diasSemana: t.diasSemana,
+      valorGarantidoMotoboy: Number(t.valorGarantidoMotoboy),
+      valorGarantidoCliente: Number(t.valorGarantidoCliente),
+      bandasIncluidas: t.bandasIncluidas,
+      valorExcedenteMotoboy: Number(t.valorExcedenteMotoboy),
+      valorExcedenteCliente: Number(t.valorExcedenteCliente),
+      carenciaCliente: t.carenciaCliente,
+      bandasIncluidasCliente: t.bandasIncluidasCliente,
+    })),
+  };
+}
+
 export async function alternarAtivoCliente(clienteId: number, ativo: boolean) {
   const sessao = await requireTenantCompleto();
   await prisma.cliente.updateMany({

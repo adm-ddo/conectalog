@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import CampoMoeda from "@/components/CampoMoeda";
 import CampoMoedaControlado from "@/components/CampoMoedaControlado";
+import { buscarConfigParaReplicar } from "./actions";
 
 const inputClasse =
   "border border-stone-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 w-full";
@@ -67,7 +68,16 @@ export type ValoresCliente = {
   turnosFixos?: TurnoFixo[];
 };
 
-export default function CamposCliente({ valores = {} }: { valores?: ValoresCliente }) {
+export default function CamposCliente({
+  valores = {},
+  clientesParaReplicar = [],
+}: {
+  valores?: ValoresCliente;
+  /** Outros clientes já cadastrados, pra oferecer "replicar taxas extras
+   * e valor fixo por turno" em vez de recadastrar tudo na mão — não
+   * inclui o próprio cliente sendo editado (quem chama já filtra isso). */
+  clientesParaReplicar?: { id: number; nome: string }[];
+}) {
   const [financeiroMesmoOperacional, setFinanceiroMesmoOperacional] = useState(
     valores.financeiroMesmoOperacional ?? false
   );
@@ -76,6 +86,20 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
   const [turnoNoiteAtivo, setTurnoNoiteAtivo] = useState(valores.turnoNoiteAtivo ?? false);
   const [taxasExtras, setTaxasExtras] = useState(valores.taxasExtras ?? []);
   const [turnosFixos, setTurnosFixos] = useState(valores.turnosFixos ?? []);
+  const [clienteOrigemId, setClienteOrigemId] = useState("");
+  const [replicando, startReplicar] = useTransition();
+  const [replicado, setReplicado] = useState(false);
+
+  function replicar() {
+    if (!clienteOrigemId) return;
+    startReplicar(async () => {
+      const config = await buscarConfigParaReplicar(Number(clienteOrigemId));
+      if (!config) return;
+      setTaxasExtras(config.taxasExtras);
+      setTurnosFixos(config.turnosFixos);
+      setReplicado(true);
+    });
+  }
 
   return (
     <div className="flex flex-col gap-5">
@@ -233,6 +257,50 @@ export default function CamposCliente({ valores = {} }: { valores?: ValoresClien
           />
         </div>
       </div>
+
+      {clientesParaReplicar.length > 0 && (
+        <div className="rounded-xl border border-dashed border-stone-300 p-3 flex flex-col gap-2">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
+              Replicar de outro cliente
+            </span>
+            <p className="text-xs text-stone-500">
+              Copia as taxas extras e os perfis de valor fixo por turno de um cliente já cadastrado
+              pra cá — só preenche os campos abaixo, você ainda pode ajustar antes de salvar.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={clienteOrigemId}
+              onChange={(e) => {
+                setClienteOrigemId(e.target.value);
+                setReplicado(false);
+              }}
+              className={`${inputClasse} w-auto min-w-[200px]`}
+            >
+              <option value="">Escolha um cliente...</option>
+              {clientesParaReplicar.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.nome}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={!clienteOrigemId || replicando}
+              onClick={replicar}
+              className="rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-sm font-medium px-4 py-2 disabled:opacity-50 transition-colors"
+            >
+              {replicando ? "Copiando..." : "Replicar"}
+            </button>
+            {replicado && (
+              <span className="text-xs text-brand-700 font-medium">
+                Copiado — confira as listas abaixo antes de salvar.
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-col gap-3">
         <div className="flex flex-col gap-0.5">

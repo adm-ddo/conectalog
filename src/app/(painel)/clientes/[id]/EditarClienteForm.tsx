@@ -7,9 +7,11 @@ import CamposCliente, { type ValoresCliente } from "../CamposCliente";
 export default function EditarClienteForm({
   clienteId,
   valores,
+  outrosClientes = [],
 }: {
   clienteId: number;
   valores: ValoresCliente;
+  outrosClientes?: { id: number; nome: string }[];
 }) {
   const acaoComId = atualizarCliente.bind(null, clienteId);
   const [state, formAction, pending] = useActionState(acaoComId, undefined);
@@ -21,7 +23,7 @@ export default function EditarClienteForm({
     >
       <h2 className="text-sm font-semibold text-navy-900">Dados do cliente</h2>
 
-      <CamposCliente valores={valores} />
+      <CamposCliente valores={valores} clientesParaReplicar={outrosClientes} />
 
       {state?.erro && (
         <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
