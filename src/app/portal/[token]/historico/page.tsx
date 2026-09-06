@@ -5,23 +5,19 @@ import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, instanteBrasil, formatarHora } from "@/lib/data";
 import { LABEL_TURNO } from "@/lib/equipe";
 import { PRAZO_CONFIRMACAO_MIN } from "@/lib/confirmacaoBandas";
-import BotaoVoltar from "@/components/BotaoVoltar";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
-import AutoSubmitForm from "@/components/AutoSubmitForm";
+import SeletorData from "./SeletorData";
 
-/** Um dia antes, "YYYY-MM-DD" — pura leitura de calendário. */
-function diaAnterior(dataISO: string): string {
+/** Formata "YYYY-MM-DD" (calendário puro, sem instante/fuso) como
+ * "sexta-feira, 05 de setembro" — mesmo texto usado no cabeçalho da tela
+ * de hoje (/portal/[token]), pra manter a mesma linguagem visual. */
+function formatarDiaExtenso(dataISO: string): string {
   const [ano, mes, dia] = dataISO.split("-").map(Number);
-  const anterior = new Date(ano, mes - 1, dia - 1);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${anterior.getFullYear()}-${pad(anterior.getMonth() + 1)}-${pad(anterior.getDate())}`;
-}
-
-function diaSeguinte(dataISO: string): string {
-  const [ano, mes, dia] = dataISO.split("-").map(Number);
-  const proximo = new Date(ano, mes - 1, dia + 1);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${proximo.getFullYear()}-${pad(proximo.getMonth() + 1)}-${pad(proximo.getDate())}`;
+  return new Date(ano, mes - 1, dia).toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+  });
 }
 
 /** Transparência pedida pelo Thiago: o cliente pode conferir qualquer
@@ -59,42 +55,25 @@ export default async function HistoricoPortalPage({
   const agora = new Date();
 
   return (
-    <div className="flex flex-col gap-6 w-full max-w-md mx-auto">
+    <div className="flex flex-col gap-4 w-full max-w-md mx-auto">
       <div>
-        <BotaoVoltar />
-        <h1 className="text-lg font-semibold text-navy-900 mt-1">Histórico de turnos</h1>
+        {/* Link fixo pro início do portal, não router.back(): as setas de
+         * dia anterior/seguinte trocam a URL, então "voltar do navegador"
+         * fica preso ciclando entre datas em vez de sair da tela — um
+         * botão de história (router.back()) teria o mesmo problema. */}
+        <Link href={`/portal/${token}`} className="text-xs text-stone-500 hover:underline">
+          ← Voltar
+        </Link>
+        <h1 className="text-lg font-semibold text-navy-900 mt-1">
+          Histórico{" "}
+          <span className="font-normal text-stone-500">· {formatarDiaExtenso(data)}</span>
+        </h1>
         <p className="text-sm text-stone-500 mt-1">
-          Veja qualquer dia passado: o que o motoboy disse que entregou e o que você confirmou.
+          O que o motoboy disse que entregou e o que você confirmou.
         </p>
       </div>
 
-      <AutoSubmitForm method="get" className="flex items-center justify-between gap-2">
-        <Link
-          href={`/portal/${token}/historico?data=${diaAnterior(data)}`}
-          className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-600 hover:border-brand-300"
-        >
-          ← Dia anterior
-        </Link>
-        <input
-          type="date"
-          name="data"
-          defaultValue={data}
-          max={hojeISO}
-          className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
-        />
-        {data < hojeISO ? (
-          <Link
-            href={`/portal/${token}/historico?data=${diaSeguinte(data)}`}
-            className="rounded-lg border border-stone-300 px-3 py-2 text-sm text-stone-600 hover:border-brand-300"
-          >
-            Dia seguinte →
-          </Link>
-        ) : (
-          <span className="rounded-lg border border-transparent px-3 py-2 text-sm text-transparent select-none">
-            Dia seguinte →
-          </span>
-        )}
-      </AutoSubmitForm>
+      <SeletorData token={token} data={data} hojeISO={hojeISO} />
 
       {turnos.length === 0 ? (
         <p className="text-sm text-stone-500">Nenhum motoboy trabalhou aqui nesse dia.</p>
