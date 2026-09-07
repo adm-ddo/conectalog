@@ -312,6 +312,15 @@ export default function CamposCliente({
             quantas faixas precisar e explique do que se trata cada uma — a Taxa 1 pode ser
             &quot;6,1 a 9km&quot;, a Taxa 2 &quot;9,1 a 12km&quot;, e assim por diante.
           </p>
+          <p className="text-xs text-stone-500">
+            Se o cliente também tiver &quot;valor fixo por turno&quot; (abaixo) e o motoboy não
+            completar as entregas incluídas no garantido, o que ele ganhou de taxa extra primeiro
+            cobre esse buraco (ao valor da tarifa de excedente por entrega) — só o que sobrar vira
+            ganho de verdade. Ex.: garantido até 10 entregas com excedente de R$ 8, motoboy faz 9
+            (faltou 1 = R$ 8 de buraco) sendo 5 na Taxa 1 de R$ 3 (R$ 15) → recebe o garantido
+            cheio + R$ 7 (15 − 8). Batendo ou passando das entregas incluídas, a taxa extra soma
+            inteira, sem desconto nenhum. A cobrança do cliente nunca muda por causa disso.
+          </p>
         </div>
 
         <input type="hidden" name="taxaExtraCount" value={taxasExtras.length} />
