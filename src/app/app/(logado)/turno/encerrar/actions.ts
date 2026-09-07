@@ -57,7 +57,7 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
       select: { ehGestor: true, modoRemuneracaoGestor: true, valorBandaGestorEspecial: true },
     }),
   ]);
-  const { valorMotoboy, valorCliente } = calcularValores(
+  const { valorMotoboyBandas, valorMotoboyTaxasExtras, valorCliente } = calcularValores(
     turno.cliente,
     empresa,
     turno.horaInicio,
@@ -70,14 +70,11 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
     }))
   );
   // A cobrança do cliente nunca muda; só o quanto o Gestor recebe pelas
-  // PRÓPRIAS bandas pode seguir uma regra diferente da tarifa normal.
-  const totalTaxasMotoboy = itensComQuantidade.reduce(
-    (soma, item) => soma + item.quantidade * paraNumero(item.valorMotoboyAplicado),
-    0
-  );
+  // PRÓPRIAS bandas pode seguir uma regra diferente da tarifa normal —
+  // taxa extra (já líquida do desconto de déficit, ver calcularValores)
+  // nunca entra nessa substituição.
   const valorMotoboyFinal =
-    aplicarRemuneracaoGestor(valorMotoboy - totalTaxasMotoboy, dados.quantidadeBandas, motoboy) +
-    totalTaxasMotoboy;
+    aplicarRemuneracaoGestor(valorMotoboyBandas, dados.quantidadeBandas, motoboy) + valorMotoboyTaxasExtras;
   // Snapshot informativo do valor por banda em vigor — no valor fixo por
   // turno, é a tarifa de excedente do perfil que bateu (a única que de
   // fato varia com a quantidade).

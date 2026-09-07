@@ -94,7 +94,7 @@ export async function fecharTurnosEsquecidos(agora: Date = new Date()): Promise<
       const empresa = empresaCache.get(turno.cliente.empresaId)!;
       const quantidadeBandas = turno.quantidadeBandasCliente;
 
-      const { valorMotoboy, valorCliente } = calcularValores(
+      const { valorMotoboyBandas, valorMotoboyTaxasExtras, valorCliente } = calcularValores(
         turno.cliente,
         empresa,
         turno.horaInicio,
@@ -106,13 +106,8 @@ export async function fecharTurnosEsquecidos(agora: Date = new Date()): Promise<
           quantidade: item.quantidadeCliente ?? 0,
         }))
       );
-      const totalTaxasMotoboy = turno.taxaExtraItens.reduce(
-        (soma, item) => soma + (item.quantidadeCliente ?? 0) * paraNumero(item.valorMotoboyAplicado),
-        0
-      );
       const valorMotoboyFinal =
-        aplicarRemuneracaoGestor(valorMotoboy - totalTaxasMotoboy, quantidadeBandas, turno.motoboy) +
-        totalTaxasMotoboy;
+        aplicarRemuneracaoGestor(valorMotoboyBandas, quantidadeBandas, turno.motoboy) + valorMotoboyTaxasExtras;
       // turnoPredefinido nunca é LIVRE aqui (query já filtrou), mas o tipo
       // de encontrarPerfilFixo não aceita LIVRE — a checagem serve só pra
       // isso, TypeScript não sabe do filtro da query.

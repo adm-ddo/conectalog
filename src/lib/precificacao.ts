@@ -40,7 +40,15 @@ export type ItemTaxaExtraCalculo = {
 };
 
 export type ResultadoCalculo = {
+  /** Total que o motoboy recebe = valorMotoboyBandas + valorMotoboyTaxasExtras. */
   valorMotoboy: number;
+  /// Só a parte de banda (garantido+excedente no modelo de valor fixo,
+  /// ou bandas × tarifa no modelo por banda) — é o que
+  /// aplicarRemuneracaoGestor deve substituir quando o motoboy é Gestor
+  /// com regra especial; taxa extra nunca entra nessa substituição.
+  valorMotoboyBandas: number;
+  /// Taxas extras já líquidas do desconto de déficit (ver calcularValores).
+  valorMotoboyTaxasExtras: number;
   valorCliente: number;
 };
 
@@ -110,7 +118,23 @@ export function encontrarPerfilFixo(
  *
  * Taxas extras somam por cima dos dois modelos, faixa a faixa (cada
  * Cliente tem sua própria lista de faixas — ver ClienteTaxaExtra — não
- * existe mais um valor único nem um padrão de Empresa pra taxa extra).
+ * existe mais um valor único nem um padrão de Empresa pra taxa extra),
+ * MAS só no modelo "valor fixo por turno": se o motoboy não completou as
+ * bandasIncluidas do garantido (ex.: fez 9 de 10), a cooperativa já tá
+ * cobrindo esse "buraco" pagando o garantido cheio mesmo assim — as
+ * taxas extras que ele ganhou nesse turno primeiro tapam esse buraco (ao
+ * valor da tarifa de excedente por banda do perfil) e só o que sobrar
+ * vira ganho de verdade. Nunca reduz o garantido em si, só o bônus de
+ * taxa extra (pode até zerar, nunca fica negativo). Ex.: garantido R$90
+ * até 10 entregas (excedente R$8/entrega), motoboy fez 9 entregas sendo
+ * 5 na Taxa 1 (R$3 cada = R$15): faltou 1 entrega pro garantido (déficit
+ * R$8), então ele recebe R$90 + max(0, 15-8) = R$97. Se ele tivesse
+ * batido as 10 entregas (déficit zero), receberia o garantido cheio MAIS
+ * os R$15 de taxa extra, sem desconto nenhum. Decisão confirmada com o
+ * Thiago. No modelo "por banda" (sem perfil) não existe garantido nem
+ * déficit — taxa extra sempre soma inteira. Do lado do CLIENTE a taxa
+ * extra nunca sofre esse desconto — ele paga pelo que realmente
+ * aconteceu, o desconto é só um acerto interno cooperativa-motoboy.
  */
 export function calcularValores(
   cliente: ClientePreco,
@@ -125,13 +149,16 @@ export function calcularValores(
       ? encontrarPerfilFixo(cliente.turnosFixos, turnoPredefinido, diaSemanaBrasil(inicioTurno))
       : null;
 
-  let valorMotoboy: number;
+  let valorMotoboyBandas: number;
   let valorCliente: number;
+  let deficitMotoboy = 0;
 
   if (perfil) {
     const excedentes = Math.max(0, quantidadeBandas - perfil.bandasIncluidas);
-    valorMotoboy =
+    const faltantes = Math.max(0, perfil.bandasIncluidas - quantidadeBandas);
+    valorMotoboyBandas =
       paraNumero(perfil.valorGarantidoMotoboy) + excedentes * paraNumero(perfil.valorExcedenteMotoboy);
+    deficitMotoboy = faltantes * paraNumero(perfil.valorExcedenteMotoboy);
     // Sem carência (padrão): cliente paga a moto parada fixa mais a
     // tarifa por banda sobre TODAS as bandas do turno, desde a primeira.
     // Com carência: mesmo espírito do motoboy, mas com o próprio número
@@ -143,14 +170,21 @@ export function calcularValores(
   } else {
     const vbm = valorEfetivo(cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);
     const vbc = valorEfetivo(cliente.valorBandaCliente, empresa.valorBandaClientePadrao);
-    valorMotoboy = quantidadeBandas * vbm;
+    valorMotoboyBandas = quantidadeBandas * vbm;
     valorCliente = quantidadeBandas * vbc;
   }
 
+  let taxaExtraMotoboyBruta = 0;
   for (const item of taxasExtras) {
-    valorMotoboy += item.quantidade * paraNumero(item.valorMotoboy);
+    taxaExtraMotoboyBruta += item.quantidade * paraNumero(item.valorMotoboy);
     valorCliente += item.quantidade * paraNumero(item.valorCliente);
   }
+  const valorMotoboyTaxasExtras = Math.max(0, taxaExtraMotoboyBruta - deficitMotoboy);
 
-  return { valorMotoboy, valorCliente };
+  return {
+    valorMotoboy: valorMotoboyBandas + valorMotoboyTaxasExtras,
+    valorMotoboyBandas,
+    valorMotoboyTaxasExtras,
+    valorCliente,
+  };
 }

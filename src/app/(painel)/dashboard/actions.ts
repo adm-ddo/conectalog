@@ -65,7 +65,7 @@ export async function resolverDivergenciaTurno(
 
   const { calcularValores, aplicarRemuneracaoGestor } = await import("@/lib/precificacao");
   const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaEfetivoId } });
-  const { valorMotoboy, valorCliente } = calcularValores(
+  const { valorMotoboyBandas, valorMotoboyTaxasExtras, valorCliente } = calcularValores(
     turno.cliente,
     empresa,
     turno.horaInicio,
@@ -80,13 +80,8 @@ export async function resolverDivergenciaTurno(
   const totalTaxasExtras = itensValidos.reduce((soma, t) => soma + t.quantidade, 0);
   // Mesma regra do encerramento normal — a cobrança do cliente
   // (valorCliente) nunca muda por causa disso, só o que o Gestor recebe.
-  const totalTaxasMotoboy = turno.taxaExtraItens.reduce((soma, item) => {
-    const quantidade = itensValidos.find((t) => t.itemId === item.id)?.quantidade ?? item.quantidade;
-    return soma + quantidade * Number(item.valorMotoboyAplicado);
-  }, 0);
   const valorMotoboyFinal =
-    aplicarRemuneracaoGestor(valorMotoboy - totalTaxasMotoboy, quantidadeBandasFinal, turno.motoboy) +
-    totalTaxasMotoboy;
+    aplicarRemuneracaoGestor(valorMotoboyBandas, quantidadeBandasFinal, turno.motoboy) + valorMotoboyTaxasExtras;
 
   await prisma.$transaction([
     prisma.turno.update({
