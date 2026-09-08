@@ -6,12 +6,19 @@ import MotoboyRow from "./MotoboyRow";
 import SolicitacaoRow from "./SolicitacaoRow";
 import NovoMotoboyForm from "./NovoMotoboyForm";
 
-export default async function MotoboysPage() {
+export default async function MotoboysPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ nome?: string }>;
+}) {
   const sessao = await requireTenantCompleto();
+  const { nome } = await searchParams;
+  const busca = nome?.trim();
+  const filtroNome = busca ? { nomeCompleto: { contains: busca, mode: "insensitive" as const } } : {};
 
   const [motoboys, solicitacoes] = await Promise.all([
     prisma.motoboy.findMany({
-      where: { empresaId: sessao.empresaEfetivoId, aprovadoEm: { not: null } },
+      where: { empresaId: sessao.empresaEfetivoId, aprovadoEm: { not: null }, ...filtroNome },
       orderBy: { nomeCompleto: "asc" },
       select: {
         id: true,
@@ -25,7 +32,7 @@ export default async function MotoboysPage() {
       },
     }),
     prisma.motoboy.findMany({
-      where: { empresaId: sessao.empresaEfetivoId, aprovadoEm: null },
+      where: { empresaId: sessao.empresaEfetivoId, aprovadoEm: null, ...filtroNome },
       orderBy: { criadoEm: "asc" },
       select: {
         id: true,
@@ -51,6 +58,27 @@ export default async function MotoboysPage() {
         </Link>
       </div>
 
+      <form method="get" className="flex items-center gap-2">
+        <input
+          type="search"
+          name="nome"
+          defaultValue={nome ?? ""}
+          placeholder="Buscar por nome..."
+          className="border border-stone-300 rounded-lg px-3 py-2 text-sm w-full max-w-xs focus:outline-none focus:ring-2 focus:ring-brand-500"
+        />
+        <button
+          type="submit"
+          className="rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-4 py-2 transition-colors"
+        >
+          Buscar
+        </button>
+        {busca && (
+          <Link href="/motoboys" className="text-sm text-stone-500 hover:underline">
+            Limpar
+          </Link>
+        )}
+      </form>
+
       {solicitacoes.length > 0 && (
         <div className="flex flex-col gap-2">
           <h2 className="text-sm font-semibold text-navy-900">
@@ -75,7 +103,9 @@ export default async function MotoboysPage() {
       )}
 
       {motoboys.length === 0 ? (
-        <p className="text-stone-500 text-sm">Nenhum motoboy cadastrado ainda.</p>
+        <p className="text-stone-500 text-sm">
+          {busca ? `Nenhum motoboy encontrado pra "${busca}".` : "Nenhum motoboy cadastrado ainda."}
+        </p>
       ) : (
         <ul className="flex flex-col gap-2">
           {motoboys.map((m) => (
