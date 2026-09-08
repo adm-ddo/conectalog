@@ -77,22 +77,23 @@ export default function DivergenciaRow({
       {temGarantido && (
         <div className="rounded-lg bg-stone-50 border border-stone-200 px-3 py-2 text-xs text-stone-600 flex flex-col gap-1">
           <p>
-            Garantido do turno da {turnoLabel}: cobre até <strong>{bandasIncluidas}</strong> entregas
-            (R$ {formatarMoeda(valorGarantidoMotoboy)}) — cada entrega excedente ou faltante vale R${" "}
-            {formatarMoeda(valorExcedenteMotoboy)}.
+            Garantido do turno da {turnoLabel}: até <strong>{bandasIncluidas}</strong> entregas (R${" "}
+            {formatarMoeda(valorGarantidoMotoboy)}).
           </p>
-          {taxas.length > 0 &&
-            (deficitBandas > 0 ? (
+          {taxaExtraBruta > 0 &&
+            (taxaExtraLiquida === 0 ? (
               <p>
-                Com {bandasFinal} banda{bandasFinal === 1 ? "" : "s"} combinada
-                {bandasFinal === 1 ? "" : "s"}, faltam <strong>{deficitBandas}</strong> pro garantido
-                (R$ {formatarMoeda(deficitValor)}) — desconta primeiro da taxa extra: R${" "}
-                {formatarMoeda(taxaExtraBruta)} bruta → R$ {formatarMoeda(taxaExtraLiquida)} líquida.
+                Taxa extra (R$ {formatarMoeda(taxaExtraBruta)}) não muda o que ele recebe — ainda
+                fica dentro do garantido mesmo somando (faltam {deficitBandas} entrega
+                {deficitBandas === 1 ? "" : "s"}).
               </p>
             ) : (
               <p>
-                Bateu ou passou do garantido — taxa extra soma inteira: R$ {formatarMoeda(taxaExtraBruta)}
-                , sem desconto.
+                Com a taxa extra: <strong>R$ {formatarMoeda(valorGarantidoMotoboy)}</strong> →{" "}
+                <strong className="text-brand-700">
+                  R$ {formatarMoeda(valorGarantidoMotoboy + taxaExtraLiquida)}
+                </strong>
+                {deficitBandas > 0 && ` (já descontado R$ ${formatarMoeda(deficitValor)} do déficit)`}
               </p>
             ))}
         </div>
