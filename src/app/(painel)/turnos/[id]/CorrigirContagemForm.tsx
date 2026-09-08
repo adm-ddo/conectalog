@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { resolverDivergenciaTurno } from "../../dashboard/actions";
-import { calcularDeficitBandas } from "@/lib/taxaExtraDeficit";
+import { calcularBandasGarantido } from "@/lib/taxaExtraDeficit";
 import { formatarMoeda } from "@/lib/valores";
 
 type Taxa = { itemId: number; descricao: string; motoboy: number; cliente: number | null; valorMotoboyUnidade: number };
@@ -45,7 +45,7 @@ export default function CorrigirContagemForm({
 
   const temGarantido =
     bandasIncluidas !== null && valorGarantidoMotoboy !== null && valorExcedenteMotoboy !== null;
-  const { deficitBandas, deficitValor } = calcularDeficitBandas(
+  const { valorMotoboyBandas, excedentes, deficitBandas, deficitValor } = calcularBandasGarantido(
     temGarantido ? { bandasIncluidas, valorGarantidoMotoboy, valorExcedenteMotoboy } : null,
     bandasFinal
   );
@@ -88,8 +88,16 @@ export default function CorrigirContagemForm({
         <div className="rounded-lg bg-white/60 border border-amber-200 px-3 py-2 text-xs text-amber-900 flex flex-col gap-1">
           <p>
             Garantido do turno da {turnoLabel}: até <strong>{bandasIncluidas}</strong> entregas (R${" "}
-            {formatarMoeda(valorGarantidoMotoboy)}).
+            {formatarMoeda(valorGarantidoMotoboy)}), R$ {formatarMoeda(valorExcedenteMotoboy)} a mais
+            por excedente.
           </p>
+          {excedentes > 0 && (
+            <p>
+              {bandasFinal} entregas combinadas = <strong>R$ {formatarMoeda(valorMotoboyBandas)}</strong>{" "}
+              ({excedentes} excedente{excedentes === 1 ? "" : "s"} × R${" "}
+              {formatarMoeda(valorExcedenteMotoboy)}).
+            </p>
+          )}
           {taxaExtraBruta > 0 &&
             (taxaExtraLiquida === 0 ? (
               <p>
@@ -99,13 +107,13 @@ export default function CorrigirContagemForm({
               </p>
             ) : (
               <p>
-                Com a taxa extra: <strong>R$ {formatarMoeda(valorGarantidoMotoboy)}</strong> →{" "}
-                <strong className="text-brand-700">
-                  R$ {formatarMoeda(valorGarantidoMotoboy + taxaExtraLiquida)}
-                </strong>
-                {deficitBandas > 0 && ` (já descontado R$ ${formatarMoeda(deficitValor)} do déficit)`}
+                + R$ {formatarMoeda(taxaExtraLiquida)} de taxa extra
+                {deficitBandas > 0 && ` (já descontado déficit de R$ ${formatarMoeda(deficitValor)})`}.
               </p>
             ))}
+          <p className="font-semibold text-navy-900">
+            Total combinado: R$ {formatarMoeda(valorMotoboyBandas + taxaExtraLiquida)}
+          </p>
         </div>
       )}
 
