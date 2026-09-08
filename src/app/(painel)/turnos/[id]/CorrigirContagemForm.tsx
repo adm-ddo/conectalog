@@ -2,8 +2,10 @@
 
 import { useState, useTransition } from "react";
 import { resolverDivergenciaTurno } from "../../dashboard/actions";
+import { calcularDeficitBandas } from "@/lib/taxaExtraDeficit";
+import { formatarMoeda } from "@/lib/valores";
 
-type Taxa = { itemId: number; descricao: string; motoboy: number; cliente: number | null };
+type Taxa = { itemId: number; descricao: string; motoboy: number; cliente: number | null; valorMotoboyUnidade: number };
 
 /** Corrige manualmente a contagem de bandas (e taxas extras) de um turno
  * onde motoboy e cliente não bateram, ou onde um dos dois nunca
@@ -13,12 +15,20 @@ type Taxa = { itemId: number; descricao: string; motoboy: number; cliente: numbe
  * de divergência do dashboard. */
 export default function CorrigirContagemForm({
   turnoId,
+  turnoLabel,
+  bandasIncluidas,
+  valorGarantidoMotoboy,
+  valorExcedenteMotoboy,
   bandasMotoboy,
   bandasCliente,
   prazoClienteEncerrado,
   taxas,
 }: {
   turnoId: number;
+  turnoLabel: string;
+  bandasIncluidas: number | null;
+  valorGarantidoMotoboy: number | null;
+  valorExcedenteMotoboy: number | null;
   bandasMotoboy: number;
   bandasCliente: number | null;
   prazoClienteEncerrado: boolean;
@@ -33,10 +43,24 @@ export default function CorrigirContagemForm({
 
   const taxasDivergentes = taxas.filter((t) => t.cliente !== null && t.motoboy !== t.cliente);
 
+  const temGarantido =
+    bandasIncluidas !== null && valorGarantidoMotoboy !== null && valorExcedenteMotoboy !== null;
+  const { deficitBandas, deficitValor } = calcularDeficitBandas(
+    temGarantido ? { bandasIncluidas, valorGarantidoMotoboy, valorExcedenteMotoboy } : null,
+    bandasFinal
+  );
+  const taxaExtraBruta = taxas.reduce(
+    (soma, t) => soma + (taxasFinais[t.itemId] ?? 0) * t.valorMotoboyUnidade,
+    0
+  );
+  const taxaExtraLiquida = Math.max(0, taxaExtraBruta - deficitValor);
+
   return (
     <div className="rounded-2xl border border-amber-300 bg-amber-50 p-5 flex flex-col gap-3">
       <div>
-        <h2 className="text-sm font-semibold text-amber-800">Contagem de bandas não bate</h2>
+        <h2 className="text-sm font-semibold text-amber-800">
+          Contagem de bandas não bate <span className="font-normal capitalize">— turno da {turnoLabel}</span>
+        </h2>
         <p className="text-xs text-amber-800 mt-1">
           {bandasCliente === null ? (
             prazoClienteEncerrado ? (
@@ -59,6 +83,31 @@ export default function CorrigirContagemForm({
           </p>
         ))}
       </div>
+
+      {temGarantido && (
+        <div className="rounded-lg bg-white/60 border border-amber-200 px-3 py-2 text-xs text-amber-900 flex flex-col gap-1">
+          <p>
+            Garantido do turno da {turnoLabel}: cobre até <strong>{bandasIncluidas}</strong> entregas
+            (R$ {formatarMoeda(valorGarantidoMotoboy)}) — cada entrega excedente ou faltante vale R${" "}
+            {formatarMoeda(valorExcedenteMotoboy)}.
+          </p>
+          {taxas.length > 0 &&
+            (deficitBandas > 0 ? (
+              <p>
+                Com {bandasFinal} banda{bandasFinal === 1 ? "" : "s"} combinada
+                {bandasFinal === 1 ? "" : "s"}, faltam <strong>{deficitBandas}</strong> pro garantido
+                (R$ {formatarMoeda(deficitValor)}) — desconta primeiro da taxa extra: R${" "}
+                {formatarMoeda(taxaExtraBruta)} bruta → R$ {formatarMoeda(taxaExtraLiquida)} líquida.
+              </p>
+            ) : (
+              <p>
+                Bateu ou passou do garantido — taxa extra soma inteira: R$ {formatarMoeda(taxaExtraBruta)}
+                , sem desconto.
+              </p>
+            ))}
+        </div>
+      )}
+
       <div className="flex flex-wrap items-end gap-3">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-stone-600">Bandas (combinado)</span>

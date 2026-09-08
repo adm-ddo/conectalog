@@ -2,7 +2,9 @@ import Link from "next/link";
 import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { turnoAtivoAgora, turnoRelevanteHoje, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
-import { formatarHora, dataISOBrasil } from "@/lib/data";
+import { formatarHora, dataISOBrasil, diaSemanaBrasil } from "@/lib/data";
+import { encontrarPerfilFixo } from "@/lib/precificacao";
+import { paraNumero } from "@/lib/valores";
 import AutoRefresh from "@/components/AutoRefresh";
 import SolicitacaoApoioAlert from "./SolicitacaoApoioAlert";
 import DivergenciaRow from "./DivergenciaRow";
@@ -87,7 +89,7 @@ export default async function DashboardPage() {
         },
         include: {
           motoboy: { select: { nomeCompleto: true } },
-          cliente: { select: { nome: true } },
+          cliente: { select: { nome: true, turnosFixos: true } },
           taxaExtraItens: { orderBy: { ordem: "asc" } },
         },
       }),
@@ -295,22 +297,33 @@ export default async function DashboardPage() {
             Divergência entre motoboy e cliente ({divergencias.length})
           </h2>
           <ul className="flex flex-col gap-2">
-            {divergencias.map((t) => (
-              <DivergenciaRow
-                key={t.id}
-                turnoId={t.id}
-                nomeMotoboy={t.motoboy.nomeCompleto}
-                nomeCliente={t.cliente.nome}
-                bandasMotoboy={t.quantidadeBandas}
-                bandasCliente={t.quantidadeBandasCliente ?? 0}
-                taxas={t.taxaExtraItens.map((item) => ({
-                  itemId: item.id,
-                  descricao: item.descricao,
-                  motoboy: item.quantidade,
-                  cliente: item.quantidadeCliente ?? 0,
-                }))}
-              />
-            ))}
+            {divergencias.map((t) => {
+              const perfil =
+                t.turnoPredefinido !== "LIVRE"
+                  ? encontrarPerfilFixo(t.cliente.turnosFixos, t.turnoPredefinido, diaSemanaBrasil(t.horaInicio))
+                  : null;
+              return (
+                <DivergenciaRow
+                  key={t.id}
+                  turnoId={t.id}
+                  nomeMotoboy={t.motoboy.nomeCompleto}
+                  nomeCliente={t.cliente.nome}
+                  turnoLabel={LABEL_TURNO[t.turnoPredefinido as keyof typeof LABEL_TURNO] ?? "livre"}
+                  bandasIncluidas={perfil?.bandasIncluidas ?? null}
+                  valorGarantidoMotoboy={perfil ? paraNumero(perfil.valorGarantidoMotoboy) : null}
+                  valorExcedenteMotoboy={perfil ? paraNumero(perfil.valorExcedenteMotoboy) : null}
+                  bandasMotoboy={t.quantidadeBandas}
+                  bandasCliente={t.quantidadeBandasCliente ?? 0}
+                  taxas={t.taxaExtraItens.map((item) => ({
+                    itemId: item.id,
+                    descricao: item.descricao,
+                    motoboy: item.quantidade,
+                    cliente: item.quantidadeCliente ?? 0,
+                    valorMotoboyUnidade: paraNumero(item.valorMotoboyAplicado),
+                  }))}
+                />
+              );
+            })}
           </ul>
         </div>
       )}

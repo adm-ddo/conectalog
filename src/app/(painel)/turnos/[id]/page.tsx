@@ -2,9 +2,10 @@ import { notFound } from "next/navigation";
 import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { baixarComoDataUrl } from "@/lib/blob";
-import { formatarDataHora } from "@/lib/data";
-import { formatarMoeda } from "@/lib/valores";
+import { formatarDataHora, diaSemanaBrasil } from "@/lib/data";
+import { formatarMoeda, paraNumero } from "@/lib/valores";
 import { LABEL_TURNO } from "@/lib/equipe";
+import { encontrarPerfilFixo } from "@/lib/precificacao";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import BotaoVoltar from "@/components/BotaoVoltar";
 import CorrigirContagemForm from "./CorrigirContagemForm";
@@ -28,7 +29,7 @@ export default async function TurnoDetalhePage({
     where: { id: turnoId, motoboy: { empresaId: sessao.empresaEfetivoId } },
     include: {
       motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
-      cliente: { select: { nome: true } },
+      cliente: { select: { nome: true, turnosFixos: true } },
       apoios: { include: { cliente: { select: { nome: true } } } },
       taxaExtraItens: { orderBy: { ordem: "asc" } },
       resolvidoPorUsuario: { select: { nome: true } },
@@ -59,6 +60,15 @@ export default async function TurnoDetalhePage({
   const prazoClienteEncerrado =
     turno.horaFim !== null && new Date() > new Date(turno.horaFim.getTime() + PRAZO_CONFIRMACAO_MIN * 60_000);
 
+  // Contexto do garantido desse turno específico (varia por turno e dia
+  // da semana — ver ClienteTurnoFixo) pra dar transparência na hora de
+  // corrigir a divergência: quantas entregas esse turno garante e quanto
+  // vale cada uma a mais/a menos.
+  const perfilFixoDivergencia =
+    turno.turnoPredefinido !== "LIVRE"
+      ? encontrarPerfilFixo(turno.cliente.turnosFixos, turno.turnoPredefinido, diaSemanaBrasil(turno.horaInicio))
+      : null;
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -75,6 +85,10 @@ export default async function TurnoDetalhePage({
       {podeCorrigirContagem && (
         <CorrigirContagemForm
           turnoId={turno.id}
+          turnoLabel={turnoLabel}
+          bandasIncluidas={perfilFixoDivergencia?.bandasIncluidas ?? null}
+          valorGarantidoMotoboy={perfilFixoDivergencia ? paraNumero(perfilFixoDivergencia.valorGarantidoMotoboy) : null}
+          valorExcedenteMotoboy={perfilFixoDivergencia ? paraNumero(perfilFixoDivergencia.valorExcedenteMotoboy) : null}
           bandasMotoboy={turno.quantidadeBandas}
           bandasCliente={turno.quantidadeBandasCliente}
           prazoClienteEncerrado={prazoClienteEncerrado}
@@ -83,6 +97,7 @@ export default async function TurnoDetalhePage({
             descricao: item.descricao,
             motoboy: item.quantidade,
             cliente: item.quantidadeCliente,
+            valorMotoboyUnidade: paraNumero(item.valorMotoboyAplicado),
           }))}
         />
       )}
