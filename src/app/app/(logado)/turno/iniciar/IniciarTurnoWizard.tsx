@@ -16,8 +16,8 @@ type Cliente = {
 };
 
 // LIVRE não tem um "ativo" configurável no cadastro do cliente — é o
-// turno avulso, sempre disponível como alternativa aos horários fixos
-// (ver comentário do enum TurnoPredefinido no schema).
+// turno avulso, sem horário fixo nenhum (ver comentário do enum
+// TurnoPredefinido no schema).
 const OPCOES_TURNO: { valor: TurnoPredefinido; label: string; ativoEm?: keyof Cliente }[] = [
   { valor: "MANHA", label: "Manhã", ativoEm: "turnoManhaAtivo" },
   { valor: "TARDE", label: "Tarde", ativoEm: "turnoTardeAtivo" },
@@ -35,9 +35,20 @@ export default function IniciarTurnoWizard({ clientes }: { clientes: Cliente[] }
   const [pending, setPending] = useState(false);
 
   const clienteSelecionado = clientes.find((c) => c.id === clienteId);
-  const opcoesTurno = OPCOES_TURNO.filter(
-    (opcao) => !opcao.ativoEm || clienteSelecionado?.[opcao.ativoEm]
+  // "Livre" só aparece quando o cliente não tem NENHUM turno configurado
+  // (senão o motoboy fica sem opção nenhuma) — se ele tem manhã/tarde/
+  // noite ativos, o motoboy tem que escolher um desses, nunca "livre",
+  // pra não escapar do garantido por engano (pedido do Thiago: livre
+  // dele mesmo — Motoboy.livre — já cobre "pode trabalhar em qualquer
+  // cliente"; livre do turno era só uma brecha de preço, não deveria
+  // competir com os turnos de verdade que o cliente tem).
+  const opcoesTurnoAtivas = OPCOES_TURNO.filter(
+    (opcao) => opcao.ativoEm && clienteSelecionado?.[opcao.ativoEm]
   );
+  const opcoesTurno =
+    opcoesTurnoAtivas.length > 0
+      ? opcoesTurnoAtivas
+      : OPCOES_TURNO.filter((opcao) => opcao.valor === "LIVRE");
   // Deriva da escolha manual em vez de sincronizar com um efeito: se
   // trocou de cliente e a opção marcada não existe mais nele (ex.: veio
   // de um cliente com Noite pra um que só tem Manhã), cai sozinho pra
