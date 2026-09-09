@@ -101,11 +101,11 @@ export async function alternarAtivoMotoboy(motoboyId: number, ativo: boolean) {
 
 export type ExcluirMotoboyResult = { erro?: string } | undefined;
 
-/** Exclusão de verdade (não é o mesmo que bloquear/alternarAtivoMotoboy) —
+/** Exclusão de verdade (não é o mesmo que desativar/alternarAtivoMotoboy) —
  * só permitida quando o motoboy nunca trabalhou de fato, porque todo
  * relacionamento dele (turnos, pagamentos, vales...) é onDelete: Cascade
  * no schema. Excluir alguém com histórico apagaria pagamento e turno de
- * verdade — nesse caso a cooperativa deve bloquear em vez de excluir. */
+ * verdade — nesse caso a cooperativa deve desativar em vez de excluir. */
 export async function excluirMotoboy(motoboyId: number): Promise<ExcluirMotoboyResult> {
   const sessao = await requireTenantCompleto();
 
@@ -130,7 +130,7 @@ export async function excluirMotoboy(motoboyId: number): Promise<ExcluirMotoboyR
   if (temHistorico) {
     return {
       erro:
-        "Esse motoboy já tem turnos, pagamentos ou outros registros — excluir apagaria esse histórico. Bloqueie em vez de excluir.",
+        "Esse motoboy já tem turnos, pagamentos ou outros registros — excluir apagaria esse histórico. Desative em vez de excluir.",
     };
   }
 

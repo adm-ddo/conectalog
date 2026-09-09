@@ -63,7 +63,7 @@ export default function MotoboyRow({
                 : "bg-stone-100 text-stone-600 hover:bg-stone-200"
             }`}
           >
-            {motoboy.ativo ? "Ativo" : "Bloqueado"}
+            {motoboy.ativo ? "Ativo" : "Desativado"}
           </button>
           <button
             type="button"
