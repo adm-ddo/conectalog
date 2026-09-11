@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { LABEL_TURNO } from "@/lib/equipe";
 import { instanteBrasil } from "@/lib/data";
+import { enviarPushMotoboy } from "@/lib/push";
 import type { TurnoEscala } from "@/generated/prisma/enums";
 
 /** Formata a data (Date @db.Date, sem fuso relevante) como dd/mm — usado
@@ -27,11 +28,15 @@ function inicioDoDiaBrasilDeDataCalendario(data: Date): Date {
   return instanteBrasil(iso);
 }
 
-/** Avisa o motoboy dentro do app que ele foi escalado — hoje só no app;
- * "futuramente vamos colocar um aviso por email" (pedido do Thiago) é só
- * adicionar um envio aqui depois, a notificação já existe pra isso.
- * Carrega o escalaId pra dar pra confirmar/recusar direto no banner da
- * notificação, sem precisar ir em "Minha escala" (pedido do Thiago). */
+/** Avisa o motoboy que ele foi escalado — dentro do app (sempre) e por
+ * push de verdade (toca som/vibra mesmo com o app fechado, se ele tiver
+ * ativado — ver AtivarNotificacoes.tsx); "futuramente vamos colocar um
+ * aviso por email" (pedido do Thiago) é só adicionar um envio aqui
+ * depois. Carrega o escalaId pra dar pra confirmar/recusar direto no
+ * banner da notificação, sem precisar ir em "Minha escala" (pedido do
+ * Thiago). Push nunca bloqueia a escalação em si — se falhar (aparelho
+ * sem inscrição, endpoint morto), a notificação in-app já aconteceu de
+ * qualquer forma. */
 async function avisarEscalado(
   motoboyId: number,
   clienteNome: string,
@@ -39,14 +44,15 @@ async function avisarEscalado(
   turno: TurnoEscala,
   escalaId: number
 ) {
+  const mensagem = `Você foi escalado em ${clienteNome} no turno da ${LABEL_TURNO[turno]} de ${dataCurta(data)}. Confirma que vai poder ir?`;
   await prisma.notificacao.create({
-    data: {
-      motoboyId,
-      tipo: "ESCALADO",
-      escalaId,
-      mensagem: `Você foi escalado em ${clienteNome} no turno da ${LABEL_TURNO[turno]} de ${dataCurta(data)}. Confirma que vai poder ir?`,
-    },
+    data: { motoboyId, tipo: "ESCALADO", escalaId, mensagem },
   });
+  await enviarPushMotoboy(motoboyId, {
+    titulo: "Você foi escalado",
+    corpo: mensagem,
+    url: "/app/escala",
+  }).catch(() => {});
 }
 
 /** Cria a escala se ainda não existir e avisa o motoboy — não faz nada

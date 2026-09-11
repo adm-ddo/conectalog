@@ -5,6 +5,7 @@ import { sairMotoboy } from "./actions";
 import AppHeader from "./AppHeader";
 import SemCooperativaScreen from "./SemCooperativaScreen";
 import AguardandoAprovacaoScreen from "./AguardandoAprovacaoScreen";
+import AtivarNotificacoes from "./AtivarNotificacoes";
 
 function CabecalhoMinimo({ nome, temContaPainel }: { nome: string; temContaPainel: boolean }) {
   return (
@@ -92,7 +93,10 @@ export default async function AppLogadoLayout({
         empresaNome={empresa.nome}
         temContaPainel={sessao.temContaPainel}
       />
-      <main className="flex-1 max-w-md w-full mx-auto px-4 py-6 flex flex-col">{children}</main>
+      <main className="flex-1 max-w-md w-full mx-auto px-4 py-6 flex flex-col gap-4">
+        <AtivarNotificacoes />
+        {children}
+      </main>
     </div>
   );
 }

@@ -554,6 +554,7 @@ model Motoboy {
   ocorrencias          Ocorrencia[]
   notificacoes         Notificacao[]
   descontosAssiduidade DescontoAssiduidade[]
+  pushSubscriptions    PushSubscription[]
 
   @@index([empresaId])
 }
@@ -582,6 +583,27 @@ model Notificacao {
   escala  EscalaTurno? @relation(fields: [escalaId], references: [id], onDelete: SetNull)
 
   @@index([motoboyId, lida])
+}
+
+/// Inscrição de notificação push (Web Push API) de um aparelho/navegador
+/// do motoboy — ele pode ter mais de uma (trocou de celular, instalou em
+/// dois aparelhos) ou nenhuma (nunca ativou). Quando alguma coisa que
+/// gera Notificacao acontece (hoje só ESCALADO), tenta mandar um push
+/// real pra cada uma (toca som/vibra mesmo com o app fechado — ver
+/// lib/push.ts); se o navegador rejeitar o envio (permissão revogada,
+/// aparelho trocado sem desinstalar), a assinatura morta é apagada
+/// automaticamente ali mesmo.
+model PushSubscription {
+  id        Int      @id @default(autoincrement())
+  motoboyId Int
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  criadoEm  DateTime @default(now())
+
+  motoboy Motoboy @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+
+  @@index([motoboyId])
 }
 
 /// Sessão de login do Motoboy no app — separada de Sessao (login do

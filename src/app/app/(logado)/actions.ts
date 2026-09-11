@@ -60,3 +60,35 @@ export async function sairDaCooperativaMotoboy(): Promise<AcaoCooperativaResult>
   });
   revalidatePath("/", "layout");
 }
+
+/** Guarda a inscrição de push desse aparelho — chamado do client depois
+ * que o navegador já criou a PushSubscription (permissão concedida,
+ * service worker registrado). upsert pelo endpoint porque o mesmo
+ * aparelho pode reativar depois de ter desativado, ou o motoboy trocar
+ * de conta no mesmo navegador. */
+export async function inscreverPush(inscricao: {
+  endpoint: string;
+  keys: { p256dh: string; auth: string };
+}) {
+  const sessao = await requireMotoboy();
+  await prisma.pushSubscription.upsert({
+    where: { endpoint: inscricao.endpoint },
+    update: { motoboyId: sessao.motoboyId, p256dh: inscricao.keys.p256dh, auth: inscricao.keys.auth },
+    create: {
+      motoboyId: sessao.motoboyId,
+      endpoint: inscricao.endpoint,
+      p256dh: inscricao.keys.p256dh,
+      auth: inscricao.keys.auth,
+    },
+  });
+}
+
+/** Remove a inscrição desse aparelho (motoboy desativou manualmente, ou
+ * o client detectou que a permissão foi revogada). Escopado ao próprio
+ * motoboy — não apaga inscrição de outro por engano/malícia. */
+export async function removerInscricaoPush(endpoint: string) {
+  const sessao = await requireMotoboy();
+  await prisma.pushSubscription.deleteMany({
+    where: { endpoint, motoboyId: sessao.motoboyId },
+  });
+}
