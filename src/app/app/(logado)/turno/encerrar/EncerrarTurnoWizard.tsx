@@ -17,6 +17,7 @@ export default function EncerrarTurnoWizard({
   const [fotoFimDataUrl, setFotoFimDataUrl] = useState<string | null>(null);
   const [bandas, setBandas] = useState(0);
   const [quantidades, setQuantidades] = useState<Record<number, number>>({});
+  const [turnoCumprido, setTurnoCumprido] = useState<boolean | null>(null);
   const [assinaturaReciboDataUrl, setAssinaturaReciboDataUrl] = useState<string | null>(null);
   const [nota, setNota] = useState(0);
   const [comentario, setComentario] = useState("");
@@ -24,6 +25,7 @@ export default function EncerrarTurnoWizard({
   const [pending, startTransition] = useTransition();
 
   const totalTaxasExtras = Object.values(quantidades).reduce((soma, v) => soma + v, 0);
+  const semNadaMarcado = bandas <= 0 && totalTaxasExtras <= 0;
 
   function concluir() {
     if (!fotoFimDataUrl || !assinaturaReciboDataUrl) return;
@@ -36,6 +38,7 @@ export default function EncerrarTurnoWizard({
           itemId: t.id,
           quantidade: quantidades[t.id] ?? 0,
         })),
+        turnoCumprido: turnoCumprido ?? true,
         fotoFimDataUrl,
         assinaturaReciboDataUrl,
         nota,
@@ -90,15 +93,48 @@ export default function EncerrarTurnoWizard({
               onChange={(v) => setQuantidades((prev) => ({ ...prev, [t.id]: v }))}
             />
           ))}
-          {bandas <= 0 && totalTaxasExtras <= 0 && (
-            <p className="text-xs text-stone-500">
-              Errou o cliente ou precisa sair sem ter feito nenhuma entrega? Pode continuar com 0 —
-              só confirme no recibo pra encerrar aqui e já ir pro lugar certo.
-            </p>
+          {semNadaMarcado && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex flex-col gap-2">
+              <p className="text-sm text-amber-800">
+                Você não marcou nenhuma banda. Isso foi um turno completo (cumpriu a escala, só não
+                teve entrega) ou você está saindo sem cumprir — por exemplo, errou o cliente?
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setTurnoCumprido(true)}
+                  className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium ${
+                    turnoCumprido === true
+                      ? "bg-brand-600 text-white"
+                      : "bg-white border border-amber-300 text-amber-800"
+                  }`}
+                >
+                  Cumpri o turno normalmente
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTurnoCumprido(false)}
+                  className={`flex-1 rounded-lg px-3 py-2 text-xs font-medium ${
+                    turnoCumprido === false
+                      ? "bg-brand-600 text-white"
+                      : "bg-white border border-amber-300 text-amber-800"
+                  }`}
+                >
+                  Saí sem cumprir (errei o cliente)
+                </button>
+              </div>
+              {turnoCumprido === false && (
+                <p className="text-xs text-amber-800">
+                  Sem cumprir a escala você não recebe nada por esse turno, nem o garantido — só
+                  encerra pra poder ir pro lugar certo.
+                </p>
+              )}
+            </div>
           )}
           <button
             type="button"
             onClick={() => setPasso(2)}
+            disabled={semNadaMarcado && turnoCumprido === null}
             className="rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium py-2.5 disabled:opacity-50 transition-colors"
           >
             Continuar

@@ -14,6 +14,13 @@ export type EncerrarTurnoState = { erro?: string } | undefined;
 export type DadosEncerrarTurno = {
   quantidadeBandas: number;
   taxasExtras: { itemId: number; quantidade: number }[];
+  /** Só perguntado quando fecha com 0 bandas e 0 taxas extras: true =
+   * cumpriu o turno normalmente, só não teve entrega (recebe o
+   * garantido, se o cliente tiver); false = saiu sem cumprir a escala
+   * (ex.: errou o cliente) — nesse caso não recebe nada, nem o
+   * garantido. Com qualquer banda/taxa marcada isso não importa, sempre
+   * conta como cumprido. */
+  turnoCumprido: boolean;
   fotoFimDataUrl: string;
   assinaturaReciboDataUrl: string;
   nota: number;
@@ -42,10 +49,13 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
 
   // 0 bandas é permitido de propósito — motoboy pode ter errado o
   // cliente e precisar encerrar na hora pra ir pro lugar certo, sem
-  // nunca ter feito entrega nenhuma ali (pedido do Thiago). Se o cliente
-  // tem valor fixo por turno com garantido, ele ainda recebe o piso
-  // normalmente — mesma regra de qualquer turno com poucas/zero
-  // entregas, decisão já confirmada antes.
+  // nunca ter feito entrega nenhuma ali (pedido do Thiago). Só nesse
+  // caso (0 bandas e 0 taxas) o wizard pergunta se foi turno cumprido
+  // (recebe o garantido normalmente, se o cliente tiver) ou saída sem
+  // cumprir a escala (não recebe nada) — com qualquer banda/taxa
+  // marcada, sempre conta como cumprido.
+  const semNadaMarcado = dados.quantidadeBandas <= 0 && totalTaxasExtras <= 0;
+  const naoCumpriuEscala = semNadaMarcado && !dados.turnoCumprido;
   if (!dados.fotoFimDataUrl || !dados.assinaturaReciboDataUrl) {
     return { erro: "Falta a foto ou a assinatura do recibo." };
   }
@@ -60,18 +70,24 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
       select: { ehGestor: true, modoRemuneracaoGestor: true, valorBandaGestorEspecial: true },
     }),
   ]);
-  const { valorMotoboyBandas, valorMotoboyTaxasExtras, valorCliente } = calcularValores(
-    turno.cliente,
-    empresa,
-    turno.horaInicio,
-    turno.turnoPredefinido,
-    dados.quantidadeBandas,
-    itensComQuantidade.map((item) => ({
-      valorMotoboy: item.valorMotoboyAplicado,
-      valorCliente: item.valorClienteAplicado,
-      quantidade: item.quantidade,
-    }))
-  );
+  // Saída sem cumprir a escala nunca recebe nada, nem o garantido — o
+  // motoboy não trabalhou de verdade ali, então nem calcularValores
+  // entra em jogo (senão um cliente com garantido pagaria o piso mesmo
+  // pra quem foi embora por engano).
+  const { valorMotoboyBandas, valorMotoboyTaxasExtras, valorCliente } = naoCumpriuEscala
+    ? { valorMotoboyBandas: 0, valorMotoboyTaxasExtras: 0, valorCliente: 0 }
+    : calcularValores(
+        turno.cliente,
+        empresa,
+        turno.horaInicio,
+        turno.turnoPredefinido,
+        dados.quantidadeBandas,
+        itensComQuantidade.map((item) => ({
+          valorMotoboy: item.valorMotoboyAplicado,
+          valorCliente: item.valorClienteAplicado,
+          quantidade: item.quantidade,
+        }))
+      );
   // A cobrança do cliente nunca muda; só o quanto o Gestor recebe pelas
   // PRÓPRIAS bandas pode seguir uma regra diferente da tarifa normal —
   // taxa extra (já líquida do desconto de déficit, ver calcularValores)
