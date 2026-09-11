@@ -40,9 +40,12 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
   }));
   const totalTaxasExtras = itensComQuantidade.reduce((soma, item) => soma + item.quantidade, 0);
 
-  if (dados.quantidadeBandas <= 0 && totalTaxasExtras <= 0) {
-    return { erro: "Marque quantas bandas você fez." };
-  }
+  // 0 bandas é permitido de propósito — motoboy pode ter errado o
+  // cliente e precisar encerrar na hora pra ir pro lugar certo, sem
+  // nunca ter feito entrega nenhuma ali (pedido do Thiago). Se o cliente
+  // tem valor fixo por turno com garantido, ele ainda recebe o piso
+  // normalmente — mesma regra de qualquer turno com poucas/zero
+  // entregas, decisão já confirmada antes.
   if (!dados.fotoFimDataUrl || !dados.assinaturaReciboDataUrl) {
     return { erro: "Falta a foto ou a assinatura do recibo." };
   }

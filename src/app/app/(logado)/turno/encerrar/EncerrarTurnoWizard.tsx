@@ -90,10 +90,15 @@ export default function EncerrarTurnoWizard({
               onChange={(v) => setQuantidades((prev) => ({ ...prev, [t.id]: v }))}
             />
           ))}
+          {bandas <= 0 && totalTaxasExtras <= 0 && (
+            <p className="text-xs text-stone-500">
+              Errou o cliente ou precisa sair sem ter feito nenhuma entrega? Pode continuar com 0 —
+              só confirme no recibo pra encerrar aqui e já ir pro lugar certo.
+            </p>
+          )}
           <button
             type="button"
             onClick={() => setPasso(2)}
-            disabled={bandas <= 0 && totalTaxasExtras <= 0}
             className="rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium py-2.5 disabled:opacity-50 transition-colors"
           >
             Continuar
