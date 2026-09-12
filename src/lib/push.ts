@@ -60,7 +60,12 @@ export async function enviarPushMotoboy(
             endpoint: inscricao.endpoint,
             keys: { p256dh: inscricao.p256dh, auth: inscricao.auth },
           },
-          corpoJson
+          corpoJson,
+          // urgency "high" pede pro navegador/SO tratar como prioritário
+          // (ajuda a aparecer como pop-up/heads-up, não só cair quieto
+          // na barra) — quem decide de verdade ainda é a configuração de
+          // notificação do aparelho, isso só dá um empurrão.
+          { urgency: "high" }
         );
       } catch (err) {
         const status = (err as { statusCode?: number }).statusCode;
