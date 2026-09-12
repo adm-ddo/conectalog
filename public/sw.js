@@ -17,7 +17,12 @@ self.addEventListener("push", (event) => {
       body: dados.corpo,
       icon: "/icons/icon-192.png",
       badge: "/icons/icon-192.png",
-      vibrate: [200, 100, 200],
+      // Vibração mais longa e insistente (pedido do Thiago — a de antes
+      // era discreta demais). requireInteraction mantém a notificação
+      // na tela até o motoboy realmente tocar nela (confirmar/recusar),
+      // em vez de sumir sozinha em poucos segundos.
+      vibrate: [400, 150, 400, 150, 400, 150, 400],
+      requireInteraction: true,
       data: { url: dados.url },
     })
   );
