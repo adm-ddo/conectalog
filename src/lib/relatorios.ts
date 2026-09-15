@@ -46,31 +46,44 @@ export type RelatorioCliente = {
   motoboys: LinhaMotoboyRelatorio[];
 };
 
-/** Monta o relatório detalhado de um cliente num período: quanto ele deve
- * pagar no total, quais motoboys trabalharam (turno + apoio), quantas
- * bandas cada um fez, quanto cada um recebe, e qualquer vale/ocorrência/
- * desconto de assiduidade daquele motoboy no período — com o status de
- * pagamento já puxado do próprio Turno/Apoio (não duplica o cálculo do
- * fechamento em pagamentos/actions.ts, só lê o que já foi decidido lá). */
+/** Monta o relatório detalhado de um cliente (ou, com clienteId null, de
+ * TODOS os clientes juntos — resultado do período inteiro da
+ * cooperativa) num período: quanto deve pagar no total, quais motoboys
+ * trabalharam (turno + apoio), quantas bandas cada um fez, quanto cada
+ * um recebe, e qualquer vale/ocorrência/desconto de assiduidade daquele
+ * motoboy no período — com o status de pagamento já puxado do próprio
+ * Turno/Apoio (não duplica o cálculo do fechamento em pagamentos/
+ * actions.ts, só lê o que já foi decidido lá). Com clienteId null, o
+ * motoboy some numa linha só somando o que ele fez em TODOS os
+ * clientes, não uma linha por cliente — é isso que faz sentido pra "qual
+ * o resultado total da cooperativa nesse período". */
 export async function gerarRelatorioCliente(
   empresaId: number,
-  clienteId: number,
+  clienteId: number | null,
   dataInicio: string,
   dataFim: string
 ): Promise<RelatorioCliente | null> {
-  const cliente = await prisma.cliente.findFirst({
-    where: { id: clienteId, empresaId },
-    select: { nome: true },
-  });
-  if (!cliente) return null;
+  let clienteNome = "Todos os clientes";
+  if (clienteId !== null) {
+    const cliente = await prisma.cliente.findFirst({
+      where: { id: clienteId, empresaId },
+      select: { nome: true },
+    });
+    if (!cliente) return null;
+    clienteNome = cliente.nome;
+  }
 
   const inicio = instanteBrasil(dataInicio);
   const fimExclusivo = inicioDoDiaSeguinteBrasil(dataFim);
+  // Mesmo filtro reaproveitado em cada query abaixo (direto ou aninhado
+  // dentro de `turno: {...}`) — ou só esse cliente, ou qualquer cliente
+  // dessa empresa.
+  const filtroCliente = clienteId !== null ? { clienteId } : { cliente: { empresaId } };
 
   const [turnos, apoios, turnosAbertos, escalas] = await Promise.all([
     prisma.turno.findMany({
       where: {
-        clienteId,
+        ...filtroCliente,
         horaInicio: { gte: inicio, lt: fimExclusivo },
         status: { in: ["CONCLUIDO", "PAGO"] },
       },
@@ -84,7 +97,7 @@ export async function gerarRelatorioCliente(
       },
     }),
     prisma.apoio.findMany({
-      where: { clienteId, turno: { horaInicio: { gte: inicio, lt: fimExclusivo } } },
+      where: { ...filtroCliente, turno: { horaInicio: { gte: inicio, lt: fimExclusivo } } },
       select: {
         pagamentoId: true,
         quantidadeBandas: true,
@@ -94,12 +107,12 @@ export async function gerarRelatorioCliente(
       },
     }),
     prisma.turno.count({
-      where: { clienteId, horaInicio: { gte: inicio, lt: fimExclusivo }, status: "ABERTO" },
+      where: { ...filtroCliente, horaInicio: { gte: inicio, lt: fimExclusivo }, status: "ABERTO" },
     }),
     // EscalaTurno.data é @db.Date (dia puro, sem horário) — usa o mesmo
     // dataInicio/dataFim (strings YYYY-MM-DD) direto, sem instanteBrasil.
     prisma.escalaTurno.findMany({
-      where: { clienteId, data: { gte: new Date(dataInicio), lte: new Date(dataFim) } },
+      where: { ...filtroCliente, data: { gte: new Date(dataInicio), lte: new Date(dataFim) } },
       select: { statusConfirmacao: true },
     }),
   ]);
@@ -118,12 +131,12 @@ export async function gerarRelatorioCliente(
     motoboyIds.size === 0
       ? []
       : prisma.ocorrencia.findMany({
-          where: { clienteId, turno: { horaInicio: { gte: inicio, lt: fimExclusivo } } },
+          where: { ...filtroCliente, turno: { horaInicio: { gte: inicio, lt: fimExclusivo } } },
         }),
     motoboyIds.size === 0
       ? []
       : prisma.descontoAssiduidade.findMany({
-          where: { turno: { clienteId, horaInicio: { gte: inicio, lt: fimExclusivo } } },
+          where: { turno: { ...filtroCliente, horaInicio: { gte: inicio, lt: fimExclusivo } } },
         }),
   ]);
 
@@ -212,7 +225,7 @@ export async function gerarRelatorioCliente(
   motoboys.sort((a, b) => b.valorCliente - a.valorCliente);
 
   return {
-    clienteNome: cliente.nome,
+    clienteNome,
     dataInicio,
     dataFim,
     valorTotalCliente: motoboys.reduce((soma, m) => soma + m.valorCliente, 0),

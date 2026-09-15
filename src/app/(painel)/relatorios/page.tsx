@@ -33,13 +33,17 @@ export default async function RelatoriosPage({
     select: { id: true, nome: true },
   });
 
-  const clienteId = Number(params.clienteId) || clientes[0]?.id;
+  // "Todos os clientes" soma tudo junto (resultado do período inteiro da
+  // cooperativa) — Number("todos") vira NaN, então precisa checar antes
+  // pra não cair sem querer no fallback do primeiro cliente.
+  const modoTodos = params.clienteId === "todos";
+  const clienteId = modoTodos ? null : Number(params.clienteId) || clientes[0]?.id;
   const hoje = dataISOBrasil();
   const dataInicio = params.inicio || hoje;
   const dataFim = params.fim || hoje;
 
   const relatorio =
-    clienteId && dataInicio && dataFim
+    (modoTodos || clienteId) && dataInicio && dataFim
       ? await gerarRelatorioCliente(sessao.empresaEfetivoId, clienteId, dataInicio, dataFim)
       : null;
 
@@ -71,9 +75,10 @@ export default async function RelatoriosPage({
               <label className="text-xs text-stone-500">Cliente</label>
               <select
                 name="clienteId"
-                defaultValue={clienteId}
+                defaultValue={modoTodos ? "todos" : (clienteId ?? undefined)}
                 className="border border-stone-300 rounded-lg px-3 py-2 text-sm min-w-[200px]"
               >
+                <option value="todos">Todos os clientes (cooperativa)</option>
                 {clientes.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.nome}
@@ -105,7 +110,7 @@ export default async function RelatoriosPage({
             >
               Gerar relatório
             </button>
-            {relatorio && (
+            {relatorio && !modoTodos && (
               <Link
                 href={`/relatorios/pdf?${queryPdf}`}
                 target="_blank"
@@ -121,7 +126,9 @@ export default async function RelatoriosPage({
               <div className="rounded-2xl border border-navy-200 bg-navy-900 text-white p-5 flex flex-wrap items-center justify-between gap-4">
                 <div>
                   <p className="text-xs text-navy-200 uppercase tracking-wide font-semibold">
-                    Total que {relatorio.clienteNome} vai pagar no período
+                    {modoTodos
+                      ? "Total que todos os clientes vão pagar no período"
+                      : `Total que ${relatorio.clienteNome} vai pagar no período`}
                   </p>
                   <p className="text-3xl font-bold mt-1">R$ {formatarMoeda(relatorio.valorTotalCliente)}</p>
                 </div>
