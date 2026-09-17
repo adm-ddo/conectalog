@@ -70,8 +70,13 @@ export default async function AtivosAgoraPage() {
                       )}
                       <EquipamentoBadge tipo={t.motoboy.tipoEquipamento} />
                     </span>
-                    <span className="shrink-0 text-xs text-stone-500">
+                    <span className="shrink-0 flex items-center gap-3 text-xs text-stone-500">
                       desde {formatarHora(t.horaInicio)}
+                      {!escopoGestor && (
+                        <Link href={`/turnos/${t.id}`} className="text-navy-700 hover:underline font-medium">
+                          abrir turno
+                        </Link>
+                      )}
                     </span>
                   </li>
                 ))}

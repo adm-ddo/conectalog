@@ -126,10 +126,10 @@ enum StatusConfirmacaoEscala {
 /// Tenant — a cooperativa dona das motos. Cada Empresa é um cliente pagante
 /// do ConectaLog (hoje só uma; o modelo já nasce multi-tenant pra revenda).
 model Empresa {
-  id                       Int      @id @default(autoincrement())
-  nome                     String
-  cnpj                     String?  @unique
-  logoUrl                  String?
+  id                        Int      @id @default(autoincrement())
+  nome                      String
+  cnpj                      String?  @unique
+  logoUrl                   String?
   /// Padrão de banda usado quando o Cliente não tem valor próprio — lado
   /// "motoboy" (o que ele recebe) e lado "cliente" (o que a cooperativa
   /// cobra da empresa cliente); a diferença é a margem da cooperativa.
@@ -138,37 +138,37 @@ model Empresa {
   /// cada Cliente (ver ClienteTaxaExtra) — não faria sentido um valor
   /// único global quando cada empresa cliente cobra por faixas de
   /// distância diferentes.
-  valorBandaMotoboyPadrao  Decimal  @default(0) @db.Decimal(10, 2)
-  valorBandaClientePadrao  Decimal  @default(0) @db.Decimal(10, 2)
+  valorBandaMotoboyPadrao   Decimal  @default(0) @db.Decimal(10, 2)
+  valorBandaClientePadrao   Decimal  @default(0) @db.Decimal(10, 2)
   /// Link fixo de cadastro pro motoboy (/app/cadastro/[token]) — quem se
   /// cadastra por esse link já entra credenciado nesta cooperativa
   /// direto, sem precisar de aprovação. Gerado automaticamente na
   /// criação da Empresa. Modelo "descobrir e solicitar credenciamento
   /// noutra cooperativa" fica pra uma fase futura — ver conversa com o
   /// Thiago sobre o motoboy como perfil global no ConectaLog.
-  tokenCadastroMotoboy     String?  @unique
+  tokenCadastroMotoboy      String?  @unique
   /// Desconto automático de assiduidade (ver Motoboy.descontoAssiduidadeAtivo
   /// e DescontoAssiduidade) — quanto de tolerância (minutos) o motoboy tem
   /// depois do horário configurado do turno no Cliente antes de o atraso
   /// gerar desconto, e quanto desconta pra cada turno (cada um com seu
   /// valor, personalizável aqui).
-  toleranciaAtrasoMinutos  Int      @default(30)
+  toleranciaAtrasoMinutos   Int      @default(30)
   /// Dia em que a semana financeira começa (ver src/app/(painel)/
   /// financeiro) — convenção Date.getDay() (0=domingo...6=sábado).
   /// Padrão segunda-feira; a nota fiscal semanal de cada cliente cobre
   /// esse dia até o dia anterior da semana seguinte (ex.: segunda a
   /// domingo, se ficar no padrão).
-  diaInicioSemanaFinanceira Int     @default(1)
-  valorDescontoAtrasoManha Decimal  @default(15) @db.Decimal(10, 2)
-  valorDescontoAtrasoTarde Decimal  @default(10) @db.Decimal(10, 2)
-  valorDescontoAtrasoNoite Decimal  @default(20) @db.Decimal(10, 2)
+  diaInicioSemanaFinanceira Int      @default(1)
+  valorDescontoAtrasoManha  Decimal  @default(15) @db.Decimal(10, 2)
+  valorDescontoAtrasoTarde  Decimal  @default(10) @db.Decimal(10, 2)
+  valorDescontoAtrasoNoite  Decimal  @default(20) @db.Decimal(10, 2)
   /// false = some da lista de cooperativas que o motoboy "na prateleira"
   /// vê pra solicitar vaga (ver app/(logado)/layout.tsx) — pra
   /// cooperativas de teste/internas que não devem aparecer pra
   /// motoboy nenhum. Não afeta quem já está vinculado a ela nem o link
   /// direto de cadastro (tokenCadastroMotoboy).
-  visivelParaCadastro      Boolean  @default(true)
-  criadoEm                 DateTime @default(now())
+  visivelParaCadastro       Boolean  @default(true)
+  criadoEm                  DateTime @default(now())
 
   usuarios      Usuario[]
   clientes      Cliente[]
@@ -184,35 +184,35 @@ model Empresa {
 /// deliberadamente separado do login do Motoboy (auth-motoboy.ts), mesmo
 /// espírito do extras-app: uma falha num nunca deve derrubar o outro.
 model Usuario {
-  id                 Int         @id @default(autoincrement())
-  empresaId          Int
-  nome               String
-  email              String      @unique
-  senhaHash          String
-  role               RoleUsuario @default(GESTOR)
+  id                    Int         @id @default(autoincrement())
+  empresaId             Int
+  nome                  String
+  email                 String      @unique
+  senhaHash             String
+  role                  RoleUsuario @default(GESTOR)
   /// Dono da plataforma ConectaLog (não confundir com role MASTER, que é
   /// só o dono de UMA cooperativa) — enxerga todas as cooperativas
   /// cadastradas e pode "entrar" em qualquer uma como se fosse o dono
   /// dela (ver Sessao.empresaAtivaId e requireTenant em
   /// src/lib/auth-empresa.ts). Nunca setado por autocadastro.
-  superAdmin         Boolean     @default(false)
+  superAdmin            Boolean     @default(false)
   /// null até confirmar o cadastro pelo link de e-mail (só se aplica a
   /// quem se cadastrou sozinho, ou seja, o primeiro MASTER de cada
   /// cooperativa) — GESTOR convidado já entra verificado, porque clicar
   /// no link de convite já prova posse do e-mail.
-  emailVerificadoEm  DateTime?
-  ativo              Boolean     @default(true)
+  emailVerificadoEm     DateTime?
+  ativo                 Boolean     @default(true)
   /// Acesso à tela /financeiro (valores a cobrar dos clientes, notas
   /// fiscais de serviço, marcar como pago) — mais restrito que o role
   /// GESTOR normal, ver requireFinanceiro em auth-empresa.ts. MASTER
   /// sempre tem acesso independente desse campo (é o dono).
-  podeAcessarFinanceiro Boolean  @default(false)
-  criadoEm           DateTime    @default(now())
+  podeAcessarFinanceiro Boolean     @default(false)
+  criadoEm              DateTime    @default(now())
   /// Só preenchido pra role GESTOR_CAMPO — este login de painel foi
   /// criado automaticamente quando um Motoboy virou Gestor (ver
   /// Motoboy.ehGestor). Mesma pessoa, dois logins de verdade e isolados,
   /// só ligados por essa referência.
-  motoboyVinculadoId Int?        @unique
+  motoboyVinculadoId    Int?        @unique
 
   empresa                      Empresa                    @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   motoboyVinculado             Motoboy?                   @relation(fields: [motoboyVinculadoId], references: [id], onDelete: Cascade)
@@ -223,6 +223,7 @@ model Usuario {
   tokensAutenticacao           TokenAutenticacaoUsuario[]
   convitesEnviados             ConviteEquipe[]
   divergenciasResolvidas       Turno[]                    @relation("TurnoResolvidoPor")
+  turnosEncerradosManualmente  Turno[]                    @relation("TurnoEncerradoManualmentePor")
 }
 
 /// Token de uso único (verificação de e-mail / recuperação de senha) do
@@ -248,17 +249,17 @@ model TokenAutenticacaoUsuario {
 /// hora, sem convite real por e-mail): aqui é convite de verdade,
 /// porque agora existe infraestrutura de e-mail (Resend) pra isso.
 model ConviteEquipe {
-  id                 Int       @id @default(autoincrement())
-  empresaId          Int
-  email              String
-  token              String    @unique
-  criadoPorUsuarioId Int
-  expiraEm           DateTime
-  aceitoEm           DateTime?
-  criadoEm           DateTime  @default(now())
+  id                    Int       @id @default(autoincrement())
+  empresaId             Int
+  email                 String
+  token                 String    @unique
+  criadoPorUsuarioId    Int
+  expiraEm              DateTime
+  aceitoEm              DateTime?
+  criadoEm              DateTime  @default(now())
   /// Repassado pro Usuario.podeAcessarFinanceiro quando o convite for
   /// aceito — decidido na hora de convidar, não depois.
-  podeAcessarFinanceiro Boolean @default(false)
+  podeAcessarFinanceiro Boolean   @default(false)
 
   empresa          Empresa @relation(fields: [empresaId], references: [id], onDelete: Cascade)
   criadoPorUsuario Usuario @relation(fields: [criadoPorUsuarioId], references: [id])
@@ -307,11 +308,11 @@ model Cliente {
   // Dados da empresa cliente e de quem lida com o dia a dia operacional
   // (não é login nem contato financeiro) — tudo opcional, não bloqueia o
   // resto do cadastro.
-  cnpj                        String?
-  nomeResponsavelOperacional  String?
-  telefoneFixoOperacional     String?
-  telefoneCelularOperacional  String?
-  emailOperacional            String?
+  cnpj                       String?
+  nomeResponsavelOperacional String?
+  telefoneFixoOperacional    String?
+  telefoneCelularOperacional String?
+  emailOperacional           String?
 
   // Quem recebe a nota fiscal de serviço em PDF por e-mail (ver
   // src/app/(painel)/financeiro) — null enquanto a cooperativa não
@@ -395,9 +396,9 @@ model ClienteTaxaExtra {
 /// é uma lista, o mesmo turno (ex.: "Noite") pode ter um perfil pros dias
 /// de semana normais e outro só pro domingo, com valores diferentes.
 model ClienteTurnoFixo {
-  id                    Int      @id @default(autoincrement())
-  clienteId             Int
-  nome                  String
+  id                     Int         @id @default(autoincrement())
+  clienteId              Int
+  nome                   String
   /// Turno de VERDADE que o motoboy representa (o que ele foi escalado
   /// pra fazer / marcou no app) — não é sobre que horas ele bateu o
   /// ponto. Antes o perfil era escolhido comparando o horário de início
@@ -408,13 +409,13 @@ model ClienteTurnoFixo {
   /// o "normal". Motoboy que chegar adiantado ou atrasado pro turno da
   /// noite continua sendo pago (e cobrado do cliente) como turno da
   /// noite — decisão confirmada com o Thiago.
-  turno                 TurnoEscala
-  diasSemana            Int[]
-  valorGarantidoMotoboy Decimal  @db.Decimal(10, 2)
-  valorGarantidoCliente Decimal  @db.Decimal(10, 2)
-  bandasIncluidas       Int
-  valorExcedenteMotoboy Decimal  @db.Decimal(10, 2)
-  valorExcedenteCliente Decimal  @db.Decimal(10, 2)
+  turno                  TurnoEscala
+  diasSemana             Int[]
+  valorGarantidoMotoboy  Decimal     @db.Decimal(10, 2)
+  valorGarantidoCliente  Decimal     @db.Decimal(10, 2)
+  bandasIncluidas        Int
+  valorExcedenteMotoboy  Decimal     @db.Decimal(10, 2)
+  valorExcedenteCliente  Decimal     @db.Decimal(10, 2)
   /// false (padrão): cliente paga valorExcedenteCliente sobre TODAS as
   /// bandas do turno, desde a primeira, sem carência — modelo confirmado
   /// pra KERO SUSHI e Turi gastronomia. true: cliente ganha carência
@@ -425,10 +426,10 @@ model ClienteTurnoFixo {
   /// cobre bandasIncluidasCliente e só as que passarem disso são
   /// cobradas, a valorExcedenteCliente cada uma (ver
   /// src/lib/precificacao.ts).
-  carenciaCliente       Boolean  @default(false)
+  carenciaCliente        Boolean     @default(false)
   /// Só é usado quando carenciaCliente=true — ver comentário acima.
-  bandasIncluidasCliente Int     @default(0)
-  criadoEm              DateTime @default(now())
+  bandasIncluidasCliente Int         @default(0)
+  criadoEm               DateTime    @default(now())
 
   cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
 
@@ -440,14 +441,14 @@ model ClienteTurnoFixo {
 /// fato bate o início do turno correspondente — é isso que faz o card
 /// virar verde no portal do cliente e no painel da cooperativa.
 model EscalaTurno {
-  id                 Int         @id @default(autoincrement())
+  id                 Int                     @id @default(autoincrement())
   clienteId          Int
   motoboyId          Int
-  data               DateTime    @db.Date
+  data               DateTime                @db.Date
   turno              TurnoEscala
   turnoId            Int?
   criadoPorUsuarioId Int
-  criadoEm           DateTime    @default(now())
+  criadoEm           DateTime                @default(now())
   /// Confirmação do motoboy de que vai aparecer (tela "Minha escala" no
   /// app) — independente de turnoId, que só é preenchido quando ele de
   /// fato bate o início do turno. Nasce PENDENTE; o motoboy pode mudar de
@@ -455,10 +456,10 @@ model EscalaTurno {
   statusConfirmacao  StatusConfirmacaoEscala @default(PENDENTE)
   confirmadoEm       DateTime?
 
-  cliente          Cliente        @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  motoboy          Motoboy        @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
-  turnoVinculado   Turno?         @relation(fields: [turnoId], references: [id], onDelete: SetNull)
-  criadoPorUsuario Usuario        @relation(fields: [criadoPorUsuarioId], references: [id])
+  cliente          Cliente       @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  motoboy          Motoboy       @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  turnoVinculado   Turno?        @relation(fields: [turnoId], references: [id], onDelete: SetNull)
+  criadoPorUsuario Usuario       @relation(fields: [criadoPorUsuarioId], references: [id])
   notificacoes     Notificacao[]
 
   @@unique([clienteId, motoboyId, data, turno])
@@ -736,17 +737,35 @@ model Turno {
   /// motoboy tinha razão") — só preenchido na resolução da divergência.
   observacaoDivergencia           String?
 
-  motoboy             Motoboy              @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
-  cliente             Cliente              @relation(fields: [clienteId], references: [id], onDelete: Cascade)
-  pagamento           Pagamento?           @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
-  resolvidoPorUsuario Usuario?             @relation("TurnoResolvidoPor", fields: [resolvidoPorUsuarioId], references: [id])
-  apoios              Apoio[]
-  escalas             EscalaTurno[]
-  avaliacao           Avaliacao?
-  avaliacaoCliente    AvaliacaoCliente?
-  ocorrencia          Ocorrencia?
-  taxaExtraItens      TurnoTaxaExtraItem[]
-  descontoAssiduidade DescontoAssiduidade?
+  /// true quando a COOPERATIVA (não o motoboy, não o cron) encerrou esse
+  /// turno na mão pelo painel — usado quando o motoboy passou de 15min do
+  /// horário configurado de fim sem encerrar sozinho e a cooperativa
+  /// precisou fechar (ver encerrarTurnoManualmente, turnos/[id]/
+  /// actions.ts). Diferente de fechamentoAutomatico (que é o cron, sem
+  /// intervenção humana, com 2h de carência): aqui sempre tem uma pessoa
+  /// por trás, com quantidade de bandas/taxas informada por ela (não
+  /// necessariamente 0), guardada junto com quem fez e quando, pra ficar
+  /// visível na tela do turno que não foi o próprio motoboy que fechou.
+  encerradoManualmente             Boolean   @default(false)
+  encerradoManualmenteEm           DateTime?
+  encerradoManualmentePorUsuarioId Int?
+  /// Explicação opcional de por que a cooperativa precisou encerrar na
+  /// mão (ex.: "motoboy não respondeu, cliente confirmou 8 entregas por
+  /// telefone").
+  observacaoEncerramentoManual     String?
+
+  motoboy                        Motoboy              @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
+  cliente                        Cliente              @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  pagamento                      Pagamento?           @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
+  resolvidoPorUsuario            Usuario?             @relation("TurnoResolvidoPor", fields: [resolvidoPorUsuarioId], references: [id])
+  encerradoManualmentePorUsuario Usuario?             @relation("TurnoEncerradoManualmentePor", fields: [encerradoManualmentePorUsuarioId], references: [id])
+  apoios                         Apoio[]
+  escalas                        EscalaTurno[]
+  avaliacao                      Avaliacao?
+  avaliacaoCliente               AvaliacaoCliente?
+  ocorrencia                     Ocorrencia?
+  taxaExtraItens                 TurnoTaxaExtraItem[]
+  descontoAssiduidade            DescontoAssiduidade?
 
   @@index([motoboyId, status])
   @@index([clienteId, status])

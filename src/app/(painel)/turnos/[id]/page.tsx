@@ -6,10 +6,20 @@ import { formatarDataHora, diaSemanaBrasil } from "@/lib/data";
 import { formatarMoeda, paraNumero } from "@/lib/valores";
 import { LABEL_TURNO } from "@/lib/equipe";
 import { encontrarPerfilFixo } from "@/lib/precificacao";
+import { horaFimConfiguradaTurno } from "@/lib/horarioTurnoFixo";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import BotaoVoltar from "@/components/BotaoVoltar";
 import CorrigirContagemForm from "./CorrigirContagemForm";
+import EncerrarManualForm from "./EncerrarManualForm";
 import { PRAZO_CONFIRMACAO_MIN } from "@/lib/confirmacaoBandas";
+
+/** Tolerância antes de liberar o botão de encerrar manualmente pelo
+ * painel — bem mais curta que a carência de 2h do fechamento automático
+ * por cron (fechamento-automatico.ts): aqui é a cooperativa decidindo
+ * agir, não o sistema fechando sozinho, então 15min já é suficiente pra
+ * saber que o motoboy não vai encerrar sozinho tão cedo (pedido do
+ * Thiago). */
+const TOLERANCIA_ENCERRAR_MANUAL_MIN = 15;
 
 const LABEL_STATUS: Record<string, string> = {
   ABERTO: "Aberto",
@@ -29,10 +39,22 @@ export default async function TurnoDetalhePage({
     where: { id: turnoId, motoboy: { empresaId: sessao.empresaEfetivoId } },
     include: {
       motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
-      cliente: { select: { nome: true, turnosFixos: true } },
+      cliente: {
+        select: {
+          nome: true,
+          turnosFixos: true,
+          turnoManhaAtivo: true,
+          turnoManhaFim: true,
+          turnoTardeAtivo: true,
+          turnoTardeFim: true,
+          turnoNoiteAtivo: true,
+          turnoNoiteFim: true,
+        },
+      },
       apoios: { include: { cliente: { select: { nome: true } } } },
       taxaExtraItens: { orderBy: { ordem: "asc" } },
       resolvidoPorUsuario: { select: { nome: true } },
+      encerradoManualmentePorUsuario: { select: { nome: true } },
     },
   });
   if (!turno) notFound();
@@ -69,6 +91,16 @@ export default async function TurnoDetalhePage({
       ? encontrarPerfilFixo(turno.cliente.turnosFixos, turno.turnoPredefinido, diaSemanaBrasil(turno.horaInicio))
       : null;
 
+  // Botão de encerrar manualmente só aparece depois de passados 15min do
+  // horário configurado de fim — turno LIVRE não tem horário configurado
+  // (motoboy escolhe livremente), então nesse caso a cooperativa já pode
+  // encerrar a qualquer momento (não tem "atraso" pra esperar).
+  const horaFimConfigurada = horaFimConfiguradaTurno(turno.cliente, turno.turnoPredefinido, turno.horaInicio);
+  const podeEncerrarManualmente =
+    turno.status === "ABERTO" &&
+    (horaFimConfigurada === null ||
+      new Date() > new Date(horaFimConfigurada.getTime() + TOLERANCIA_ENCERRAR_MANUAL_MIN * 60_000));
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -81,6 +113,21 @@ export default async function TurnoDetalhePage({
           {turno.cliente.nome} · turno da {turnoLabel} · {LABEL_STATUS[turno.status]}
         </p>
       </div>
+
+      {podeEncerrarManualmente && (
+        <EncerrarManualForm
+          turnoId={turno.id}
+          turnoLabel={turnoLabel}
+          bandasIncluidas={perfilFixoDivergencia?.bandasIncluidas ?? null}
+          valorGarantidoMotoboy={perfilFixoDivergencia ? paraNumero(perfilFixoDivergencia.valorGarantidoMotoboy) : null}
+          valorExcedenteMotoboy={perfilFixoDivergencia ? paraNumero(perfilFixoDivergencia.valorExcedenteMotoboy) : null}
+          taxas={turno.taxaExtraItens.map((item) => ({
+            itemId: item.id,
+            descricao: item.descricao,
+            valorMotoboyUnidade: paraNumero(item.valorMotoboyAplicado),
+          }))}
+        />
+      )}
 
       {podeCorrigirContagem && (
         <CorrigirContagemForm
@@ -126,6 +173,15 @@ export default async function TurnoDetalhePage({
           {turno.valorCobradoCliente ? `R$ ${formatarMoeda(turno.valorCobradoCliente)}` : "—"}
         </p>
       </div>
+
+      {turno.encerradoManualmente && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+          Encerrado manualmente por {turno.encerradoManualmentePorUsuario?.nome ?? "alguém da cooperativa"}
+          {turno.encerradoManualmenteEm && <> em {formatarDataHora(turno.encerradoManualmenteEm)}</>} —{" "}
+          {turno.quantidadeBandas} entrega{turno.quantidadeBandas === 1 ? "" : "s"}.
+          {turno.observacaoEncerramentoManual && <> “{turno.observacaoEncerramentoManual}”</>}
+        </div>
+      )}
 
       {turno.fechamentoAutomatico && turno.resolvidoDivergenciaEm !== null && (
         <div className="rounded-2xl border border-brand-200 bg-brand-50 p-5 text-sm text-brand-800">

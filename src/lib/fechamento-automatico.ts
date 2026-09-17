@@ -1,39 +1,12 @@
 import "server-only";
 import { prisma } from "@/lib/prisma";
-import { dataISOBrasil, instanteBrasil, diaSemanaBrasil } from "@/lib/data";
+import { diaSemanaBrasil } from "@/lib/data";
 import { calcularValores, encontrarPerfilFixo, aplicarRemuneracaoGestor } from "@/lib/precificacao";
 import { paraNumero, valorEfetivo } from "@/lib/valores";
 import { PRAZO_CONFIRMACAO_MIN } from "@/lib/confirmacaoBandas";
-import type { Cliente } from "@/generated/prisma/client";
-import type { TurnoPredefinido } from "@/generated/prisma/enums";
+import { horaFimConfiguradaTurno } from "@/lib/horarioTurnoFixo";
 
 const CARENCIA_MIN = PRAZO_CONFIRMACAO_MIN;
-
-function paraMinutos(hhmm: string | null): number | null {
-  if (!hhmm) return null;
-  const partes = hhmm.split(":").map(Number);
-  if (partes.length !== 2 || partes.some(Number.isNaN)) return null;
-  return partes[0] * 60 + partes[1];
-}
-
-/** Horário configurado de fim do turno (em minutos desde meia-noite) pro
- * perfil manhã/tarde/noite desse Cliente — null se o turno não é um
- * desses três (LIVRE não tem horário configurado, nunca é fechado
- * sozinho) ou se o Cliente desativou/não configurou esse turno depois que
- * o motoboy já tinha começado (não fecha um turno sem saber até quando
- * ele deveria ir). */
-function minutosFimConfigurado(
-  cliente: Pick<
-    Cliente,
-    "turnoManhaAtivo" | "turnoManhaFim" | "turnoTardeAtivo" | "turnoTardeFim" | "turnoNoiteAtivo" | "turnoNoiteFim"
-  >,
-  turno: TurnoPredefinido
-): number | null {
-  if (turno === "MANHA") return cliente.turnoManhaAtivo ? paraMinutos(cliente.turnoManhaFim) : null;
-  if (turno === "TARDE") return cliente.turnoTardeAtivo ? paraMinutos(cliente.turnoTardeFim) : null;
-  if (turno === "NOITE") return cliente.turnoNoiteAtivo ? paraMinutos(cliente.turnoNoiteFim) : null;
-  return null;
-}
 
 /** Fecha sozinho turno que o motoboy esqueceu de encerrar — chamada pelo
  * cron (ver vercel.json e src/app/api/cron/fechar-turnos/route.ts) duas
@@ -70,17 +43,9 @@ export async function fecharTurnosEsquecidos(agora: Date = new Date()): Promise<
 
   let fechados = 0;
   for (const turno of turnosAbertos) {
-    const minutosFim = minutosFimConfigurado(turno.cliente, turno.turnoPredefinido);
-    if (minutosFim === null) continue;
+    const horaFimConfigurada = horaFimConfiguradaTurno(turno.cliente, turno.turnoPredefinido, turno.horaInicio);
+    if (horaFimConfigurada === null) continue;
 
-    const dataInicioISO = dataISOBrasil(turno.horaInicio);
-    let horaFimConfigurada = instanteBrasil(dataInicioISO, minutosFim);
-    // Turno que cruza a meia-noite (ex.: 22:00-05:00): o fim configurado
-    // em minutos-do-dia é menor que o início, então o fim de verdade é no
-    // dia seguinte ao início.
-    if (horaFimConfigurada <= turno.horaInicio) {
-      horaFimConfigurada = new Date(horaFimConfigurada.getTime() + 24 * 60 * 60_000);
-    }
     const prazoFechamento = new Date(horaFimConfigurada.getTime() + CARENCIA_MIN * 60_000);
     if (agora < prazoFechamento) continue;
 
