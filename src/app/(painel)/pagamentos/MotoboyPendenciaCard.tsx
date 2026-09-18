@@ -7,7 +7,9 @@ export type GrupoPendencia = {
   chave: string;
   label: string;
   turnoIds: number[];
+  apoioIds: number[];
   quantidadeTurnos: number;
+  quantidadeApoiosAvulsos: number;
   valorBruto: string;
 };
 
@@ -57,14 +59,20 @@ function GrupoRow({ motoboyId, grupo }: { motoboyId: number; grupo: GrupoPendenc
       <div className="min-w-0 flex flex-col">
         <span className="text-sm font-medium text-navy-900">{grupo.label}</span>
         <span className="text-xs text-stone-500">
-          {grupo.quantidadeTurnos} turno{grupo.quantidadeTurnos === 1 ? "" : "s"} · R${" "}
-          {grupo.valorBruto}
+          {[
+            grupo.quantidadeTurnos > 0 && `${grupo.quantidadeTurnos} turno${grupo.quantidadeTurnos === 1 ? "" : "s"}`,
+            grupo.quantidadeApoiosAvulsos > 0 &&
+              `${grupo.quantidadeApoiosAvulsos} apoio${grupo.quantidadeApoiosAvulsos === 1 ? "" : "s"} avulso${grupo.quantidadeApoiosAvulsos === 1 ? "" : "s"}`,
+          ]
+            .filter(Boolean)
+            .join(" + ")}{" "}
+          · R$ {grupo.valorBruto}
         </span>
       </div>
       <button
         type="button"
         disabled={pending}
-        onClick={() => startTransition(() => fecharPagamento(motoboyId, grupo.turnoIds))}
+        onClick={() => startTransition(() => fecharPagamento(motoboyId, grupo.turnoIds, grupo.apoioIds))}
         className="shrink-0 rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-xs font-semibold px-4 py-2 disabled:opacity-50 transition-colors"
       >
         {pending ? "Fechando..." : "Fechar pagamento"}

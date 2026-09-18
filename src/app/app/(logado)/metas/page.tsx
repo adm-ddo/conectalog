@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { formatarMoeda, paraNumero } from "@/lib/valores";
 import { formatarData } from "@/lib/data";
 import { mensagemMotivacional } from "@/lib/motivacao";
+import { apoiosAvulsosDoMotoboy } from "@/lib/apoiosAvulsos";
 import MetaForm from "./MetaForm";
 import EncerrarMetaButton from "./EncerrarMetaButton";
 
@@ -17,18 +18,21 @@ export default async function MetasMotoboyPage() {
   let progresso = 0;
   let atual = 0;
   if (meta) {
-    const turnos = await prisma.turno.findMany({
-      where: {
-        motoboyId: sessao.motoboyId,
-        status: { in: ["CONCLUIDO", "PAGO"] },
-        horaInicio: { gte: meta.periodoInicio, lte: meta.periodoFim },
-      },
-      select: {
-        quantidadeBandas: true,
-        valorTotal: true,
-        apoios: { select: { quantidadeBandas: true, valorTotal: true } },
-      },
-    });
+    const [turnos, apoiosAvulsos] = await Promise.all([
+      prisma.turno.findMany({
+        where: {
+          motoboyId: sessao.motoboyId,
+          status: { in: ["CONCLUIDO", "PAGO"] },
+          horaInicio: { gte: meta.periodoInicio, lte: meta.periodoFim },
+        },
+        select: {
+          quantidadeBandas: true,
+          valorTotal: true,
+          apoios: { select: { quantidadeBandas: true, valorTotal: true } },
+        },
+      }),
+      apoiosAvulsosDoMotoboy(sessao.motoboyId, meta.periodoInicio, meta.periodoFim),
+    ]);
     for (const t of turnos) {
       if (meta.tipo === "BANDAS") {
         atual += t.quantidadeBandas;
@@ -37,6 +41,9 @@ export default async function MetasMotoboyPage() {
         atual += Number(t.valorTotal ?? 0);
         for (const a of t.apoios) atual += Number(a.valorTotal);
       }
+    }
+    for (const a of apoiosAvulsos) {
+      atual += meta.tipo === "BANDAS" ? a.quantidadeBandas : Number(a.valorTotal);
     }
     progresso = paraNumero(meta.valorAlvo) > 0 ? atual / paraNumero(meta.valorAlvo) : 0;
   }

@@ -10,7 +10,10 @@ export default async function ApoioPage() {
     prisma.motoboy.findUniqueOrThrow({ where: { id: sessao.motoboyId }, select: { livre: true } }),
     prisma.turno.findFirst({ where: { motoboyId: sessao.motoboyId, status: "ABERTO" } }),
   ]);
-  if (!turnoAberto) redirect("/app/inicio");
+  // Sem turno aberto só faz sentido chegar aqui sendo livre (apoio
+  // avulso, ver registrarApoio) — motoboy não-livre sem turno não tem o
+  // que fazer nessa tela.
+  if (!turnoAberto && !motoboy.livre) redirect("/app/inicio");
 
   const selecaoCliente = {
     id: true,
@@ -20,7 +23,11 @@ export default async function ApoioPage() {
 
   const clientes = motoboy.livre
     ? await prisma.cliente.findMany({
-        where: { empresaId: sessao.empresaId, ativo: true, id: { not: turnoAberto.clienteId } },
+        where: {
+          empresaId: sessao.empresaId,
+          ativo: true,
+          ...(turnoAberto ? { id: { not: turnoAberto.clienteId } } : {}),
+        },
         orderBy: { nome: "asc" },
         select: selecaoCliente,
       })
@@ -28,7 +35,7 @@ export default async function ApoioPage() {
         where: {
           empresaId: sessao.empresaId,
           ativo: true,
-          id: { not: turnoAberto.clienteId },
+          id: { not: turnoAberto!.clienteId },
           motoboysLiberados: { some: { motoboyId: sessao.motoboyId, liberado: true } },
         },
         orderBy: { nome: "asc" },

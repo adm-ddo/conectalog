@@ -52,12 +52,13 @@ export async function rankingMotoboys(
     prisma.apoio.findMany({
       where: {
         criadoEm: { gte: inicio },
-        turno: { motoboy: { empresaId } },
+        motoboy: { empresaId },
         cliente: filtroCliente,
       },
       select: {
         quantidadeBandas: true,
-        turno: { select: { motoboyId: true, motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } } } },
+        motoboyId: true,
+        motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
       },
     }),
   ]);
@@ -83,15 +84,15 @@ export async function rankingMotoboys(
   }
 
   for (const a of apoios) {
-    const atual = porMotoboy.get(a.turno.motoboyId) ?? {
-      nome: a.turno.motoboy.nomeCompleto,
-      tipoEquipamento: a.turno.motoboy.tipoEquipamento,
+    const atual = porMotoboy.get(a.motoboyId) ?? {
+      nome: a.motoboy.nomeCompleto,
+      tipoEquipamento: a.motoboy.tipoEquipamento,
       bandas: 0,
       horas: 0,
       turnos: 0,
     };
     atual.bandas += a.quantidadeBandas;
-    porMotoboy.set(a.turno.motoboyId, atual);
+    porMotoboy.set(a.motoboyId, atual);
   }
 
   return Array.from(porMotoboy.entries())

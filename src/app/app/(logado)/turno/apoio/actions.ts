@@ -21,19 +21,24 @@ export type DadosApoio = {
 
 /** Apoio: sem foto/assinatura de propósito (decisão confirmada com o
  * Thiago) — só marca o cliente de apoio e a quantidade, pra não
- * atrapalhar o motoboy no meio da correria. */
+ * atrapalhar o motoboy no meio da correria. Motoboy livre pode dar apoio
+ * mesmo sem turno aberto em lugar nenhum ("apoio avulso" — turnoId fica
+ * null, motoboyId sempre preenchido): a ideia é ele poder só rodar de
+ * apoio em apoio o dia inteiro sem nunca precisar se fixar num cliente.
+ * Motoboy não-livre continua precisando de turno aberto pra dar apoio. */
 export async function registrarApoio(dados: DadosApoio): Promise<ApoioState> {
   const sessao = await requireMotoboyComEmpresa();
 
-  const turnoAberto = await prisma.turno.findFirst({
-    where: { motoboyId: sessao.motoboyId, status: "ABERTO" },
-  });
-  if (!turnoAberto) return { erro: "Você precisa estar em turno pra registrar apoio." };
-
-  const motoboy = await prisma.motoboy.findUniqueOrThrow({
-    where: { id: sessao.motoboyId },
-    select: { livre: true, ehGestor: true, modoRemuneracaoGestor: true, valorBandaGestorEspecial: true },
-  });
+  const [turnoAberto, motoboy] = await Promise.all([
+    prisma.turno.findFirst({ where: { motoboyId: sessao.motoboyId, status: "ABERTO" } }),
+    prisma.motoboy.findUniqueOrThrow({
+      where: { id: sessao.motoboyId },
+      select: { livre: true, ehGestor: true, modoRemuneracaoGestor: true, valorBandaGestorEspecial: true },
+    }),
+  ]);
+  if (!turnoAberto && !motoboy.livre) {
+    return { erro: "Você precisa estar em turno pra registrar apoio." };
+  }
   if (!motoboy.livre) {
     const liberacao = await prisma.motoboyCliente.findUnique({
       where: { motoboyId_clienteId: { motoboyId: sessao.motoboyId, clienteId: dados.clienteId } },
@@ -88,7 +93,8 @@ export async function registrarApoio(dados: DadosApoio): Promise<ApoioState> {
 
   const apoio = await prisma.apoio.create({
     data: {
-      turnoId: turnoAberto.id,
+      turnoId: turnoAberto?.id ?? null,
+      motoboyId: sessao.motoboyId,
       clienteId: dados.clienteId,
       quantidadeBandas: dados.quantidadeBandas,
       quantidadeTaxasExtras: totalTaxasExtras,

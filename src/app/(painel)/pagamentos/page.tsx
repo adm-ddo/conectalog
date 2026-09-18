@@ -45,6 +45,14 @@ export default async function PagamentosPage() {
             apoios: { where: { pagamentoId: null }, select: { valorTotal: true } },
           },
         },
+        // Apoios AVULSOS (sem turno de base — motoboy livre, ver
+        // registrarApoio) ainda não pagos: não vêm junto de `turnos`
+        // acima, entram no mesmo agrupamento por dia/semana abaixo.
+        apoios: {
+          where: { turnoId: null, pagamentoId: null },
+          orderBy: { criadoEm: "asc" },
+          select: { id: true, criadoEm: true, valorTotal: true },
+        },
         ocorrencias: {
           where: { pagamentoId: null },
           select: { valorDesconto: true },
@@ -68,23 +76,46 @@ export default async function PagamentosPage() {
 
   const pendencias = motoboys
     .map((m) => {
-      type Acumulador = { chave: string; label: string; turnoIds: number[]; quantidadeTurnos: number; valorBrutoNumero: number };
+      type Acumulador = {
+        chave: string;
+        label: string;
+        turnoIds: number[];
+        apoioIds: number[];
+        quantidadeTurnos: number;
+        quantidadeApoiosAvulsos: number;
+        valorBrutoNumero: number;
+      };
       const gruposPorChave = new Map<string, Acumulador>();
-      for (const turno of m.turnos) {
-        const valorTurno =
-          Number(turno.valorTotal ?? 0) + turno.apoios.reduce((s, a) => s + Number(a.valorTotal), 0);
-        const { chave, label } = chaveEDataGrupo(turno.horaInicio, m.frequenciaPagamento);
+      function grupo(data: Date): Acumulador {
+        const { chave, label } = chaveEDataGrupo(data, m.frequenciaPagamento);
         const atual: Acumulador = gruposPorChave.get(chave) ?? {
           chave,
           label,
           turnoIds: [],
+          apoioIds: [],
           quantidadeTurnos: 0,
+          quantidadeApoiosAvulsos: 0,
           valorBrutoNumero: 0,
         };
+        gruposPorChave.set(chave, atual);
+        return atual;
+      }
+
+      for (const turno of m.turnos) {
+        const valorTurno =
+          Number(turno.valorTotal ?? 0) + turno.apoios.reduce((s, a) => s + Number(a.valorTotal), 0);
+        const atual = grupo(turno.horaInicio);
         atual.turnoIds.push(turno.id);
         atual.quantidadeTurnos += 1;
         atual.valorBrutoNumero += valorTurno;
-        gruposPorChave.set(chave, atual);
+      }
+      // Apoios avulsos entram no mesmo agrupamento por dia/semana, só que
+      // pela data do próprio apoio (não têm turno pra puxar horaInicio).
+      for (const apoio of m.apoios) {
+        const atual = grupo(apoio.criadoEm);
+        atual.apoioIds.push(apoio.id);
+        atual.quantidadeApoiosAvulsos += 1;
+        atual.valorBrutoNumero += Number(apoio.valorTotal);
       }
 
       const grupos: GrupoPendencia[] = [...gruposPorChave.values()]
@@ -93,7 +124,9 @@ export default async function PagamentosPage() {
           chave: g.chave,
           label: g.label,
           turnoIds: g.turnoIds,
+          apoioIds: g.apoioIds,
           quantidadeTurnos: g.quantidadeTurnos,
+          quantidadeApoiosAvulsos: g.quantidadeApoiosAvulsos,
           valorBruto: formatarMoeda(g.valorBrutoNumero),
         }));
 
@@ -127,7 +160,7 @@ export default async function PagamentosPage() {
         <h2 className="text-sm font-semibold text-navy-900 mb-3">A fechar</h2>
         {pendencias.length === 0 ? (
           <p className="text-sm text-stone-500">
-            Nenhum turno concluído esperando fechamento no momento.
+            Nenhum turno ou apoio esperando fechamento no momento.
           </p>
         ) : (
           <div className="flex flex-col gap-3">

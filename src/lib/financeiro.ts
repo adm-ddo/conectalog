@@ -142,7 +142,7 @@ export async function confirmadoHojeCliente(clienteId: number): Promise<ResumoFi
       select: { valorCobradoCliente: true, valorTotal: true },
     }),
     prisma.apoio.findMany({
-      where: { clienteId, turno: { horaInicio: { gte: inicioHoje } } },
+      where: { clienteId, criadoEm: { gte: inicioHoje } },
       select: { valorCobradoCliente: true, valorTotal: true },
     }),
   ]);

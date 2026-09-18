@@ -97,13 +97,14 @@ export async function gerarRelatorioCliente(
       },
     }),
     prisma.apoio.findMany({
-      where: { ...filtroCliente, turno: { horaInicio: { gte: inicio, lt: fimExclusivo } } },
+      where: { ...filtroCliente, criadoEm: { gte: inicio, lt: fimExclusivo } },
       select: {
         pagamentoId: true,
         quantidadeBandas: true,
         valorTotal: true,
         valorCobradoCliente: true,
-        turno: { select: { motoboyId: true, motoboy: { select: { nomeCompleto: true } } } },
+        motoboyId: true,
+        motoboy: { select: { nomeCompleto: true } },
       },
     }),
     prisma.turno.count({
@@ -119,7 +120,7 @@ export async function gerarRelatorioCliente(
 
   const motoboyIds = new Set<number>();
   for (const t of turnos) motoboyIds.add(t.motoboyId);
-  for (const a of apoios) motoboyIds.add(a.turno.motoboyId);
+  for (const a of apoios) motoboyIds.add(a.motoboyId);
 
   const [vales, ocorrencias, descontosAssiduidade] = await Promise.all([
     motoboyIds.size === 0
@@ -170,7 +171,7 @@ export async function gerarRelatorioCliente(
     if (t.status === "PAGO") l.itensPagos += 1;
   }
   for (const a of apoios) {
-    const l = linha(a.turno.motoboyId, a.turno.motoboy.nomeCompleto);
+    const l = linha(a.motoboyId, a.motoboy.nomeCompleto);
     l.bandas += a.quantidadeBandas;
     l.valorRecebe += paraNumero(a.valorTotal);
     l.valorCliente += paraNumero(a.valorCobradoCliente);

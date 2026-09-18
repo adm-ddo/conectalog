@@ -544,6 +544,7 @@ model Motoboy {
   usuarioGestor        Usuario?
   clientesLiberados    MotoboyCliente[]
   turnos               Turno[]
+  apoios               Apoio[]
   pagamentos           Pagamento[]
   vales                Vale[]
   metas                Meta[]
@@ -915,16 +916,25 @@ model SolicitacaoApoio {
   @@index([clienteId, status])
 }
 
-/// Apoio: o motoboy ajuda outro Cliente durante/depois do turno principal.
-/// Sem foto/assinatura de propósito (decisão confirmada com o Thiago) —
-/// só marca o Cliente de apoio e a quantidade, pra não atrapalhar o fluxo
-/// dele no meio da correria. Taxa extra vem da lista de faixas do Cliente
-/// de apoio (ver ApoioTaxaExtraItem) — sem lado "cliente confirma"
-/// separado, diferente do Turno principal, porque apoio não passa pelo
-/// portal do cliente.
+/// Apoio: o motoboy ajuda outro Cliente, geralmente durante/depois do
+/// turno principal (turnoId preenchido) — mas um motoboy livre também
+/// pode dar apoio avulso sem turno nenhum de base (turnoId null, ver
+/// registrarApoio em turno/apoio/actions.ts). Sem foto/assinatura de
+/// propósito (decisão confirmada com o Thiago) — só marca o Cliente de
+/// apoio e a quantidade, pra não atrapalhar o fluxo dele no meio da
+/// correria. Taxa extra vem da lista de faixas do Cliente de apoio (ver
+/// ApoioTaxaExtraItem) — sem lado "cliente confirma" separado, diferente
+/// do Turno principal, porque apoio não passa pelo portal do cliente.
 model Apoio {
   id                    Int      @id @default(autoincrement())
-  turnoId               Int
+  /// Turno "de base" que o motoboy tinha aberto quando deu esse apoio —
+  /// null quando é um apoio AVULSO de um motoboy livre, que não estava
+  /// (e não precisa estar) em turno nenhum em lugar nenhum (pedido do
+  /// Thiago: livre pode só ficar rodando de apoio em apoio o dia
+  /// inteiro). motoboyId é quem manda pra fim de "de quem é esse apoio"
+  /// — sempre preenchido, com ou sem turno.
+  turnoId               Int?
+  motoboyId             Int
   clienteId             Int
   quantidadeBandas      Int      @default(0)
   quantidadeTaxasExtras Int      @default(0)
@@ -934,12 +944,14 @@ model Apoio {
   pagamentoId           Int?
   criadoEm              DateTime @default(now())
 
-  turno          Turno                @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+  turno          Turno?               @relation(fields: [turnoId], references: [id], onDelete: Cascade)
+  motoboy        Motoboy              @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
   cliente        Cliente              @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   pagamento      Pagamento?           @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
   taxaExtraItens ApoioTaxaExtraItem[]
 
   @@index([turnoId])
+  @@index([motoboyId])
 }
 
 /// Quantidade de um apoio numa faixa de taxa extra do Cliente de apoio —

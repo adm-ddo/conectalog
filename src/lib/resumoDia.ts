@@ -37,7 +37,8 @@ export async function resumoDiaCliente(clienteId: number): Promise<ResumoDiaClie
         id: true,
         quantidadeBandas: true,
         criadoEm: true,
-        turno: { select: { motoboyId: true, motoboy: { select: { nomeCompleto: true } } } },
+        motoboyId: true,
+        motoboy: { select: { nomeCompleto: true } },
       },
     }),
   ]);
@@ -54,9 +55,9 @@ export async function resumoDiaCliente(clienteId: number): Promise<ResumoDiaClie
     totalBandas: totalBandasNormais + totalBandasApoio,
     apoios: apoios.map((a) => ({
       id: a.id,
-      motoboyId: a.turno.motoboyId,
+      motoboyId: a.motoboyId,
       quantidadeBandas: a.quantidadeBandas,
-      motoboyNome: a.turno.motoboy.nomeCompleto,
+      motoboyNome: a.motoboy.nomeCompleto,
       criadoEm: a.criadoEm,
     })),
   };

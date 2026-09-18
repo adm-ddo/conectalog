@@ -34,7 +34,7 @@ export default async function PortalMotoboyPage({
       where: { clienteId: cliente.id, motoboyId: idMotoboy, horaInicio: { gte: inicioHoje } },
     }),
     prisma.apoio.findFirst({
-      where: { clienteId: cliente.id, criadoEm: { gte: inicioHoje }, turno: { motoboyId: idMotoboy } },
+      where: { clienteId: cliente.id, criadoEm: { gte: inicioHoje }, motoboyId: idMotoboy },
     }),
   ]);
   if (!escaladoHoje && !turnoHoje && !apoioHoje) notFound();

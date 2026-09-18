@@ -4,51 +4,71 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requireTenantCompleto } from "@/lib/auth-empresa";
 
-/** Fecha o pagamento de um grupo específico de turnos (um dia, se o
- * motoboy é DIARIA, ou uma semana, se é SEMANAL — ver agrupamento em
- * page.tsx) — o PIX em si a cooperativa faz pelo banco dela, isso aqui é
- * só o fechamento de conta. Mesmo espírito do extras-app: nunca calcula/
- * envia dinheiro sozinho.
+/** Fecha o pagamento de um grupo específico de turnos + apoios avulsos
+ * (um dia, se o motoboy é DIARIA, ou uma semana, se é SEMANAL — ver
+ * agrupamento em page.tsx) — o PIX em si a cooperativa faz pelo banco
+ * dela, isso aqui é só o fechamento de conta. Mesmo espírito do
+ * extras-app: nunca calcula/envia dinheiro sozinho.
+ *
+ * apoioIdsAvulsos são apoios SEM turno de base (motoboy livre que deu
+ * apoio sem estar em turno nenhum, ver registrarApoio) — os apoios que
+ * TÊM turno continuam vindo junto de `turno.apoios`, como sempre. Um
+ * motoboy livre pode fechar um período com só apoios avulsos e nenhum
+ * turno (turnoIds vazio).
  *
  * Todo desconto de ocorrência, vale E atraso (assiduidade) ainda pendente
  * do motoboy entra nesse fechamento (não só o do período do grupo): eles
  * não são amarrados a um turno específico pra fim de cobrança, então o
  * primeiro pagamento que a cooperativa fechar depois deles existirem é
  * quem absorve o desconto. */
-export async function fecharPagamento(motoboyId: number, turnoIds: number[]) {
+export async function fecharPagamento(motoboyId: number, turnoIds: number[], apoioIdsAvulsos: number[] = []) {
   const sessao = await requireTenantCompleto();
 
   const motoboy = await prisma.motoboy.findFirst({
     where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
   });
-  if (!motoboy || turnoIds.length === 0) return;
+  if (!motoboy || (turnoIds.length === 0 && apoioIdsAvulsos.length === 0)) return;
 
-  const [turnos, ocorrencias, vales, descontosAssiduidade] = await Promise.all([
+  const [turnos, apoiosAvulsos, ocorrencias, vales, descontosAssiduidade] = await Promise.all([
     prisma.turno.findMany({
       where: { id: { in: turnoIds }, motoboyId, status: "CONCLUIDO", pagamentoId: null },
       include: { apoios: { where: { pagamentoId: null } } },
     }),
+    apoioIdsAvulsos.length === 0
+      ? Promise.resolve([])
+      : prisma.apoio.findMany({
+          where: { id: { in: apoioIdsAvulsos }, motoboyId, turnoId: null, pagamentoId: null },
+        }),
     prisma.ocorrencia.findMany({ where: { motoboyId, pagamentoId: null } }),
     prisma.vale.findMany({ where: { motoboyId, descontadoEm: null } }),
     prisma.descontoAssiduidade.findMany({ where: { motoboyId, pagamentoId: null } }),
   ]);
-  if (turnos.length === 0) return;
+  if (turnos.length === 0 && apoiosAvulsos.length === 0) return;
 
   let valorTurnos = 0;
-  let periodoInicio = turnos[0].horaInicio;
-  let periodoFim = turnos[0].horaInicio;
+  let periodoInicio: Date | null = null;
+  let periodoFim: Date | null = null;
   const turnoIdsReais: number[] = [];
   const apoioIds: number[] = [];
+
+  function considerarData(data: Date) {
+    if (periodoInicio === null || data < periodoInicio) periodoInicio = data;
+    if (periodoFim === null || data > periodoFim) periodoFim = data;
+  }
 
   for (const turno of turnos) {
     valorTurnos += Number(turno.valorTotal ?? 0);
     turnoIdsReais.push(turno.id);
-    if (turno.horaInicio < periodoInicio) periodoInicio = turno.horaInicio;
-    if (turno.horaInicio > periodoFim) periodoFim = turno.horaInicio;
+    considerarData(turno.horaInicio);
     for (const apoio of turno.apoios) {
       valorTurnos += Number(apoio.valorTotal);
       apoioIds.push(apoio.id);
     }
+  }
+  for (const apoio of apoiosAvulsos) {
+    valorTurnos += Number(apoio.valorTotal);
+    apoioIds.push(apoio.id);
+    considerarData(apoio.criadoEm);
   }
 
   const totalOcorrencias = ocorrencias.reduce((soma, o) => soma + Number(o.valorDesconto), 0);
@@ -61,7 +81,13 @@ export async function fecharPagamento(motoboyId: number, turnoIds: number[]) {
 
   await prisma.$transaction(async (tx) => {
     const pagamento = await tx.pagamento.create({
-      data: { motoboyId, empresaId: sessao.empresaEfetivoId, periodoInicio, periodoFim, valorTotal },
+      data: {
+        motoboyId,
+        empresaId: sessao.empresaEfetivoId,
+        periodoInicio: periodoInicio!,
+        periodoFim: periodoFim!,
+        valorTotal,
+      },
     });
     await tx.turno.updateMany({
       where: { id: { in: turnoIdsReais } },

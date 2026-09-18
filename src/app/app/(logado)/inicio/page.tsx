@@ -11,7 +11,7 @@ import AutoRefresh from "@/components/AutoRefresh";
 export default async function InicioMotoboyPage() {
   const sessao = await requireMotoboy();
 
-  const [turnoAberto, avaliacao, notificacoes] = await Promise.all([
+  const [turnoAberto, motoboy, avaliacao, notificacoes] = await Promise.all([
     prisma.turno.findFirst({
       where: { motoboyId: sessao.motoboyId, status: "ABERTO" },
       include: {
@@ -19,6 +19,7 @@ export default async function InicioMotoboyPage() {
         apoios: { select: { id: true, quantidadeBandas: true, cliente: { select: { nome: true } } } },
       },
     }),
+    prisma.motoboy.findUniqueOrThrow({ where: { id: sessao.motoboyId }, select: { livre: true } }),
     prisma.avaliacao.aggregate({
       where: { motoboyId: sessao.motoboyId },
       _avg: { nota: true },
@@ -102,6 +103,14 @@ export default async function InicioMotoboyPage() {
       >
         Iniciar turno
       </Link>
+      {motoboy.livre && (
+        <Link
+          href="/app/turno/apoio"
+          className="rounded-xl border border-brand-300 text-brand-700 font-semibold text-center py-3.5 hover:bg-brand-50 transition-colors"
+        >
+          🤝 Dar apoio avulso
+        </Link>
+      )}
       <SairCooperativaButton />
     </div>
   );

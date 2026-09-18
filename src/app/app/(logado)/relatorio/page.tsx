@@ -3,6 +3,7 @@ import { requireMotoboy } from "@/lib/auth-motoboy";
 import { prisma } from "@/lib/prisma";
 import { formatarMoeda } from "@/lib/valores";
 import { dataISOBrasil, instanteBrasil, formatarData } from "@/lib/data";
+import { apoiosAvulsosDoMotoboy } from "@/lib/apoiosAvulsos";
 
 const PERIODOS = {
   "7": { label: "7 dias" },
@@ -47,7 +48,7 @@ export default async function RelatorioMotoboyPage({
 
   const { desde, ate } = calcularJanela(periodo);
 
-  const [turnos, vales, descontosAssiduidade] = await Promise.all([
+  const [turnos, apoiosAvulsos, vales, descontosAssiduidade] = await Promise.all([
     prisma.turno.findMany({
       where: {
         motoboyId: sessao.motoboyId,
@@ -60,6 +61,7 @@ export default async function RelatorioMotoboyPage({
         apoios: { select: { quantidadeBandas: true, valorTotal: true, cliente: { select: { nome: true } } } },
       },
     }),
+    apoiosAvulsosDoMotoboy(sessao.motoboyId, desde, ate),
     prisma.vale.findMany({
       where: { motoboyId: sessao.motoboyId, data: { gte: desde, lte: ate } },
       orderBy: { data: "desc" },
@@ -80,6 +82,10 @@ export default async function RelatorioMotoboyPage({
       totalBandas += a.quantidadeBandas;
       totalValor += Number(a.valorTotal);
     }
+  }
+  for (const a of apoiosAvulsos) {
+    totalBandas += a.quantidadeBandas;
+    totalValor += Number(a.valorTotal);
   }
 
   return (
@@ -157,9 +163,28 @@ export default async function RelatorioMotoboyPage({
         </div>
       )}
 
-      {turnos.length === 0 ? (
+      {apoiosAvulsos.length > 0 && (
+        <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-navy-900">Apoios avulsos</h2>
+          <ul className="flex flex-col gap-2">
+            {apoiosAvulsos.map((a) => (
+              <li key={a.id} className="flex justify-between text-sm">
+                <div className="flex flex-col">
+                  <span className="font-medium text-navy-900">{a.cliente.nome}</span>
+                  <span className="text-xs text-stone-500">{formatarData(a.criadoEm)}</span>
+                </div>
+                <span className="text-stone-600">
+                  {a.quantidadeBandas} bandas · R$ {formatarMoeda(a.valorTotal)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {turnos.length === 0 && apoiosAvulsos.length === 0 ? (
         <p className="text-sm text-stone-500">Nenhum turno concluído nesse período.</p>
-      ) : (
+      ) : turnos.length === 0 ? null : (
         <ul className="flex flex-col gap-2">
           {turnos.map((t) => (
             <li key={t.id} className="rounded-xl border border-stone-200 bg-white px-4 py-3">
