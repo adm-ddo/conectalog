@@ -245,30 +245,16 @@ export default async function FinanceiroPage({
             </p>
           </div>
         ) : (
-          <div className="rounded-2xl border border-navy-200 bg-navy-900 text-white p-5 flex flex-wrap items-center justify-between gap-4">
-            <div>
-              <p className="text-xs text-navy-200 uppercase tracking-wide font-semibold">
-                Total que todos os clientes pagam nesse período
-              </p>
-              <p className="text-3xl font-bold mt-1">
-                R$ {formatarMoeda(relatorioResumo?.valorTotalCliente ?? 0)}
-              </p>
-              <p className="text-[11px] text-navy-300 mt-1">
-                {relatorioResumo?.totalBandas ?? 0} bandas · {relatorioResumo?.motoboys.length ?? 0} motos
-              </p>
-            </div>
-            <div className="text-right">
-              <p className="text-xs text-navy-200 uppercase tracking-wide font-semibold">
-                Lucro da cooperativa
-              </p>
-              <p
-                className={`text-2xl font-bold mt-1 ${
-                  (relatorioResumo?.lucroTotal ?? 0) < 0 ? "text-red-300" : "text-brand-300"
-                }`}
-              >
-                R$ {formatarMoeda(relatorioResumo?.lucroTotal ?? 0)}
-              </p>
-            </div>
+          <div className="rounded-2xl border border-navy-200 bg-navy-900 text-white p-5 max-w-sm">
+            <p className="text-[11px] text-navy-200 uppercase tracking-wide font-semibold mb-2">
+              {resumoModo === "ontem" ? "Confirmado no dia" : "Confirmado no período"}
+            </p>
+            <LinhaResumo label="Cobrado dos clientes" valor={relatorioResumo?.valorTotalCliente ?? 0} />
+            <LinhaResumo
+              label="Devido aos motoboys"
+              valor={relatorioResumo?.motoboys.reduce((soma, m) => soma + m.valorRecebe, 0) ?? 0}
+            />
+            <LinhaResumo label="Lucro" valor={relatorioResumo?.lucroTotal ?? 0} destaque />
           </div>
         )}
       </div>
