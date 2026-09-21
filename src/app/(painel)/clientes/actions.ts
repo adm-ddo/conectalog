@@ -135,6 +135,8 @@ function dadosComuns(formData: FormData) {
     turnoNoiteFim: textoOpcional(formData, "turnoNoiteFim"),
     motosFixasNoite: motosPorDiaSemana(formData, "Noite"),
 
+    toleranciaChegadaMinutos: intOpcional(formData, "toleranciaChegadaMinutos") ?? 30,
+
     valorBandaMotoboy: decimalOpcional(formData, "valorBandaMotoboy"),
     valorBandaCliente: decimalOpcional(formData, "valorBandaCliente"),
   };

@@ -5,6 +5,7 @@ import { gerarRelatorioGestaoCliente } from "@/lib/relatorioGestaoCliente";
 import { dataISOBrasil, formatarHora, formatarData } from "@/lib/data";
 import { formatarMoeda } from "@/lib/valores";
 import { LABEL_TURNO } from "@/lib/equipe";
+import { chegouAtrasado } from "@/lib/atrasoChegada";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 
 /** Relatório do painel de gestão: transparência máxima pra quem cuida do
@@ -104,33 +105,43 @@ export default async function GestaoRelatorioPage({
         <p className="text-sm text-stone-500">Nenhum atendimento nesse período.</p>
       ) : (
         <ul className="flex flex-col gap-2">
-          {relatorio.itens.map((item, i) => (
-            <li key={i} className="rounded-xl border border-stone-200 bg-white px-4 py-3 flex flex-col gap-1">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-sm font-semibold text-navy-900 flex items-center gap-1.5 min-w-0 truncate">
-                  {item.motoboyNome}
-                  <EquipamentoBadge tipo={item.tipoEquipamento} />
-                </span>
-                <span className="text-xs text-stone-500 shrink-0">{formatarData(item.data)}</span>
-              </div>
-              <div className="flex items-center justify-between gap-2 text-sm text-stone-600">
-                <span>
-                  {item.tipo === "TURNO" ? (
-                    <>
-                      {LABEL_TURNO[item.turnoPredefinido as keyof typeof LABEL_TURNO] ?? "livre"} ·{" "}
-                      {formatarHora(item.horaInicio!)}
-                      {item.horaFim && `–${formatarHora(item.horaFim)}`}
-                    </>
-                  ) : (
-                    "Apoio"
-                  )}
-                </span>
-                <span className="font-medium text-navy-900">
-                  {item.quantidadeBandas} bandas · R$ {formatarMoeda(item.valorCobradoCliente)}
-                </span>
-              </div>
-            </li>
-          ))}
+          {relatorio.itens.map((item, i) => {
+            const atrasado =
+              item.tipo === "TURNO" &&
+              chegouAtrasado(
+                cliente,
+                item.turnoPredefinido !== "LIVRE" ? item.turnoPredefinido : null,
+                item.horaInicio!
+              );
+            return (
+              <li key={i} className="rounded-xl border border-stone-200 bg-white px-4 py-3 flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-sm font-semibold text-navy-900 flex items-center gap-1.5 min-w-0 truncate">
+                    {item.motoboyNome}
+                    <EquipamentoBadge tipo={item.tipoEquipamento} />
+                  </span>
+                  <span className="text-xs text-stone-500 shrink-0">{formatarData(item.data)}</span>
+                </div>
+                <div className="flex items-center justify-between gap-2 text-sm text-stone-600">
+                  <span className={atrasado ? "text-red-600 font-semibold" : undefined}>
+                    {item.tipo === "TURNO" ? (
+                      <>
+                        {LABEL_TURNO[item.turnoPredefinido as keyof typeof LABEL_TURNO] ?? "livre"} ·{" "}
+                        {formatarHora(item.horaInicio!)}
+                        {item.horaFim && `–${formatarHora(item.horaFim)}`}
+                        {atrasado && " · atrasado"}
+                      </>
+                    ) : (
+                      "Apoio"
+                    )}
+                  </span>
+                  <span className="font-medium text-navy-900">
+                    {item.quantidadeBandas} bandas · R$ {formatarMoeda(item.valorCobradoCliente)}
+                  </span>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>

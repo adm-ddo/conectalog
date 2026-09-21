@@ -172,6 +172,7 @@ export default async function ClienteDetalhePage({
           turnoNoiteInicio: cliente.turnoNoiteInicio,
           turnoNoiteFim: cliente.turnoNoiteFim,
           motosFixasNoite: cliente.motosFixasNoite,
+          toleranciaChegadaMinutos: cliente.toleranciaChegadaMinutos,
           valorBandaMotoboy: cliente.valorBandaMotoboy != null ? paraNumero(cliente.valorBandaMotoboy) : null,
           valorBandaCliente: cliente.valorBandaCliente != null ? paraNumero(cliente.valorBandaCliente) : null,
           taxasExtras: cliente.taxasExtras.map((t) => ({

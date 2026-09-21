@@ -7,6 +7,7 @@ import { formatarMoeda, paraNumero } from "@/lib/valores";
 import { LABEL_TURNO } from "@/lib/equipe";
 import { encontrarPerfilFixo } from "@/lib/precificacao";
 import { horaFimConfiguradaTurno } from "@/lib/horarioTurnoFixo";
+import { chegouAtrasado } from "@/lib/atrasoChegada";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import BotaoVoltar from "@/components/BotaoVoltar";
 import CorrigirContagemForm from "./CorrigirContagemForm";
@@ -44,11 +45,15 @@ export default async function TurnoDetalhePage({
           nome: true,
           turnosFixos: true,
           turnoManhaAtivo: true,
+          turnoManhaInicio: true,
           turnoManhaFim: true,
           turnoTardeAtivo: true,
+          turnoTardeInicio: true,
           turnoTardeFim: true,
           turnoNoiteAtivo: true,
+          turnoNoiteInicio: true,
           turnoNoiteFim: true,
+          toleranciaChegadaMinutos: true,
         },
       },
       apoios: { include: { cliente: { select: { nome: true } } } },
@@ -95,6 +100,12 @@ export default async function TurnoDetalhePage({
   // horário configurado de fim — turno LIVRE não tem horário configurado
   // (motoboy escolhe livremente), então nesse caso a cooperativa já pode
   // encerrar a qualquer momento (não tem "atraso" pra esperar).
+  const atrasado = chegouAtrasado(
+    turno.cliente,
+    turno.turnoPredefinido !== "LIVRE" ? turno.turnoPredefinido : null,
+    turno.horaInicio
+  );
+
   const horaFimConfigurada = horaFimConfiguradaTurno(turno.cliente, turno.turnoPredefinido, turno.horaInicio);
   const podeEncerrarManualmente =
     turno.status === "ABERTO" &&
@@ -151,7 +162,11 @@ export default async function TurnoDetalhePage({
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
         <p>
-          <span className="text-stone-500">Início:</span> {formatarDataHora(turno.horaInicio)}
+          <span className="text-stone-500">Início:</span>{" "}
+          <span className={atrasado ? "text-red-600 font-semibold" : undefined}>
+            {formatarDataHora(turno.horaInicio)}
+            {atrasado && " · atrasado"}
+          </span>
         </p>
         <p>
           <span className="text-stone-500">Fim:</span>{" "}

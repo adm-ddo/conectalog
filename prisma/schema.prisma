@@ -351,6 +351,14 @@ model Cliente {
   turnoNoiteFim    String?
   motosFixasNoite  Int[]   @default([0, 0, 0, 0, 0, 0, 0])
 
+  /// Quantos minutos de tolerância antes de marcar a chegada do motoboy
+  /// como atrasada (visual, vermelho) nas telas — comparado contra o
+  /// horário configurado do turno (turnoManha/Tarde/NoiteInicio). Puramente
+  /// visual: NÃO gera desconto sozinho (isso continua manual por
+  /// enquanto) — diferente de Empresa.toleranciaAtrasoMinutos, que é por
+  /// empresa inteira e já gera DescontoAssiduidade automático.
+  toleranciaChegadaMinutos Int @default(30)
+
   // Preço "por banda" normal — null herda o padrão da Empresa. Nem taxa
   // extra nem "valor fixo por turno" são um valor único: cada Cliente tem
   // sua própria lista (ver ClienteTaxaExtra e ClienteTurnoFixo), porque

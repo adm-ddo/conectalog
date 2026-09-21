@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { formatarHora } from "@/lib/data";
+import { chegouAtrasado } from "@/lib/atrasoChegada";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import BotaoVoltar from "@/components/BotaoVoltar";
 import type { Prisma } from "@/generated/prisma/client";
@@ -24,7 +25,16 @@ export default async function AtivosAgoraPage() {
     orderBy: { horaInicio: "asc" },
     include: {
       motoboy: { select: { id: true, nomeCompleto: true, tipoEquipamento: true } },
-      cliente: { select: { id: true, nome: true } },
+      cliente: {
+        select: {
+          id: true,
+          nome: true,
+          turnoManhaInicio: true,
+          turnoTardeInicio: true,
+          turnoNoiteInicio: true,
+          toleranciaChegadaMinutos: true,
+        },
+      },
     },
   });
 
@@ -70,8 +80,15 @@ export default async function AtivosAgoraPage() {
                       )}
                       <EquipamentoBadge tipo={t.motoboy.tipoEquipamento} />
                     </span>
-                    <span className="shrink-0 flex items-center gap-3 text-xs text-stone-500">
-                      desde {formatarHora(t.horaInicio)}
+                    <span className="shrink-0 flex items-center gap-3 text-xs">
+                      <HorarioChegada
+                        atrasado={chegouAtrasado(
+                          t.cliente,
+                          t.turnoPredefinido !== "LIVRE" ? t.turnoPredefinido : null,
+                          t.horaInicio
+                        )}
+                        horaInicio={t.horaInicio}
+                      />
                       {!escopoGestor && (
                         <Link href={`/turnos/${t.id}`} className="text-navy-700 hover:underline font-medium">
                           abrir turno
@@ -86,5 +103,14 @@ export default async function AtivosAgoraPage() {
         </div>
       )}
     </div>
+  );
+}
+
+function HorarioChegada({ atrasado, horaInicio }: { atrasado: boolean; horaInicio: Date }) {
+  return (
+    <span className={atrasado ? "text-red-600 font-semibold" : "text-stone-500"}>
+      desde {formatarHora(horaInicio)}
+      {atrasado && " · atrasado"}
+    </span>
   );
 }

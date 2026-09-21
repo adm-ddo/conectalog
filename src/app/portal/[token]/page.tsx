@@ -6,6 +6,7 @@ import { dataISOBrasil, diaSemanaBrasil, inicioDoDiaBrasil, formatarHora } from 
 import { resumoDiaCliente } from "@/lib/resumoDia";
 import { baixarComoDataUrl } from "@/lib/blob";
 import { turnoAtivoAgora, type TurnoAtual } from "@/lib/equipe";
+import { chegouAtrasado } from "@/lib/atrasoChegada";
 import { formatarTelefone } from "@/lib/telefone";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
@@ -24,6 +25,7 @@ type ItemPresenca = {
   turnoVinculado: { id: number; horaInicio: Date; avaliacao: { nota: number } | null } | null;
   escalado: boolean;
   balde: TurnoAtual;
+  atrasado: boolean;
 };
 
 export default async function PortalEscalaPage({
@@ -78,6 +80,7 @@ export default async function PortalEscalaPage({
     escalado: true,
     // Escala sempre vem com um turno de verdade (nunca "LIVRE").
     balde: e.turno as TurnoAtual,
+    atrasado: e.turnoVinculado ? chegouAtrasado(cliente, e.turno as TurnoAtual, e.turnoVinculado.horaInicio) : false,
   }));
 
   const idsTurnoJaEscalado = new Set(
@@ -100,6 +103,11 @@ export default async function PortalEscalaPage({
         t.turnoPredefinido !== "LIVRE"
           ? (t.turnoPredefinido as TurnoAtual)
           : turnoAtivoAgora(cliente, t.horaInicio),
+      atrasado: chegouAtrasado(
+        cliente,
+        t.turnoPredefinido !== "LIVRE" ? (t.turnoPredefinido as TurnoAtual) : null,
+        t.horaInicio
+      ),
     }));
 
   const todosItens: ItemPresenca[] = [...itensEscalados, ...itensSemEscala];
@@ -303,8 +311,13 @@ function SecaoTurno({
                 <WhatsAppLink telefone={i.motoboy.telefoneCelular} />
               </span>
               {i.turnoVinculado && (
-                <span className="text-sm text-stone-500 whitespace-nowrap">
+                <span
+                  className={`text-sm whitespace-nowrap ${
+                    i.atrasado ? "text-red-600 font-semibold" : "text-stone-500"
+                  }`}
+                >
                   Chegou às {formatarHora(i.turnoVinculado.horaInicio)}
+                  {i.atrasado && " · atrasado"}
                 </span>
               )}
               <span className="ml-auto shrink-0 pl-3">

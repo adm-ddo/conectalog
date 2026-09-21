@@ -26,6 +26,15 @@ const TURNOS_ESCALA: { turno: "MANHA" | "TARDE" | "NOITE"; label: string }[] = [
   { turno: "NOITE", label: "Noite" },
 ];
 
+const TOLERANCIAS_CHEGADA = [
+  { minutos: 15, label: "15 min" },
+  { minutos: 30, label: "30 min" },
+  { minutos: 45, label: "45 min" },
+  { minutos: 60, label: "1h" },
+  { minutos: 75, label: "1h15" },
+  { minutos: 90, label: "1h30" },
+];
+
 type TurnoFixo = {
   nome: string;
   turno: "MANHA" | "TARDE" | "NOITE";
@@ -62,6 +71,7 @@ export type ValoresCliente = {
   turnoNoiteInicio?: string | null;
   turnoNoiteFim?: string | null;
   motosFixasNoite?: number[];
+  toleranciaChegadaMinutos?: number;
   valorBandaMotoboy?: number | null;
   valorBandaCliente?: number | null;
   taxasExtras?: { descricao: string; valorMotoboy: number; valorCliente: number }[];
@@ -236,6 +246,30 @@ export default function CamposCliente({
             motosDefault={valores.motosFixasNoite}
           />
         </div>
+      </div>
+
+      <div className="flex flex-col gap-2">
+        <label className="flex flex-col gap-1 max-w-xs">
+          <span className="text-xs font-semibold text-stone-600 uppercase tracking-wide">
+            Tolerância de atraso na chegada
+          </span>
+          <select
+            name="toleranciaChegadaMinutos"
+            defaultValue={valores.toleranciaChegadaMinutos ?? 30}
+            className={inputClasse}
+          >
+            {TOLERANCIAS_CHEGADA.map((t) => (
+              <option key={t.minutos} value={t.minutos}>
+                {t.label}
+              </option>
+            ))}
+          </select>
+        </label>
+        <p className="text-xs text-stone-500">
+          Quando o motoboy chegar depois do horário do turno + essa tolerância, ele aparece em
+          vermelho nas telas (painel e portal do cliente) — é só um alerta visual, não desconta
+          nada sozinho.
+        </p>
       </div>
 
       <div className="flex flex-col gap-3">
