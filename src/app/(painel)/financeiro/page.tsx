@@ -17,10 +17,25 @@ const COR_STATUS_FATURA: Record<string, string> = {
   PAGA: "bg-brand-100 text-brand-800",
 };
 
+type ResumoModo = "hoje" | "ontem" | "semana" | "periodo";
+const MODOS_RESUMO: ResumoModo[] = ["hoje", "ontem", "semana", "periodo"];
+const LABEL_RESUMO: Record<ResumoModo, string> = {
+  hoje: "Hoje",
+  ontem: "Ontem",
+  semana: "Semana passada",
+  periodo: "Período",
+};
+
 export default async function FinanceiroPage({
   searchParams,
 }: {
-  searchParams: Promise<{ inicio?: string; fim?: string }>;
+  searchParams: Promise<{
+    inicio?: string;
+    fim?: string;
+    resumo?: string;
+    resumoInicio?: string;
+    resumoFim?: string;
+  }>;
 }) {
   const sessao = await requireFinanceiro();
   const params = await searchParams;
@@ -31,9 +46,37 @@ export default async function FinanceiroPage({
   });
 
   const semanaPassada = semanaAnteriorCompleta(empresa.diaInicioSemanaFinanceira);
-  const hojeISO = dataISOBrasil();
+  const agora = new Date();
+  const hojeISO = dataISOBrasil(agora);
+  const ontemISO = dataISOBrasil(new Date(agora.getTime() - 24 * 60 * 60 * 1000));
   const periodoInicio = params.inicio || semanaPassada.inicio;
   const periodoFim = params.fim || semanaPassada.fim;
+
+  // Resumo financeiro (o card de lucro no topo) tem seu próprio seletor
+  // de período, independente do período de "Notas fiscais" mais abaixo —
+  // um é "quanto a cooperativa lucrou nesse intervalo", o outro é "quais
+  // faturas preciso fechar/mandar", não fazem sentido presos ao mesmo
+  // período (fatura por padrão olha pra semana passada fechada; resumo
+  // por padrão olha pra hoje, que ainda nem fechou).
+  const resumoModo: ResumoModo = MODOS_RESUMO.includes(params.resumo as ResumoModo)
+    ? (params.resumo as ResumoModo)
+    : "hoje";
+  const resumoInicio =
+    resumoModo === "hoje"
+      ? hojeISO
+      : resumoModo === "ontem"
+        ? ontemISO
+        : resumoModo === "semana"
+          ? semanaPassada.inicio
+          : params.resumoInicio || hojeISO;
+  const resumoFim =
+    resumoModo === "hoje"
+      ? hojeISO
+      : resumoModo === "ontem"
+        ? ontemISO
+        : resumoModo === "semana"
+          ? semanaPassada.fim
+          : params.resumoFim || hojeISO;
 
   const clientesAtivos = await prisma.cliente.findMany({
     where: { empresaId: sessao.empresaEfetivoId, ativo: true },
@@ -41,7 +84,7 @@ export default async function FinanceiroPage({
     orderBy: { nome: "asc" },
   });
 
-  const [hojePorCliente, resumosPeriodo, faturasPeriodo] = await Promise.all([
+  const [hojePorCliente, resumosPeriodo, faturasPeriodo, relatorioResumo] = await Promise.all([
     Promise.all(
       clientesAtivos.map(async (cliente) => ({
         id: cliente.id,
@@ -62,6 +105,12 @@ export default async function FinanceiroPage({
         periodoFim: new Date(periodoFim),
       },
     }),
+    // "Hoje" continua usando o par previsão-mínima/confirmado-até-agora
+    // (únicos pra um dia ainda em andamento) — os outros modos usam o
+    // mesmo relatório fechado (todos os clientes) que /relatorios já usa.
+    resumoModo === "hoje"
+      ? Promise.resolve(null)
+      : gerarRelatorioCliente(sessao.empresaEfetivoId, null, resumoInicio, resumoFim),
   ]);
 
   const faturaPorCliente = new Map(faturasPeriodo.map((f) => [f.clienteId, f]));
@@ -89,41 +138,121 @@ export default async function FinanceiroPage({
       </div>
 
       <div className="flex flex-col gap-3">
-        <h2 className="text-sm font-semibold text-navy-900">Resumo financeiro de hoje</h2>
-        <div className="rounded-2xl border border-navy-200 bg-navy-900 text-white p-5">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <p className="text-[11px] text-navy-200 uppercase tracking-wide font-semibold mb-2">
-                Piso garantido (mínimo do dia)
-              </p>
-              <LinhaResumo label="Cobrado dos clientes" valor={totalHoje.previsaoCliente} />
-              <LinhaResumo label="Devido aos motoboys" valor={totalHoje.previsaoMotoboy} />
-              <LinhaResumo
-                label="Lucro mínimo"
-                valor={totalHoje.previsaoCliente - totalHoje.previsaoMotoboy}
-                destaque
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-sm font-semibold text-navy-900">Resumo financeiro</h2>
+          <div className="flex flex-wrap gap-2">
+            {MODOS_RESUMO.map((modo) => (
+              <Link
+                key={modo}
+                href={
+                  modo === "periodo"
+                    ? `/financeiro?resumo=periodo&resumoInicio=${resumoInicio}&resumoFim=${resumoFim}`
+                    : `/financeiro?resumo=${modo}`
+                }
+                className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  resumoModo === modo
+                    ? "bg-navy-900 text-white"
+                    : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+                }`}
+              >
+                {LABEL_RESUMO[modo]}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        {resumoModo === "periodo" && (
+          <form method="get" className="flex flex-wrap items-end gap-2">
+            <input type="hidden" name="resumo" value="periodo" />
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-stone-500">De</span>
+              <input
+                type="date"
+                name="resumoInicio"
+                defaultValue={resumoInicio}
+                className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm"
               />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-xs text-stone-500">Até</span>
+              <input
+                type="date"
+                name="resumoFim"
+                defaultValue={resumoFim}
+                className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm"
+              />
+            </label>
+            <button
+              type="submit"
+              className="rounded-lg bg-navy-900 hover:bg-navy-800 text-white text-sm font-medium px-4 py-2 transition-colors"
+            >
+              Ver
+            </button>
+          </form>
+        )}
+
+        {resumoModo === "hoje" ? (
+          <div className="rounded-2xl border border-navy-200 bg-navy-900 text-white p-5">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <p className="text-[11px] text-navy-200 uppercase tracking-wide font-semibold mb-2">
+                  Piso garantido (mínimo do dia)
+                </p>
+                <LinhaResumo label="Cobrado dos clientes" valor={totalHoje.previsaoCliente} />
+                <LinhaResumo label="Devido aos motoboys" valor={totalHoje.previsaoMotoboy} />
+                <LinhaResumo
+                  label="Lucro mínimo"
+                  valor={totalHoje.previsaoCliente - totalHoje.previsaoMotoboy}
+                  destaque
+                />
+              </div>
+              <div>
+                <p className="text-[11px] text-navy-200 uppercase tracking-wide font-semibold mb-2">
+                  Confirmado até agora
+                </p>
+                <LinhaResumo label="Cobrado dos clientes" valor={totalHoje.confirmadoCliente} />
+                <LinhaResumo label="Devido aos motoboys" valor={totalHoje.confirmadoMotoboy} />
+                <LinhaResumo
+                  label="Lucro"
+                  valor={totalHoje.confirmadoCliente - totalHoje.confirmadoMotoboy}
+                  destaque
+                />
+              </div>
             </div>
+            <p className="text-[11px] text-navy-300 mt-4">
+              &quot;Piso garantido&quot; é o valor mínimo travado pela configuração de cada cliente — em
+              cliente sem carência, o garantido do motoboy costuma ser maior que o fixo cobrado dele,
+              então o lucro mínimo nasce negativo de propósito: só fecha positivo depois que as
+              entregas de verdade acontecerem.
+            </p>
+          </div>
+        ) : (
+          <div className="rounded-2xl border border-navy-200 bg-navy-900 text-white p-5 flex flex-wrap items-center justify-between gap-4">
             <div>
-              <p className="text-[11px] text-navy-200 uppercase tracking-wide font-semibold mb-2">
-                Confirmado até agora
+              <p className="text-xs text-navy-200 uppercase tracking-wide font-semibold">
+                Total que todos os clientes pagam nesse período
               </p>
-              <LinhaResumo label="Cobrado dos clientes" valor={totalHoje.confirmadoCliente} />
-              <LinhaResumo label="Devido aos motoboys" valor={totalHoje.confirmadoMotoboy} />
-              <LinhaResumo
-                label="Lucro"
-                valor={totalHoje.confirmadoCliente - totalHoje.confirmadoMotoboy}
-                destaque
-              />
+              <p className="text-3xl font-bold mt-1">
+                R$ {formatarMoeda(relatorioResumo?.valorTotalCliente ?? 0)}
+              </p>
+              <p className="text-[11px] text-navy-300 mt-1">
+                {relatorioResumo?.totalBandas ?? 0} bandas · {relatorioResumo?.motoboys.length ?? 0} motos
+              </p>
+            </div>
+            <div className="text-right">
+              <p className="text-xs text-navy-200 uppercase tracking-wide font-semibold">
+                Lucro da cooperativa
+              </p>
+              <p
+                className={`text-2xl font-bold mt-1 ${
+                  (relatorioResumo?.lucroTotal ?? 0) < 0 ? "text-red-300" : "text-brand-300"
+                }`}
+              >
+                R$ {formatarMoeda(relatorioResumo?.lucroTotal ?? 0)}
+              </p>
             </div>
           </div>
-          <p className="text-[11px] text-navy-300 mt-4">
-            &quot;Piso garantido&quot; é o valor mínimo travado pela configuração de cada cliente — em
-            cliente sem carência, o garantido do motoboy costuma ser maior que o fixo cobrado dele,
-            então o lucro mínimo nasce negativo de propósito: só fecha positivo depois que as
-            entregas de verdade acontecerem.
-          </p>
-        </div>
+        )}
       </div>
 
       <div>
