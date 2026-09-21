@@ -2,11 +2,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { resolverClienteGestao } from "@/lib/portalGestao";
 import { gerarRelatorioGestaoCliente } from "@/lib/relatorioGestaoCliente";
+import { prisma } from "@/lib/prisma";
 import { dataISOBrasil, formatarHora, formatarData } from "@/lib/data";
 import { formatarMoeda } from "@/lib/valores";
 import { LABEL_TURNO } from "@/lib/equipe";
 import { chegouAtrasado } from "@/lib/atrasoChegada";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
+import AutoRefresh from "@/components/AutoRefresh";
 
 /** Relatório do painel de gestão: transparência máxima pra quem cuida do
  * financeiro/administrativo do restaurante conferir, por qualquer
@@ -33,11 +35,30 @@ export default async function GestaoRelatorioPage({
   const dataInicio = query.inicio || seteDiasAtras;
   const dataFim = query.fim || hoje;
 
-  const relatorio = await gerarRelatorioGestaoCliente(cliente.id, dataInicio, dataFim);
+  const [relatorio, motosOnline] = await Promise.all([
+    gerarRelatorioGestaoCliente(cliente.id, dataInicio, dataFim),
+    prisma.turno.findMany({
+      where: { clienteId: cliente.id, status: "ABERTO" },
+      orderBy: { horaInicio: "asc" },
+      select: {
+        id: true,
+        turnoPredefinido: true,
+        horaInicio: true,
+        motoboy: { select: { nomeCompleto: true, tipoEquipamento: true } },
+      },
+    }),
+  ]);
   if (!relatorio) notFound();
+
+  const totalAtrasos = relatorio.itens.filter(
+    (item) =>
+      item.tipo === "TURNO" &&
+      chegouAtrasado(cliente, item.turnoPredefinido !== "LIVRE" ? item.turnoPredefinido : null, item.horaInicio!)
+  ).length;
 
   return (
     <div className="flex flex-col gap-5">
+      <AutoRefresh />
       <div>
         <h1 className="text-lg font-semibold text-navy-900">Relatório</h1>
         <p className="text-sm text-stone-500 mt-1">
@@ -46,6 +67,39 @@ export default async function GestaoRelatorioPage({
         <Link href={`/gestao/${token}/escala`} className="text-xs text-brand-700 hover:underline mt-1 inline-block">
           Ver escala →
         </Link>
+      </div>
+
+      <div className="rounded-2xl border border-stone-200 bg-white p-4 flex flex-col gap-2">
+        <div className="flex items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold text-navy-900">Motos online agora</h2>
+          <span className="text-xs text-stone-500">{motosOnline.length}</span>
+        </div>
+        {motosOnline.length === 0 ? (
+          <p className="text-sm text-stone-500">Nenhuma moto online no momento.</p>
+        ) : (
+          <ul className="flex flex-col gap-2">
+            {motosOnline.map((t) => {
+              const atrasado = chegouAtrasado(
+                cliente,
+                t.turnoPredefinido !== "LIVRE" ? t.turnoPredefinido : null,
+                t.horaInicio
+              );
+              return (
+                <li key={t.id} className="flex items-center justify-between gap-2 text-sm">
+                  <span className="flex items-center gap-1.5 min-w-0 truncate">
+                    <span className="h-2 w-2 rounded-full bg-brand-500 shrink-0" />
+                    <span className="text-navy-900 font-medium truncate">{t.motoboy.nomeCompleto}</span>
+                    <EquipamentoBadge tipo={t.motoboy.tipoEquipamento} />
+                  </span>
+                  <span className={`shrink-0 ${atrasado ? "text-red-600 font-semibold" : "text-stone-500"}`}>
+                    desde {formatarHora(t.horaInicio)}
+                    {atrasado && " · atrasado"}
+                  </span>
+                </li>
+              );
+            })}
+          </ul>
+        )}
       </div>
 
       <form method="get" className="rounded-2xl border border-stone-200 bg-white p-4 flex flex-wrap gap-3 items-end">
@@ -75,7 +129,7 @@ export default async function GestaoRelatorioPage({
         </button>
       </form>
 
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">Bandas</p>
           <p className="text-xl font-bold text-navy-900 mt-1">{relatorio.totalBandas}</p>
@@ -91,6 +145,12 @@ export default async function GestaoRelatorioPage({
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">Confirmaram</p>
           <p className="text-xl font-bold text-navy-900 mt-1">{relatorio.totalConfirmados}</p>
+        </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">Atrasos no período</p>
+          <p className={`text-xl font-bold mt-1 ${totalAtrasos > 0 ? "text-red-600" : "text-navy-900"}`}>
+            {totalAtrasos}
+          </p>
         </div>
       </div>
 

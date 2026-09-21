@@ -2,8 +2,9 @@ import Link from "next/link";
 import { requireTenant, clientesResponsaveisIds } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
 import { turnoAtivoAgora, turnoRelevanteHoje, motosContratadasNoTurno, LABEL_TURNO } from "@/lib/equipe";
-import { formatarHora, dataISOBrasil, diaSemanaBrasil } from "@/lib/data";
+import { formatarHora, dataISOBrasil, diaSemanaBrasil, inicioDoDiaBrasil } from "@/lib/data";
 import { encontrarPerfilFixo } from "@/lib/precificacao";
+import { chegouAtrasado } from "@/lib/atrasoChegada";
 import { paraNumero } from "@/lib/valores";
 import AutoRefresh from "@/components/AutoRefresh";
 import SolicitacaoApoioAlert from "./SolicitacaoApoioAlert";
@@ -39,6 +40,7 @@ export default async function DashboardPage() {
     turnosDivergentes,
     turnosPendentes,
     rankingHoje,
+    turnosHojeParaAtraso,
   ] = await Promise.all([
       prisma.turno.findMany({
         where: {
@@ -107,7 +109,30 @@ export default async function DashboardPage() {
             },
           }),
       rankingMotoboys(sessao.empresaEfetivoId, "hoje", filtroCliente),
+      prisma.turno.findMany({
+        where: {
+          motoboy: { empresaId: sessao.empresaEfetivoId },
+          cliente: filtroCliente,
+          horaInicio: { gte: inicioDoDiaBrasil() },
+        },
+        select: {
+          turnoPredefinido: true,
+          horaInicio: true,
+          cliente: {
+            select: {
+              turnoManhaInicio: true,
+              turnoTardeInicio: true,
+              turnoNoiteInicio: true,
+              toleranciaChegadaMinutos: true,
+            },
+          },
+        },
+      }),
     ]);
+
+  const atrasadosHoje = turnosHojeParaAtraso.filter((t) =>
+    chegouAtrasado(t.cliente, t.turnoPredefinido !== "LIVRE" ? t.turnoPredefinido : null, t.horaInicio)
+  ).length;
 
   const divergencias = turnosDivergentes.filter(
     (t) =>
@@ -245,7 +270,7 @@ export default async function DashboardPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
         <Link
           href="/dashboard/confirmacoes?status=CONFIRMADO"
           className="rounded-2xl border border-stone-200 bg-white p-5 hover:border-brand-300 hover:shadow-sm transition"
@@ -289,6 +314,14 @@ export default async function DashboardPage() {
           </p>
           <p className="text-3xl font-bold text-navy-900 mt-1">{turnosAbertos.length}</p>
         </Link>
+        <div className="rounded-2xl border border-stone-200 bg-white p-5">
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
+            Chegaram atrasados hoje
+          </p>
+          <p className={`text-3xl font-bold mt-1 ${atrasadosHoje > 0 ? "text-red-600" : "text-navy-900"}`}>
+            {atrasadosHoje}
+          </p>
+        </div>
       </div>
 
       {divergencias.length > 0 && (
