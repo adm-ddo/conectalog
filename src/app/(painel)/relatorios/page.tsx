@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { requireTenantCompleto } from "@/lib/auth-empresa";
 import { prisma } from "@/lib/prisma";
-import { dataISOBrasil } from "@/lib/data";
+import { dataISOBrasil, formatarHora, formatarData } from "@/lib/data";
 import { formatarMoeda } from "@/lib/valores";
 import { gerarRelatorioCliente } from "@/lib/relatorios";
+import { gerarRelatorioMotoboy } from "@/lib/relatorioMotoboy";
+import { LABEL_TURNO } from "@/lib/equipe";
 
 const LABEL_STATUS: Record<string, string> = {
   PAGO: "Pago",
@@ -22,29 +24,43 @@ const COR_STATUS: Record<string, string> = {
 export default async function RelatoriosPage({
   searchParams,
 }: {
-  searchParams: Promise<{ clienteId?: string; inicio?: string; fim?: string }>;
+  searchParams: Promise<{ modo?: string; clienteId?: string; motoboyId?: string; inicio?: string; fim?: string }>;
 }) {
   const sessao = await requireTenantCompleto();
   const params = await searchParams;
 
-  const clientes = await prisma.cliente.findMany({
-    where: { empresaId: sessao.empresaEfetivoId },
-    orderBy: { nome: "asc" },
-    select: { id: true, nome: true },
-  });
+  const [clientes, motoboys] = await Promise.all([
+    prisma.cliente.findMany({
+      where: { empresaId: sessao.empresaEfetivoId },
+      orderBy: { nome: "asc" },
+      select: { id: true, nome: true },
+    }),
+    prisma.motoboy.findMany({
+      where: { empresaId: sessao.empresaEfetivoId, ativo: true },
+      orderBy: { nomeCompleto: "asc" },
+      select: { id: true, nomeCompleto: true },
+    }),
+  ]);
+
+  const modo = params.modo === "motoboy" ? "motoboy" : "cliente";
+  const hoje = dataISOBrasil();
+  const dataInicio = params.inicio || hoje;
+  const dataFim = params.fim || hoje;
 
   // "Todos os clientes" soma tudo junto (resultado do período inteiro da
   // cooperativa) — Number("todos") vira NaN, então precisa checar antes
   // pra não cair sem querer no fallback do primeiro cliente.
   const modoTodos = params.clienteId === "todos";
   const clienteId = modoTodos ? null : Number(params.clienteId) || clientes[0]?.id;
-  const hoje = dataISOBrasil();
-  const dataInicio = params.inicio || hoje;
-  const dataFim = params.fim || hoje;
-
   const relatorio =
-    (modoTodos || clienteId) && dataInicio && dataFim
+    modo === "cliente" && (modoTodos || clienteId) && dataInicio && dataFim
       ? await gerarRelatorioCliente(sessao.empresaEfetivoId, clienteId, dataInicio, dataFim)
+      : null;
+
+  const motoboyId = Number(params.motoboyId) || motoboys[0]?.id;
+  const relatorioMotoboy =
+    modo === "motoboy" && motoboyId
+      ? await gerarRelatorioMotoboy(sessao.empresaEfetivoId, motoboyId, dataInicio, dataFim)
       : null;
 
   const queryPdf = new URLSearchParams({
@@ -59,11 +75,168 @@ export default async function RelatoriosPage({
         <h1 className="text-2xl font-semibold text-navy-900">Relatórios</h1>
         <p className="text-stone-600 mt-1 text-sm">
           Valor total a cobrar do cliente num período, quais motoboys atenderam e quanto cada um
-          recebe.
+          recebe — ou o extrato individual de um motoboy específico.
         </p>
       </div>
 
-      {clientes.length === 0 ? (
+      <div className="flex gap-2">
+        <Link
+          href={`/relatorios?modo=cliente&inicio=${dataInicio}&fim=${dataFim}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+            modo === "cliente" ? "bg-navy-900 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+          }`}
+        >
+          Por cliente
+        </Link>
+        <Link
+          href={`/relatorios?modo=motoboy&inicio=${dataInicio}&fim=${dataFim}`}
+          className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
+            modo === "motoboy" ? "bg-navy-900 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"
+          }`}
+        >
+          Por motoboy
+        </Link>
+      </div>
+
+      {modo === "motoboy" ? (
+        motoboys.length === 0 ? (
+          <p className="text-stone-500 text-sm">Cadastre um motoboy antes de tirar relatórios.</p>
+        ) : (
+          <>
+            <form
+              method="get"
+              className="rounded-2xl border border-stone-200 bg-white p-4 flex flex-wrap gap-3 items-end"
+            >
+              <input type="hidden" name="modo" value="motoboy" />
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-stone-500">Motoboy</label>
+                <select
+                  name="motoboyId"
+                  defaultValue={motoboyId ?? undefined}
+                  className="border border-stone-300 rounded-lg px-3 py-2 text-sm min-w-[200px]"
+                >
+                  {motoboys.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.nomeCompleto}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-stone-500">De</label>
+                <input
+                  type="date"
+                  name="inicio"
+                  defaultValue={dataInicio}
+                  className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <div className="flex flex-col gap-1">
+                <label className="text-xs text-stone-500">Até</label>
+                <input
+                  type="date"
+                  name="fim"
+                  defaultValue={dataFim}
+                  className="border border-stone-300 rounded-lg px-3 py-2 text-sm"
+                />
+              </div>
+              <button
+                type="submit"
+                className="rounded-lg bg-brand-600 hover:bg-brand-700 text-white text-sm font-medium px-5 py-2.5 transition-colors"
+              >
+                Gerar relatório
+              </button>
+            </form>
+
+            {relatorioMotoboy && (
+              <>
+                <div className="rounded-2xl border border-navy-200 bg-navy-900 text-white p-5 flex flex-wrap items-center justify-between gap-4">
+                  <div>
+                    <p className="text-xs text-navy-200 uppercase tracking-wide font-semibold">
+                      Total que {relatorioMotoboy.motoboyNome} recebeu no período
+                    </p>
+                    <p className="text-3xl font-bold mt-1">R$ {formatarMoeda(relatorioMotoboy.totalValor)}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-navy-200 uppercase tracking-wide font-semibold">Bandas</p>
+                    <p className="text-2xl font-bold mt-1">{relatorioMotoboy.totalBandas}</p>
+                  </div>
+                </div>
+
+                {relatorioMotoboy.vales.length > 0 && (
+                  <div className="rounded-lg bg-stone-50 border border-stone-200 p-3 flex flex-col gap-1">
+                    <p className="text-xs font-semibold text-stone-600">Vales no período</p>
+                    {relatorioMotoboy.vales.map((v) => (
+                      <p key={v.id} className="text-xs text-stone-600">
+                        {formatarData(v.data)} — R$ {formatarMoeda(v.valor)}
+                        {v.observacao && ` (${v.observacao})`}
+                        {v.descontado ? " · já descontado" : " · ainda não descontado"}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {relatorioMotoboy.ocorrencias.length > 0 && (
+                  <div className="rounded-lg bg-red-50 border border-red-100 p-3 flex flex-col gap-1">
+                    <p className="text-xs font-semibold text-red-700">Ocorrências</p>
+                    {relatorioMotoboy.ocorrencias.map((o) => (
+                      <p key={o.id} className="text-xs text-red-700">
+                        {o.descricao} — R$ {formatarMoeda(o.valor)}
+                        {o.descontado ? " · já descontado" : " · ainda não descontado"}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {relatorioMotoboy.descontosAssiduidade.length > 0 && (
+                  <div className="rounded-lg bg-red-50 border border-red-100 p-3 flex flex-col gap-1">
+                    <p className="text-xs font-semibold text-red-700">Descontos por atraso</p>
+                    {relatorioMotoboy.descontosAssiduidade.map((d) => (
+                      <p key={d.id} className="text-xs text-red-700">
+                        {d.minutosAtraso} min de atraso — R$ {formatarMoeda(d.valor)}
+                        {d.descontado ? " · já descontado" : " · ainda não descontado"}
+                      </p>
+                    ))}
+                  </div>
+                )}
+
+                {relatorioMotoboy.itens.length === 0 ? (
+                  <p className="text-stone-500 text-sm">Nenhum atendimento encontrado nesse período.</p>
+                ) : (
+                  <ul className="flex flex-col gap-2">
+                    {relatorioMotoboy.itens.map((item, i) => (
+                      <li
+                        key={i}
+                        className="rounded-xl border border-stone-200 bg-white px-4 py-3 flex items-center justify-between gap-2"
+                      >
+                        <div className="flex flex-col">
+                          <span className="text-sm font-semibold text-navy-900">{item.clienteNome}</span>
+                          <span className="text-xs text-stone-500">
+                            {formatarData(item.data)}
+                            {item.tipo === "TURNO" ? (
+                              <>
+                                {" · "}
+                                {LABEL_TURNO[item.turnoPredefinido as keyof typeof LABEL_TURNO] ?? "livre"} ·{" "}
+                                {formatarHora(item.horaInicio!)}
+                                {item.horaFim && `–${formatarHora(item.horaFim)}`}
+                              </>
+                            ) : (
+                              " · Apoio"
+                            )}
+                          </span>
+                        </div>
+                        <span className="text-sm font-medium text-navy-900">
+                          {item.quantidadeBandas} bandas · R$ {formatarMoeda(item.valorRecebe)}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </>
+            )}
+          </>
+        )
+      ) : clientes.length === 0 ? (
         <p className="text-stone-500 text-sm">Cadastre um cliente antes de tirar relatórios.</p>
       ) : (
         <>
@@ -71,6 +244,7 @@ export default async function RelatoriosPage({
             method="get"
             className="rounded-2xl border border-stone-200 bg-white p-4 flex flex-wrap gap-3 items-end"
           >
+            <input type="hidden" name="modo" value="cliente" />
             <div className="flex flex-col gap-1">
               <label className="text-xs text-stone-500">Cliente</label>
               <select
