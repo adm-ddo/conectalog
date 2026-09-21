@@ -269,3 +269,15 @@ export async function regenerarTokenPortal(clienteId: number) {
   });
   revalidatePath(`/clientes/${clienteId}`);
 }
+
+/** Gera (ou troca) o link do painel de GESTÃO — separado do portal
+ * operacional, pra quem cuida do financeiro/administrativo do
+ * restaurante (relatório por período com valor cobrado + escala). */
+export async function regenerarTokenGestao(clienteId: number) {
+  const sessao = await requireTenantCompleto();
+  await prisma.cliente.updateMany({
+    where: { id: clienteId, empresaId: sessao.empresaEfetivoId },
+    data: { tokenGestao: randomBytes(16).toString("hex") },
+  });
+  revalidatePath(`/clientes/${clienteId}`);
+}

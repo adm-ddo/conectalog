@@ -305,6 +305,14 @@ model Cliente {
   // deixar aberto/salvo no navegador. null = link ainda não gerado.
   tokenPortal String? @unique
 
+  /// Acesso ao painel de GESTÃO do cliente (/gestao/[token]) — separado
+  /// do tokenPortal (que fica na expedição, só mostra hoje). Esse é pra
+  /// quem cuida do financeiro/administrativo do restaurante conferir
+  /// período completo: relatório de bandas com o valor cobrado, e a
+  /// escala. Nasce null (opt-in, diferente do tokenPortal) — a
+  /// cooperativa gera só quando decide compartilhar esse nível de dado.
+  tokenGestao String? @unique
+
   // Dados da empresa cliente e de quem lida com o dia a dia operacional
   // (não é login nem contato financeiro) — tudo opcional, não bloqueia o
   // resto do cadastro.

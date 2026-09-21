@@ -8,6 +8,7 @@ import { formatarHora, formatarData, dataISOBrasil } from "@/lib/data";
 import { resumoDiaCliente } from "@/lib/resumoDia";
 import EditarClienteForm from "./EditarClienteForm";
 import LinkPortalSection from "./LinkPortalSection";
+import LinkGestaoSection from "./LinkGestaoSection";
 import AvaliacoesRecebidasSection from "./AvaliacoesRecebidasSection";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
@@ -194,6 +195,8 @@ export default async function ClienteDetalhePage({
       />
 
       <LinkPortalSection clienteId={cliente.id} token={cliente.tokenPortal} />
+
+      <LinkGestaoSection clienteId={cliente.id} token={cliente.tokenGestao} />
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5">
         <h2 className="text-sm font-semibold text-navy-900 mb-3">
