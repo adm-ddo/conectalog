@@ -26,16 +26,28 @@ export type ItemRelatorioGestao = {
   valorCobradoCliente: number;
 };
 
+export type ChamadoIfoodGestao = {
+  id: number;
+  numeroPedidoSaipos: string;
+  numeroPedidoIfood: string;
+  valorIfood: number;
+  valorDesconto: number;
+  criadoEm: Date;
+};
+
 export type RelatorioGestaoCliente = {
   clienteNome: string;
   dataInicio: string;
   dataFim: string;
   totalBandas: number;
+  /// Já líquido dos descontos de chamado iFood (nunca negativo).
   totalValorCobrado: number;
   totalTurnos: number;
   turnosAbertosNaoIncluidos: number;
   totalEscalas: number;
   totalConfirmados: number;
+  totalDescontoIfood: number;
+  chamadosIfood: ChamadoIfoodGestao[];
   itens: ItemRelatorioGestao[];
 };
 
@@ -59,7 +71,7 @@ export async function gerarRelatorioGestaoCliente(
   const inicio = instanteBrasil(dataInicio);
   const fimExclusivo = inicioDoDiaSeguinteBrasil(dataFim);
 
-  const [turnos, apoios, turnosAbertos, escalas] = await Promise.all([
+  const [turnos, apoios, turnosAbertos, escalas, chamadosIfoodBrutos] = await Promise.all([
     prisma.turno.findMany({
       where: { clienteId, horaInicio: { gte: inicio, lt: fimExclusivo }, status: { in: ["CONCLUIDO", "PAGO"] } },
       select: {
@@ -89,7 +101,21 @@ export async function gerarRelatorioGestaoCliente(
       where: { clienteId, data: { gte: new Date(dataInicio), lte: new Date(dataFim) } },
       select: { statusConfirmacao: true },
     }),
+    prisma.chamadoIfood.findMany({
+      where: { clienteId, criadoEm: { gte: inicio, lt: fimExclusivo } },
+      orderBy: { criadoEm: "asc" },
+    }),
   ]);
+
+  const chamadosIfood: ChamadoIfoodGestao[] = chamadosIfoodBrutos.map((c) => ({
+    id: c.id,
+    numeroPedidoSaipos: c.numeroPedidoSaipos,
+    numeroPedidoIfood: c.numeroPedidoIfood,
+    valorIfood: paraNumero(c.valorIfood),
+    valorDesconto: paraNumero(c.valorDesconto),
+    criadoEm: c.criadoEm,
+  }));
+  const totalDescontoIfood = chamadosIfood.reduce((soma, c) => soma + c.valorDesconto, 0);
 
   const itens: ItemRelatorioGestao[] = [
     ...turnos.map((t) => ({
@@ -121,11 +147,13 @@ export async function gerarRelatorioGestaoCliente(
     dataInicio,
     dataFim,
     totalBandas: itens.reduce((soma, i) => soma + i.quantidadeBandas, 0),
-    totalValorCobrado: itens.reduce((soma, i) => soma + i.valorCobradoCliente, 0),
+    totalValorCobrado: Math.max(0, itens.reduce((soma, i) => soma + i.valorCobradoCliente, 0) - totalDescontoIfood),
     totalTurnos: itens.length,
     turnosAbertosNaoIncluidos: turnosAbertos,
     totalEscalas: escalas.length,
     totalConfirmados: escalas.filter((e) => e.statusConfirmacao === "CONFIRMADO").length,
+    totalDescontoIfood,
+    chamadosIfood,
     itens,
   };
 }

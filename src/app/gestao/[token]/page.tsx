@@ -129,7 +129,7 @@ export default async function GestaoRelatorioPage({
         </button>
       </form>
 
-      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
         <div className="rounded-2xl border border-stone-200 bg-white p-4">
           <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">Bandas</p>
           <p className="text-xl font-bold text-navy-900 mt-1">{relatorio.totalBandas}</p>
@@ -152,6 +152,12 @@ export default async function GestaoRelatorioPage({
             {totalAtrasos}
           </p>
         </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">Desconto iFood</p>
+          <p className={`text-xl font-bold mt-1 ${relatorio.totalDescontoIfood > 0 ? "text-red-600" : "text-navy-900"}`}>
+            R$ {formatarMoeda(relatorio.totalDescontoIfood)}
+          </p>
+        </div>
       </div>
 
       {relatorio.turnosAbertosNaoIncluidos > 0 && (
@@ -159,6 +165,23 @@ export default async function GestaoRelatorioPage({
           {relatorio.turnosAbertosNaoIncluidos} turno{relatorio.turnosAbertosNaoIncluidos > 1 ? "s" : ""} ainda em
           aberto nesse período não {relatorio.turnosAbertosNaoIncluidos > 1 ? "entraram" : "entrou"} nesses números.
         </p>
+      )}
+
+      {relatorio.chamadosIfood.length > 0 && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-red-800">Chamados iFood no período (falta de moto)</h2>
+          <ul className="flex flex-col gap-1.5">
+            {relatorio.chamadosIfood.map((c) => (
+              <li key={c.id} className="text-xs text-red-800 flex items-center justify-between gap-2">
+                <span>
+                  {formatarData(c.criadoEm)} · Saipos {c.numeroPedidoSaipos} · iFood {c.numeroPedidoIfood} — R${" "}
+                  {formatarMoeda(c.valorIfood)}
+                </span>
+                <span className="font-semibold shrink-0">-R$ {formatarMoeda(c.valorDesconto)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
 
       {relatorio.itens.length === 0 ? (

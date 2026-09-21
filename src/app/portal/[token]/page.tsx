@@ -277,6 +277,14 @@ function SecaoTurno({
           <>Nenhuma moto configurada nem escalada pra hoje.</>
         )}
       </p>
+      {contratadas > 0 && presentes < contratadas && (
+        <Link
+          href={`/portal/${token}/ifood`}
+          className="self-start rounded-lg border border-red-300 text-red-700 hover:bg-red-50 text-xs font-semibold px-3 py-1.5 transition-colors"
+        >
+          🍔 Faltou moto — registrar chamado iFood
+        </Link>
+      )}
       {itens.length === 0 ? (
         <p className="text-sm text-stone-500">Ninguém escalado pra esse turno hoje.</p>
       ) : (

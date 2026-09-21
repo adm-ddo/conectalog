@@ -33,16 +33,31 @@ export type LinhaMotoboyRelatorio = {
   descontosAssiduidade: { id: number; valor: number; minutosAtraso: number; descontado: boolean }[];
 };
 
+export type ChamadoIfoodRelatorio = {
+  id: number;
+  numeroPedidoSaipos: string;
+  numeroPedidoIfood: string;
+  valorIfood: number;
+  valorDesconto: number;
+  criadoEm: Date;
+};
+
 export type RelatorioCliente = {
   clienteNome: string;
   dataInicio: string;
   dataFim: string;
+  /// Já líquido de totalDescontoIfood (nunca negativo).
   valorTotalCliente: number;
   lucroTotal: number;
   totalBandas: number;
   turnosAbertosNaoIncluidos: number;
   totalEscalas: number;
   totalConfirmados: number;
+  /// Soma de ChamadoIfood.valorDesconto no período — quanto foi abatido
+  /// da cobrança do cliente por causa de falta de moto (ver
+  /// portal/[token]/ifood/actions.ts).
+  totalDescontoIfood: number;
+  chamadosIfood: ChamadoIfoodRelatorio[];
   motoboys: LinhaMotoboyRelatorio[];
 };
 
@@ -80,7 +95,7 @@ export async function gerarRelatorioCliente(
   // dessa empresa.
   const filtroCliente = clienteId !== null ? { clienteId } : { cliente: { empresaId } };
 
-  const [turnos, apoios, turnosAbertos, escalas] = await Promise.all([
+  const [turnos, apoios, turnosAbertos, escalas, chamadosIfoodBrutos] = await Promise.all([
     prisma.turno.findMany({
       where: {
         ...filtroCliente,
@@ -116,7 +131,21 @@ export async function gerarRelatorioCliente(
       where: { ...filtroCliente, data: { gte: new Date(dataInicio), lte: new Date(dataFim) } },
       select: { statusConfirmacao: true },
     }),
+    prisma.chamadoIfood.findMany({
+      where: { ...filtroCliente, criadoEm: { gte: inicio, lt: fimExclusivo } },
+      orderBy: { criadoEm: "asc" },
+    }),
   ]);
+
+  const chamadosIfood: ChamadoIfoodRelatorio[] = chamadosIfoodBrutos.map((c) => ({
+    id: c.id,
+    numeroPedidoSaipos: c.numeroPedidoSaipos,
+    numeroPedidoIfood: c.numeroPedidoIfood,
+    valorIfood: paraNumero(c.valorIfood),
+    valorDesconto: paraNumero(c.valorDesconto),
+    criadoEm: c.criadoEm,
+  }));
+  const totalDescontoIfood = chamadosIfood.reduce((soma, c) => soma + c.valorDesconto, 0);
 
   const motoboyIds = new Set<number>();
   for (const t of turnos) motoboyIds.add(t.motoboyId);
@@ -229,12 +258,14 @@ export async function gerarRelatorioCliente(
     clienteNome,
     dataInicio,
     dataFim,
-    valorTotalCliente: motoboys.reduce((soma, m) => soma + m.valorCliente, 0),
-    lucroTotal: motoboys.reduce((soma, m) => soma + m.lucro, 0),
+    valorTotalCliente: Math.max(0, motoboys.reduce((soma, m) => soma + m.valorCliente, 0) - totalDescontoIfood),
+    lucroTotal: motoboys.reduce((soma, m) => soma + m.lucro, 0) - totalDescontoIfood,
     totalBandas: motoboys.reduce((soma, m) => soma + m.bandas, 0),
     turnosAbertosNaoIncluidos: turnosAbertos,
     totalEscalas: escalas.length,
     totalConfirmados: escalas.filter((e) => e.statusConfirmacao === "CONFIRMADO").length,
+    totalDescontoIfood,
+    chamadosIfood,
     motoboys,
   };
 }

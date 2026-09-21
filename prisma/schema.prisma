@@ -378,6 +378,7 @@ model Cliente {
   taxasExtras         ClienteTaxaExtra[]
   turnosFixos         ClienteTurnoFixo[]
   faturas             FaturaCliente[]
+  chamadosIfood       ChamadoIfood[]
 
   @@index([empresaId])
 }
@@ -1038,6 +1039,33 @@ model FaturaCliente {
 
   @@unique([clienteId, periodoInicio, periodoFim])
   @@index([empresaId, status])
+}
+
+/// Registro de um pedido que o restaurante teve que mandar pelo iFood
+/// (entregador de fora da cooperativa) porque a cooperativa não mandou
+/// moto suficiente — criado pelo próprio restaurante no portal
+/// operacional (ver registrarChamadoIfood, portal/[token]/ifood/
+/// actions.ts), quando a seção do turno mostra menos motos presentes do
+/// que o contratado. O valor que o iFood cobrou é comparado com o valor
+/// normal de banda desse cliente (snapshot no momento, mesmo espírito de
+/// Turno.valorBandaAplicado) — a diferença (nunca negativa) é abatida do
+/// que a cooperativa cobra do cliente no fechamento do período (ver
+/// gerarRelatorioCliente em src/lib/relatorios.ts e
+/// gerarRelatorioGestaoCliente em src/lib/relatorioGestaoCliente.ts),
+/// como forma de compensar o restaurante pela falta de moto.
+model ChamadoIfood {
+  id                        Int      @id @default(autoincrement())
+  clienteId                 Int
+  numeroPedidoSaipos        String
+  numeroPedidoIfood         String
+  valorIfood                Decimal  @db.Decimal(10, 2)
+  valorBandaClienteAplicado Decimal  @db.Decimal(10, 2)
+  valorDesconto             Decimal  @db.Decimal(10, 2)
+  criadoEm                  DateTime @default(now())
+
+  cliente Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  @@index([clienteId, criadoEm])
 }
 
 /// Vale (adiantamento) dado pela cooperativa a um motoboy — aparece no app

@@ -141,6 +141,30 @@ export default async function FinanceiroClientePage({
         </p>
       )}
 
+      {relatorio.totalDescontoIfood > 0 && (
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-2">
+            <h2 className="text-sm font-semibold text-red-800">
+              Desconto por chamado iFood — falta de moto
+            </h2>
+            <span className="text-sm font-bold text-red-700">
+              -R$ {formatarMoeda(relatorio.totalDescontoIfood)}
+            </span>
+          </div>
+          <ul className="flex flex-col gap-1">
+            {relatorio.chamadosIfood.map((c) => (
+              <li key={c.id} className="text-xs text-red-800 flex justify-between gap-2">
+                <span>
+                  Saipos {c.numeroPedidoSaipos} · iFood {c.numeroPedidoIfood} — R${" "}
+                  {formatarMoeda(c.valorIfood)}
+                </span>
+                <span className="font-medium">-R$ {formatarMoeda(c.valorDesconto)}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       <FaturaAcoes
         clienteId={clienteId}
         periodoInicio={periodoInicio}

@@ -16,6 +16,9 @@ const styles = StyleSheet.create({
   resumoLabel: { fontSize: 8, color: "#78716c", textTransform: "uppercase", marginBottom: 2 },
   resumoValor: { fontSize: 14, fontWeight: 700 },
   aviso: { fontSize: 9, color: "#b45309", backgroundColor: "#fffbeb", padding: 6, borderRadius: 4, marginBottom: 12 },
+  descontoIfoodBox: { backgroundColor: "#fef2f2", padding: 8, borderRadius: 4, marginBottom: 12 },
+  descontoIfoodTitulo: { fontSize: 9, fontWeight: 700, color: "#991b1b", marginBottom: 4 },
+  descontoIfoodLinha: { fontSize: 8.5, color: "#991b1b" },
   linhaCabecalho: {
     flexDirection: "row",
     borderBottom: "1pt solid #d6d3d1",
@@ -90,6 +93,20 @@ export function RelatorioPdfDocument({
             {relatorio.turnosAbertosNaoIncluidos} turno(s) ainda em aberto nesse período não entraram
             nesses números.
           </Text>
+        )}
+
+        {relatorio.totalDescontoIfood > 0 && (
+          <View style={styles.descontoIfoodBox}>
+            <Text style={styles.descontoIfoodTitulo}>
+              Desconto por chamado iFood (falta de moto): -R$ {formatarMoeda(relatorio.totalDescontoIfood)}
+            </Text>
+            {relatorio.chamadosIfood.map((c) => (
+              <Text key={c.id} style={styles.descontoIfoodLinha}>
+                Saipos {c.numeroPedidoSaipos} · iFood {c.numeroPedidoIfood} — R$ {formatarMoeda(c.valorIfood)} → -R${" "}
+                {formatarMoeda(c.valorDesconto)}
+              </Text>
+            ))}
+          </View>
         )}
 
         <View style={styles.linhaCabecalho}>
