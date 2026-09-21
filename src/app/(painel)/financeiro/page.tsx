@@ -25,6 +25,12 @@ const LABEL_RESUMO: Record<ResumoModo, string> = {
   semana: "Semana passada",
   periodo: "Período",
 };
+const LABEL_RESUMO_POR_CLIENTE: Record<ResumoModo, string> = {
+  hoje: "Hoje, por cliente",
+  ontem: "Ontem, por cliente",
+  semana: "Semana passada, por cliente",
+  periodo: "No período, por cliente",
+};
 
 export default async function FinanceiroPage({
   searchParams,
@@ -84,34 +90,46 @@ export default async function FinanceiroPage({
     orderBy: { nome: "asc" },
   });
 
-  const [hojePorCliente, resumosPeriodo, faturasPeriodo, relatorioResumo] = await Promise.all([
-    Promise.all(
-      clientesAtivos.map(async (cliente) => ({
-        id: cliente.id,
-        nome: cliente.nome,
-        previsaoMinima: previsaoMinimaHojeCliente(cliente),
-        confirmado: await confirmadoHojeCliente(cliente.id),
-      }))
-    ),
-    Promise.all(
-      clientesAtivos.map((cliente) =>
-        gerarRelatorioCliente(sessao.empresaEfetivoId, cliente.id, periodoInicio, periodoFim)
-      )
-    ),
-    prisma.faturaCliente.findMany({
-      where: {
-        empresaId: sessao.empresaEfetivoId,
-        periodoInicio: new Date(periodoInicio),
-        periodoFim: new Date(periodoFim),
-      },
-    }),
-    // "Hoje" continua usando o par previsão-mínima/confirmado-até-agora
-    // (únicos pra um dia ainda em andamento) — os outros modos usam o
-    // mesmo relatório fechado (todos os clientes) que /relatorios já usa.
-    resumoModo === "hoje"
-      ? Promise.resolve(null)
-      : gerarRelatorioCliente(sessao.empresaEfetivoId, null, resumoInicio, resumoFim),
-  ]);
+  const [hojePorCliente, resumosPeriodo, faturasPeriodo, relatorioResumo, resumoPorClientePeriodo] =
+    await Promise.all([
+      Promise.all(
+        clientesAtivos.map(async (cliente) => ({
+          id: cliente.id,
+          nome: cliente.nome,
+          previsaoMinima: previsaoMinimaHojeCliente(cliente),
+          confirmado: await confirmadoHojeCliente(cliente.id),
+        }))
+      ),
+      Promise.all(
+        clientesAtivos.map((cliente) =>
+          gerarRelatorioCliente(sessao.empresaEfetivoId, cliente.id, periodoInicio, periodoFim)
+        )
+      ),
+      prisma.faturaCliente.findMany({
+        where: {
+          empresaId: sessao.empresaEfetivoId,
+          periodoInicio: new Date(periodoInicio),
+          periodoFim: new Date(periodoFim),
+        },
+      }),
+      // "Hoje" continua usando o par previsão-mínima/confirmado-até-agora
+      // (únicos pra um dia ainda em andamento) — os outros modos usam o
+      // mesmo relatório fechado (todos os clientes) que /relatorios já usa.
+      resumoModo === "hoje"
+        ? Promise.resolve(null)
+        : gerarRelatorioCliente(sessao.empresaEfetivoId, null, resumoInicio, resumoFim),
+      // Mesmo formato de "Hoje, por cliente" (um card por cliente), só que
+      // pro período do resumo em vez de sempre hoje — período fechado não
+      // tem a dualidade previsão/confirmado (isso é só pra um dia ainda em
+      // andamento), então cada card mostra só o valor final.
+      resumoModo === "hoje"
+        ? Promise.resolve(null)
+        : Promise.all(
+            clientesAtivos.map((cliente) =>
+              gerarRelatorioCliente(sessao.empresaEfetivoId, cliente.id, resumoInicio, resumoFim)
+            )
+          ),
+    ]);
 
   const faturaPorCliente = new Map(faturasPeriodo.map((f) => [f.clienteId, f]));
   const totalPeriodo = resumosPeriodo.reduce((soma, r) => soma + (r?.valorTotalCliente ?? 0), 0);
@@ -256,62 +274,101 @@ export default async function FinanceiroPage({
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-navy-900 mb-3">Hoje, por cliente</h2>
-        {hojePorCliente.length === 0 ? (
+        <h2 className="text-sm font-semibold text-navy-900 mb-3">{LABEL_RESUMO_POR_CLIENTE[resumoModo]}</h2>
+        {resumoModo === "hoje" ? (
+          hojePorCliente.length === 0 ? (
+            <p className="text-sm text-stone-500">Nenhum cliente ativo.</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {hojePorCliente.map((c) => (
+                <div key={c.id} className="rounded-2xl border border-stone-200 bg-white p-4">
+                  <p className="font-semibold text-navy-900 truncate mb-3">{c.nome}</p>
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="text-stone-400">
+                        <th className="text-left font-medium"></th>
+                        <th className="text-right font-medium">Previsto</th>
+                        <th className="text-right font-medium">Confirmado</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr>
+                        <td className="text-stone-500 py-0.5">Cliente</td>
+                        <td className="text-right font-semibold text-navy-900">
+                          {formatarMoeda(c.previsaoMinima.cliente)}
+                        </td>
+                        <td className="text-right font-semibold text-navy-900">
+                          {formatarMoeda(c.confirmado.cliente)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="text-stone-500 py-0.5">Motoboys</td>
+                        <td className="text-right font-semibold text-navy-900">
+                          {formatarMoeda(c.previsaoMinima.motoboy)}
+                        </td>
+                        <td className="text-right font-semibold text-navy-900">
+                          {formatarMoeda(c.confirmado.motoboy)}
+                        </td>
+                      </tr>
+                      <tr className="border-t border-stone-100">
+                        <td className="text-stone-500 py-0.5 pt-1.5">Lucro</td>
+                        <td
+                          className={`text-right font-bold pt-1.5 ${
+                            c.previsaoMinima.lucro < 0 ? "text-red-600" : "text-brand-700"
+                          }`}
+                        >
+                          {formatarMoeda(c.previsaoMinima.lucro)}
+                        </td>
+                        <td
+                          className={`text-right font-bold pt-1.5 ${
+                            c.confirmado.lucro < 0 ? "text-red-600" : "text-brand-700"
+                          }`}
+                        >
+                          {formatarMoeda(c.confirmado.lucro)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              ))}
+            </div>
+          )
+        ) : !resumoPorClientePeriodo || resumoPorClientePeriodo.every((r) => r === null) ? (
           <p className="text-sm text-stone-500">Nenhum cliente ativo.</p>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {hojePorCliente.map((c) => (
-              <div key={c.id} className="rounded-2xl border border-stone-200 bg-white p-4">
-                <p className="font-semibold text-navy-900 truncate mb-3">{c.nome}</p>
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-stone-400">
-                      <th className="text-left font-medium"></th>
-                      <th className="text-right font-medium">Previsto</th>
-                      <th className="text-right font-medium">Confirmado</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td className="text-stone-500 py-0.5">Cliente</td>
-                      <td className="text-right font-semibold text-navy-900">
-                        {formatarMoeda(c.previsaoMinima.cliente)}
-                      </td>
-                      <td className="text-right font-semibold text-navy-900">
-                        {formatarMoeda(c.confirmado.cliente)}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="text-stone-500 py-0.5">Motoboys</td>
-                      <td className="text-right font-semibold text-navy-900">
-                        {formatarMoeda(c.previsaoMinima.motoboy)}
-                      </td>
-                      <td className="text-right font-semibold text-navy-900">
-                        {formatarMoeda(c.confirmado.motoboy)}
-                      </td>
-                    </tr>
-                    <tr className="border-t border-stone-100">
-                      <td className="text-stone-500 py-0.5 pt-1.5">Lucro</td>
-                      <td
-                        className={`text-right font-bold pt-1.5 ${
-                          c.previsaoMinima.lucro < 0 ? "text-red-600" : "text-brand-700"
-                        }`}
-                      >
-                        {formatarMoeda(c.previsaoMinima.lucro)}
-                      </td>
-                      <td
-                        className={`text-right font-bold pt-1.5 ${
-                          c.confirmado.lucro < 0 ? "text-red-600" : "text-brand-700"
-                        }`}
-                      >
-                        {formatarMoeda(c.confirmado.lucro)}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            ))}
+            {clientesAtivos.map((cliente, i) => {
+              const r = resumoPorClientePeriodo[i];
+              return (
+                <div key={cliente.id} className="rounded-2xl border border-stone-200 bg-white p-4">
+                  <p className="font-semibold text-navy-900 truncate mb-3">{cliente.nome}</p>
+                  <table className="w-full text-xs">
+                    <tbody>
+                      <tr>
+                        <td className="text-stone-500 py-0.5">Cliente paga</td>
+                        <td className="text-right font-semibold text-navy-900">
+                          {formatarMoeda(r?.valorTotalCliente ?? 0)}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="text-stone-500 py-0.5">Bandas</td>
+                        <td className="text-right font-semibold text-navy-900">{r?.totalBandas ?? 0}</td>
+                      </tr>
+                      <tr className="border-t border-stone-100">
+                        <td className="text-stone-500 py-0.5 pt-1.5">Lucro</td>
+                        <td
+                          className={`text-right font-bold pt-1.5 ${
+                            (r?.lucroTotal ?? 0) < 0 ? "text-red-600" : "text-brand-700"
+                          }`}
+                        >
+                          {formatarMoeda(r?.lucroTotal ?? 0)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              );
+            })}
           </div>
         )}
       </div>
