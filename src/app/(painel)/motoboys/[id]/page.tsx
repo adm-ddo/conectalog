@@ -10,6 +10,7 @@ import LiberacaoClientes from "./LiberacaoClientes";
 import TurnosSection from "./TurnosSection";
 import ValesSection from "./ValesSection";
 import OcorrenciasSection from "./OcorrenciasSection";
+import AlertasFraudeSection from "./AlertasFraudeSection";
 import AvaliacoesSection from "./AvaliacoesSection";
 import DescontosAssiduidadeSection from "./DescontosAssiduidadeSection";
 import DescontoAssiduidadeToggle from "./DescontoAssiduidadeToggle";
@@ -27,7 +28,8 @@ export default async function MotoboyDetalhePage({
   const sessao = await requireTenantCompleto();
   const motoboyId = Number((await params).id);
 
-  const [motoboy, clientes, gestoresPorCliente, mediaAvaliacoes, totalTurnos, turnosRecentes] = await Promise.all([
+  const [motoboy, clientes, gestoresPorCliente, mediaAvaliacoes, totalTurnos, turnosRecentes, alertasFraude] =
+    await Promise.all([
     prisma.motoboy.findFirst({
       where: { id: motoboyId, empresaId: sessao.empresaEfetivoId },
       include: {
@@ -77,6 +79,19 @@ export default async function MotoboyDetalhePage({
         cliente: { select: { nome: true } },
       },
     }),
+    prisma.turno.findMany({
+      where: { motoboyId, status: "INVALIDADO_FRAUDE" },
+      orderBy: { invalidadoFraudeEm: "desc" },
+      select: {
+        id: true,
+        invalidadoFraudeEm: true,
+        motivoFraude: true,
+        quantidadeBandas: true,
+        quantidadeRetornos: true,
+        cliente: { select: { nome: true } },
+        invalidadoFraudePorUsuario: { select: { nome: true } },
+      },
+    }),
   ]);
   if (!motoboy) notFound();
 
@@ -119,6 +134,11 @@ export default async function MotoboyDetalhePage({
         <h1 className="text-2xl font-semibold text-navy-900 flex items-center gap-2 mt-1">
           {motoboy.nomeCompleto}
           <EquipamentoBadge tipo={motoboy.tipoEquipamento} />
+          {alertasFraude.length > 0 && (
+            <span className="rounded-full bg-red-900 text-white text-xs font-bold px-2.5 py-1">
+              🚩 {alertasFraude.length} alerta{alertasFraude.length === 1 ? "" : "s"} de fraude
+            </span>
+          )}
         </h1>
         <p className="text-stone-600 mt-1 text-sm">{motoboy.email}</p>
       </div>
@@ -208,6 +228,18 @@ export default async function MotoboyDetalhePage({
           status: t.status,
           bandas: t.quantidadeBandas,
           valor: formatarMoeda(t.valorTotal),
+        }))}
+      />
+
+      <AlertasFraudeSection
+        alertas={alertasFraude.map((a) => ({
+          turnoId: a.id,
+          clienteNome: a.cliente.nome,
+          data: a.invalidadoFraudeEm ? formatarDataHora(a.invalidadoFraudeEm) : "",
+          porUsuarioNome: a.invalidadoFraudePorUsuario?.nome ?? "alguém da cooperativa",
+          motivo: a.motivoFraude,
+          bandasAlegadas: a.quantidadeBandas,
+          retornosAlegados: a.quantidadeRetornos,
         }))}
       />
 

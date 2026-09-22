@@ -12,6 +12,7 @@ import EquipamentoBadge from "@/components/EquipamentoBadge";
 import BotaoVoltar from "@/components/BotaoVoltar";
 import CorrigirContagemForm from "./CorrigirContagemForm";
 import EncerrarManualForm from "./EncerrarManualForm";
+import InvalidarFraudeForm from "./InvalidarFraudeForm";
 import { PRAZO_CONFIRMACAO_MIN } from "@/lib/confirmacaoBandas";
 
 /** Tolerância antes de liberar o botão de encerrar manualmente pelo
@@ -26,6 +27,7 @@ const LABEL_STATUS: Record<string, string> = {
   ABERTO: "Aberto",
   CONCLUIDO: "Concluído",
   PAGO: "Pago",
+  INVALIDADO_FRAUDE: "Fraude",
 };
 
 export default async function TurnoDetalhePage({
@@ -60,6 +62,7 @@ export default async function TurnoDetalhePage({
       taxaExtraItens: { orderBy: { ordem: "asc" } },
       resolvidoPorUsuario: { select: { nome: true } },
       encerradoManualmentePorUsuario: { select: { nome: true } },
+      invalidadoFraudePorUsuario: { select: { nome: true } },
     },
   });
   if (!turno) notFound();
@@ -85,7 +88,8 @@ export default async function TurnoDetalhePage({
   const bandasBatem = turno.quantidadeBandasCliente !== null && turno.quantidadeBandasCliente === turno.quantidadeBandas;
   const retornosBatem =
     turno.quantidadeRetornosCliente !== null && turno.quantidadeRetornosCliente === turno.quantidadeRetornos;
-  const podeCorrigirContagem = turno.status !== "ABERTO" && (!bandasBatem || !retornosBatem);
+  const podeCorrigirContagem =
+    turno.status !== "ABERTO" && turno.status !== "INVALIDADO_FRAUDE" && (!bandasBatem || !retornosBatem);
   const prazoClienteEncerrado =
     turno.horaFim !== null && new Date() > new Date(turno.horaFim.getTime() + PRAZO_CONFIRMACAO_MIN * 60_000);
 
@@ -162,6 +166,24 @@ export default async function TurnoDetalhePage({
             valorMotoboyUnidade: paraNumero(item.valorMotoboyAplicado),
           }))}
         />
+      )}
+
+      {turno.status !== "PAGO" && turno.status !== "INVALIDADO_FRAUDE" && (
+        <InvalidarFraudeForm turnoId={turno.id} turnoLabel={turnoLabel} motoboyNome={turno.motoboy.nomeCompleto} />
+      )}
+
+      {turno.status === "INVALIDADO_FRAUDE" && (
+        <div className="rounded-2xl border border-red-400 bg-red-950 p-5 flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-white">🚩 Turno invalidado por fraude</h2>
+          <p className="text-sm text-red-100">
+            Por {turno.invalidadoFraudePorUsuario?.nome ?? "alguém da cooperativa"}
+            {turno.invalidadoFraudeEm && <> em {formatarDataHora(turno.invalidadoFraudeEm)}</>}. Motoboy tinha
+            alegado {turno.quantidadeBandas} banda{turno.quantidadeBandas === 1 ? "" : "s"}
+            {turno.quantidadeRetornos > 0 && <> e {turno.quantidadeRetornos} retorno{turno.quantidadeRetornos === 1 ? "" : "s"}</>} —
+            valor final: R$ 0,00.
+          </p>
+          {turno.motivoFraude && <p className="text-sm text-red-100 italic">“{turno.motivoFraude}”</p>}
+        </div>
       )}
 
       <div className="rounded-2xl border border-stone-200 bg-white p-5 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">

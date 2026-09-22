@@ -107,3 +107,49 @@ export async function encerrarTurnoManualmente(
   revalidatePath("/dashboard/ativos");
   revalidatePath("/dashboard");
 }
+
+/** Invalida um turno inteiro por suspeita de fraude — diferente de
+ * resolverDivergenciaTurno (dashboard/actions.ts), que assume boa-fé dos
+ * dois lados e só ajusta um número: aqui o gestor está dizendo que o
+ * motoboy tentou aplicar um golpe (alegou ter trabalhado, o cliente nega).
+ * Zera o valor (não conta em nada financeiro — status novo fica fora dos
+ * filtros fechados que todo relatório/pagamento já usa) mas preserva
+ * quantidadeBandas/quantidadeRetornos como prova do que foi alegado, e
+ * deixa um alerta permanente e visível no perfil do motoboy (ver
+ * AlertasFraudeSection, motoboys/[id]/page.tsx). Também marca
+ * resolvidoDivergenciaEm pra sumir sozinho das telas de divergência
+ * pendente (dashboard e /turnos/pendentes), sem precisar mexer nelas. */
+export async function invalidarTurnoPorFraude(turnoId: number, motivo: string): Promise<EncerrarManualState> {
+  const sessao = await requireTenantCompleto();
+
+  if (!motivo.trim()) return { erro: "Descreva o motivo da suspeita de fraude." };
+
+  const turno = await prisma.turno.findFirst({
+    where: {
+      id: turnoId,
+      motoboy: { empresaId: sessao.empresaEfetivoId },
+      status: { notIn: ["PAGO", "INVALIDADO_FRAUDE"] },
+    },
+  });
+  if (!turno) return { erro: "Turno não encontrado, já pago ou já invalidado." };
+
+  await prisma.turno.update({
+    where: { id: turno.id },
+    data: {
+      status: "INVALIDADO_FRAUDE",
+      valorTotal: 0,
+      valorCobradoCliente: 0,
+      invalidadoFraudeEm: new Date(),
+      invalidadoFraudePorUsuarioId: sessao.usuarioId,
+      motivoFraude: motivo.trim(),
+      resolvidoDivergenciaEm: new Date(),
+    },
+  });
+
+  revalidatePath(`/turnos/${turno.id}`);
+  revalidatePath("/turnos");
+  revalidatePath("/turnos/pendentes");
+  revalidatePath("/dashboard");
+  revalidatePath("/dashboard/ativos");
+  revalidatePath(`/motoboys/${turno.motoboyId}`);
+}

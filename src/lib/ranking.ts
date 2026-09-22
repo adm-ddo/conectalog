@@ -39,6 +39,9 @@ export async function rankingMotoboys(
         horaInicio: { gte: inicio },
         motoboy: { empresaId },
         cliente: filtroCliente,
+        // Turno invalidado por fraude não é trabalho de verdade — não
+        // pode contar pro ranking (ver Turno.invalidadoFraudeEm).
+        status: { not: "INVALIDADO_FRAUDE" },
       },
       select: {
         motoboyId: true,

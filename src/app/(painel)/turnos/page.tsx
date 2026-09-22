@@ -14,12 +14,14 @@ const LABEL_STATUS: Record<string, string> = {
   ABERTO: "Aberto",
   CONCLUIDO: "Concluído",
   PAGO: "Pago",
+  INVALIDADO_FRAUDE: "Fraude",
 };
 
 const COR_STATUS: Record<string, string> = {
   ABERTO: "bg-amber-100 text-amber-800",
   CONCLUIDO: "bg-stone-100 text-stone-700",
   PAGO: "bg-brand-100 text-brand-800",
+  INVALIDADO_FRAUDE: "bg-red-900 text-white",
 };
 
 const TURNOS_PREDEFINIDOS = ["MANHA", "TARDE", "NOITE"] as const;
@@ -77,7 +79,7 @@ export default async function TurnosPage({
     motoboy: { empresaId: sessao.empresaEfetivoId },
     ...(motoboyId ? { motoboyId } : {}),
     ...(clienteId ? { clienteId } : {}),
-    ...(status ? { status: status as "ABERTO" | "CONCLUIDO" | "PAGO" } : {}),
+    ...(status ? { status: status as "ABERTO" | "CONCLUIDO" | "PAGO" | "INVALIDADO_FRAUDE" } : {}),
     ...(turnoPredefinido ? { turnoPredefinido } : {}),
     ...(intervaloData ? { horaInicio: intervaloData } : {}),
   };
@@ -163,6 +165,7 @@ export default async function TurnosPage({
             <option value="ABERTO">Aberto</option>
             <option value="CONCLUIDO">Concluído</option>
             <option value="PAGO">Pago</option>
+            <option value="INVALIDADO_FRAUDE">Fraude</option>
           </select>
         </div>
         <div className="flex flex-col gap-1">

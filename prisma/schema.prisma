@@ -61,6 +61,12 @@ enum StatusTurno {
   ABERTO
   CONCLUIDO
   PAGO
+  /// Turno invalidado pelo gestor por suspeita de fraude (motoboy alegou
+  /// ter trabalhado, cliente nega) — ver comentário em
+  /// Turno.invalidadoFraudeEm. Fica de fora automaticamente de todo
+  /// relatório/pagamento que já filtra por lista fechada (CONCLUIDO/PAGO)
+  /// ou igualdade exata, sem precisar mexer nesse código.
+  INVALIDADO_FRAUDE
 }
 
 enum StatusPagamento {
@@ -224,6 +230,7 @@ model Usuario {
   convitesEnviados             ConviteEquipe[]
   divergenciasResolvidas       Turno[]                    @relation("TurnoResolvidoPor")
   turnosEncerradosManualmente  Turno[]                    @relation("TurnoEncerradoManualmentePor")
+  turnosInvalidadosPorFraude   Turno[]                    @relation("TurnoInvalidadoFraudePor")
 }
 
 /// Token de uso único (verificação de e-mail / recuperação de senha) do
@@ -788,11 +795,27 @@ model Turno {
   /// telefone").
   observacaoEncerramentoManual     String?
 
+  /// Preenchido quando o gestor invalida o turno por suspeita de fraude
+  /// (motoboy alegou ter trabalhado, cliente nega ter recebido ele) —
+  /// diferente de uma divergência normal (resolvidoDivergenciaEm), que
+  /// assume boa-fé dos dois lados e só ajusta o número. Aqui o turno
+  /// inteiro é zerado (valorTotal/valorCobradoCliente = 0) e o registro
+  /// vira um alerta permanente no perfil do motoboy (ver
+  /// AlertasFraudeSection) — quantidadeBandas/quantidadeRetornos NÃO são
+  /// apagados, ficam como prova do que ele alegou.
+  invalidadoFraudeEm           DateTime?
+  invalidadoFraudePorUsuarioId Int?
+  /// Justificativa OBRIGATÓRIA (diferente da observação opcional das
+  /// divergências normais) — é uma acusação grave, sempre precisa ficar
+  /// documentado por que o gestor decidiu isso.
+  motivoFraude                 String?
+
   motoboy                        Motoboy              @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
   cliente                        Cliente              @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   pagamento                      Pagamento?           @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
   resolvidoPorUsuario            Usuario?             @relation("TurnoResolvidoPor", fields: [resolvidoPorUsuarioId], references: [id])
   encerradoManualmentePorUsuario Usuario?             @relation("TurnoEncerradoManualmentePor", fields: [encerradoManualmentePorUsuarioId], references: [id])
+  invalidadoFraudePorUsuario     Usuario?             @relation("TurnoInvalidadoFraudePor", fields: [invalidadoFraudePorUsuarioId], references: [id])
   apoios                         Apoio[]
   escalas                        EscalaTurno[]
   avaliacao                      Avaliacao?

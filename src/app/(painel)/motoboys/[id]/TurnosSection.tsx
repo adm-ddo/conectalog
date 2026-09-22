@@ -4,12 +4,14 @@ const LABEL_STATUS: Record<string, string> = {
   ABERTO: "Aberto",
   CONCLUIDO: "Concluído",
   PAGO: "Pago",
+  INVALIDADO_FRAUDE: "Fraude",
 };
 
 const COR_STATUS: Record<string, string> = {
   ABERTO: "bg-amber-100 text-amber-800",
   CONCLUIDO: "bg-stone-100 text-stone-700",
   PAGO: "bg-brand-100 text-brand-800",
+  INVALIDADO_FRAUDE: "bg-red-900 text-white",
 };
 
 export default function TurnosSection({
