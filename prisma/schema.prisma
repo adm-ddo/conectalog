@@ -795,6 +795,19 @@ model Turno {
   /// telefone").
   observacaoEncerramentoManual     String?
 
+  /// Marcado pelo CLIENTE ao encerrar o turno do lado dele (ver
+  /// encerrarPeloCliente, portal/[token]/encerrar/[turnoId]/actions.ts)
+  /// quando o motoboy nunca esteve fisicamente presente — diferente de
+  /// quantidadeBandasCliente=0 (que pode só significar "esteve aqui e
+  /// não fez nada"), esse é um sinal inequívoco de ausência. Zera
+  /// automaticamente quantidadeBandasCliente/quantidadeRetornosCliente/
+  /// taxas do lado do cliente, então qualquer contagem > 0 do motoboy já
+  /// vira divergência sozinha (ver query em dashboard/page.tsx). NÃO
+  /// invalida o turno sozinho — quem decide se é fraude de verdade
+  /// continua sendo o gestor (ver invalidadoFraudeEm acima).
+  clienteMarcouAusente   Boolean   @default(false)
+  clienteMarcouAusenteEm DateTime?
+
   /// Preenchido quando o gestor invalida o turno por suspeita de fraude
   /// (motoboy alegou ter trabalhado, cliente nega ter recebido ele) —
   /// diferente de uma divergência normal (resolvidoDivergenciaEm), que

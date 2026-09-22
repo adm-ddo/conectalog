@@ -350,6 +350,7 @@ export default async function DashboardPage() {
                   bandasCliente={t.quantidadeBandasCliente ?? 0}
                   retornosMotoboy={t.quantidadeRetornos}
                   retornosCliente={t.quantidadeRetornosCliente}
+                  clienteMarcouAusente={t.clienteMarcouAusente}
                   taxas={t.taxaExtraItens.map((item) => ({
                     itemId: item.id,
                     descricao: item.descricao,

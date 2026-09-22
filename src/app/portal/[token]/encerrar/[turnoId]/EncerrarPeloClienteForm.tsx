@@ -21,6 +21,7 @@ export default function EncerrarPeloClienteForm({
   taxasExtras: { id: number; descricao: string }[];
 }) {
   const router = useRouter();
+  const [ausente, setAusente] = useState(false);
   const [bandas, setBandas] = useState(0);
   const [retornos, setRetornos] = useState(0);
   const [quantidades, setQuantidades] = useState<Record<number, number>>({});
@@ -33,7 +34,7 @@ export default function EncerrarPeloClienteForm({
   const [pending, startTransition] = useTransition();
 
   function enviar() {
-    if (nota === 0) return setErro("Selecione uma nota de 1 a 5 estrelas.");
+    if (!ausente && nota === 0) return setErro("Selecione uma nota de 1 a 5 estrelas.");
     if (houveOcorrencia && !descricaoOcorrencia.trim()) {
       return setErro("Descreva o que aconteceu na ocorrência.");
     }
@@ -42,6 +43,7 @@ export default function EncerrarPeloClienteForm({
       const resultado = await encerrarPeloCliente({
         token,
         turnoId,
+        ausente,
         quantidadeBandas: bandas,
         quantidadeRetornos: retornos,
         taxasExtras: taxasExtras.map((t) => ({ itemId: t.id, quantidade: quantidades[t.id] ?? 0 })),
@@ -57,47 +59,67 @@ export default function EncerrarPeloClienteForm({
 
   return (
     <div className="flex flex-col gap-5">
-      <p className="text-sm text-stone-600">
-        Quantas bandas o(a){" "}
-        <Link
-          href={`/portal/${token}/motoboy/${motoboyId}`}
-          className="font-semibold text-brand-700 hover:underline"
-        >
-          {nomeMotoboy}
-        </Link>{" "}
-        fez aqui hoje?
-      </p>
-      <ContadorStepper label="Bandas" valor={bandas} onChange={setBandas} />
-      <ContadorStepper
-        label="Retornos (motoboy teve que voltar aqui de novo)"
-        valor={retornos}
-        onChange={setRetornos}
-      />
-      {taxasExtras.map((t) => (
-        <ContadorStepper
-          key={t.id}
-          label={t.descricao}
-          valor={quantidades[t.id] ?? 0}
-          onChange={(v) => setQuantidades((prev) => ({ ...prev, [t.id]: v }))}
-        />
-      ))}
-
-      <div className="flex flex-col gap-2">
-        <span className="text-sm text-stone-600">Como foi o atendimento dele?</span>
-        <div className="flex gap-1">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => setNota(n)}
-              className={`text-3xl leading-none ${n <= nota ? "text-amber-400" : "text-stone-300"}`}
-              aria-label={`${n} estrela${n > 1 ? "s" : ""}`}
-            >
-              ★
-            </button>
-          ))}
-        </div>
+      <div className="flex flex-col gap-2 rounded-xl border border-red-400 bg-red-50 p-4">
+        <label className="flex items-center gap-2 text-sm font-semibold text-red-800">
+          <input
+            type="checkbox"
+            checked={ausente}
+            onChange={(e) => setAusente(e.target.checked)}
+            className="h-4 w-4 rounded border-stone-300 text-red-600 focus:ring-red-500"
+          />
+          Ele nunca esteve presente aqui hoje
+        </label>
+        <p className="text-xs text-red-800">
+          Isso avisa a cooperativa que esse motoboy nunca apareceu aqui — diferente de só marcar 0
+          entregas.
+        </p>
       </div>
+
+      {!ausente && (
+        <>
+          <p className="text-sm text-stone-600">
+            Quantas bandas o(a){" "}
+            <Link
+              href={`/portal/${token}/motoboy/${motoboyId}`}
+              className="font-semibold text-brand-700 hover:underline"
+            >
+              {nomeMotoboy}
+            </Link>{" "}
+            fez aqui hoje?
+          </p>
+          <ContadorStepper label="Bandas" valor={bandas} onChange={setBandas} />
+          <ContadorStepper
+            label="Retornos (motoboy teve que voltar aqui de novo)"
+            valor={retornos}
+            onChange={setRetornos}
+          />
+          {taxasExtras.map((t) => (
+            <ContadorStepper
+              key={t.id}
+              label={t.descricao}
+              valor={quantidades[t.id] ?? 0}
+              onChange={(v) => setQuantidades((prev) => ({ ...prev, [t.id]: v }))}
+            />
+          ))}
+
+          <div className="flex flex-col gap-2">
+            <span className="text-sm text-stone-600">Como foi o atendimento dele?</span>
+            <div className="flex gap-1">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setNota(n)}
+                  className={`text-3xl leading-none ${n <= nota ? "text-amber-400" : "text-stone-300"}`}
+                  aria-label={`${n} estrela${n > 1 ? "s" : ""}`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
 
       <label className="flex flex-col gap-1">
         <span className="text-xs text-stone-500">Comentário geral (opcional)</span>

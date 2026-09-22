@@ -168,6 +168,13 @@ export default async function TurnoDetalhePage({
         />
       )}
 
+      {turno.clienteMarcouAusente && (
+        <div className="rounded-2xl border border-red-500 bg-red-900 p-5 text-sm text-white">
+          🚩 O cliente marcou que ele nunca esteve presente aqui
+          {turno.clienteMarcouAusenteEm && <> em {formatarDataHora(turno.clienteMarcouAusenteEm)}</>}.
+        </div>
+      )}
+
       {turno.status !== "PAGO" && turno.status !== "INVALIDADO_FRAUDE" && (
         <InvalidarFraudeForm turnoId={turno.id} turnoLabel={turnoLabel} motoboyNome={turno.motoboy.nomeCompleto} />
       )}

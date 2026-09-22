@@ -11,6 +11,13 @@ export type EncerrarPortalState = { erro?: string } | undefined;
 export type DadosEncerrarPortal = {
   token: string;
   turnoId: number;
+  /// Sinal explícito e inequívoco de que o motoboy nunca esteve
+  /// fisicamente presente — diferente de quantidadeBandas=0 (que pode só
+  /// significar "esteve aqui e não fez nada"). Ver comentário em
+  /// Turno.clienteMarcouAusente no schema. Quando true, o servidor
+  /// ignora quantidadeBandas/quantidadeRetornos/taxasExtras vindos daqui
+  /// e força tudo a 0 (defesa em profundidade).
+  ausente: boolean;
   quantidadeBandas: number;
   quantidadeRetornos: number;
   taxasExtras: { itemId: number; quantidade: number }[];
@@ -67,7 +74,9 @@ export async function encerrarPeloCliente(
       return { erro: "Quantidade inválida." };
     }
   }
-  if (dados.nota < 1 || dados.nota > 5) {
+  // Sem nota pra dar quando o motoboy nunca esteve presente — não tem o
+  // que avaliar.
+  if (!dados.ausente && (dados.nota < 1 || dados.nota > 5)) {
     return { erro: "Selecione uma nota de 1 a 5." };
   }
   if (dados.houveOcorrencia && !dados.descricaoOcorrencia.trim()) {
@@ -77,35 +86,52 @@ export async function encerrarPeloCliente(
     return { erro: "Valor de desconto inválido." };
   }
 
-  const totalTaxasExtras = dados.taxasExtras.reduce((soma, item) => soma + item.quantidade, 0);
+  // Ausente=true nunca confia nas quantidades vindas do cliente — força
+  // tudo a 0, mesmo que o payload (por bug ou manipulação) venha com
+  // algo diferente (ver Turno.clienteMarcouAusente no schema).
+  const totalTaxasExtras = dados.ausente
+    ? 0
+    : dados.taxasExtras.reduce((soma, item) => soma + item.quantidade, 0);
 
   const operacoes: Prisma.PrismaPromise<unknown>[] = [
     prisma.turno.update({
       where: { id: turno.id },
       data: {
-        quantidadeBandasCliente: dados.quantidadeBandas,
-        quantidadeRetornosCliente: dados.quantidadeRetornos,
+        quantidadeBandasCliente: dados.ausente ? 0 : dados.quantidadeBandas,
+        quantidadeRetornosCliente: dados.ausente ? 0 : dados.quantidadeRetornos,
         quantidadeTaxasExtrasCliente: totalTaxasExtras,
+        ...(dados.ausente ? { clienteMarcouAusente: true, clienteMarcouAusenteEm: new Date() } : {}),
       },
     }),
-    ...dados.taxasExtras.map((item) =>
+    ...turno.taxaExtraItens.map((item) =>
       prisma.turnoTaxaExtraItem.update({
-        where: { id: item.itemId },
-        data: { quantidadeCliente: item.quantidade },
+        where: { id: item.id },
+        data: {
+          quantidadeCliente: dados.ausente
+            ? 0
+            : (dados.taxasExtras.find((t) => t.itemId === item.id)?.quantidade ?? 0),
+        },
       })
     ),
-    prisma.avaliacao.upsert({
-      where: { turnoId: turno.id },
-      update: { nota: dados.nota, comentario: dados.comentario.trim() || null },
-      create: {
-        turnoId: turno.id,
-        clienteId: cliente.id,
-        motoboyId: turno.motoboyId,
-        nota: dados.nota,
-        comentario: dados.comentario.trim() || null,
-      },
-    }),
   ];
+
+  // Sem avaliação quando o motoboy nunca esteve presente — não tem
+  // atendimento nenhum pra avaliar.
+  if (!dados.ausente) {
+    operacoes.push(
+      prisma.avaliacao.upsert({
+        where: { turnoId: turno.id },
+        update: { nota: dados.nota, comentario: dados.comentario.trim() || null },
+        create: {
+          turnoId: turno.id,
+          clienteId: cliente.id,
+          motoboyId: turno.motoboyId,
+          nota: dados.nota,
+          comentario: dados.comentario.trim() || null,
+        },
+      })
+    );
+  }
 
   // Ocorrência é um log + desconto real do que o motoboy recebe — feita
   // só quando ele já teve um problema de verdade nesse turno, então usa

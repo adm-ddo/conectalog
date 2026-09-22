@@ -25,6 +25,7 @@ export default function DivergenciaRow({
   bandasCliente,
   retornosMotoboy,
   retornosCliente,
+  clienteMarcouAusente,
   taxas,
 }: {
   turnoId: number;
@@ -38,6 +39,7 @@ export default function DivergenciaRow({
   bandasCliente: number;
   retornosMotoboy: number;
   retornosCliente: number | null;
+  clienteMarcouAusente: boolean;
   taxas: TaxaDivergente[];
 }) {
   const [bandasFinal, setBandasFinal] = useState(bandasMotoboy);
@@ -67,6 +69,11 @@ export default function DivergenciaRow({
 
   return (
     <li className="rounded-xl border border-red-200 bg-white px-4 py-3 flex flex-col gap-3">
+      {clienteMarcouAusente && (
+        <p className="rounded-lg bg-red-900 text-white text-xs font-bold px-3 py-2">
+          🚩 O cliente marcou que ele nunca esteve presente aqui
+        </p>
+      )}
       <div>
         <p className="text-sm font-semibold text-navy-900">
           {nomeMotoboy} em {nomeCliente}
