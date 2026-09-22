@@ -34,7 +34,7 @@ export default function LinkPortalSection({
 
   return (
     <div className="rounded-2xl border border-stone-200 bg-white p-5 flex flex-col gap-3">
-      <h2 className="text-sm font-semibold text-navy-900">Link do portal do cliente</h2>
+      <h2 className="text-sm font-semibold text-navy-900">Link do portal para controle de expedição</h2>
       <p className="text-xs text-stone-500">
         Manda esse link pro restaurante deixar aberto e salvo no navegador dele — é assim que ele
         vê a escala do dia, sem precisar de login.
