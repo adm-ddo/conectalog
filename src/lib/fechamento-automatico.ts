@@ -58,13 +58,17 @@ export async function fecharTurnosEsquecidos(agora: Date = new Date()): Promise<
       }
       const empresa = empresaCache.get(turno.cliente.empresaId)!;
       const quantidadeBandas = turno.quantidadeBandasCliente;
+      const quantidadeRetornos = turno.quantidadeRetornosCliente ?? 0;
+      // Retorno conta pro cálculo igual a uma banda normal (ver
+      // Turno.quantidadeRetornos no schema).
+      const totalBandasEquivalentes = quantidadeBandas + quantidadeRetornos;
 
       const { valorMotoboyBandas, valorMotoboyTaxasExtras, valorCliente } = calcularValores(
         turno.cliente,
         empresa,
         turno.horaInicio,
         turno.turnoPredefinido,
-        quantidadeBandas,
+        totalBandasEquivalentes,
         turno.taxaExtraItens.map((item) => ({
           valorMotoboy: item.valorMotoboyAplicado,
           valorCliente: item.valorClienteAplicado,
@@ -72,7 +76,7 @@ export async function fecharTurnosEsquecidos(agora: Date = new Date()): Promise<
         }))
       );
       const valorMotoboyFinal =
-        aplicarRemuneracaoGestor(valorMotoboyBandas, quantidadeBandas, turno.motoboy) + valorMotoboyTaxasExtras;
+        aplicarRemuneracaoGestor(valorMotoboyBandas, totalBandasEquivalentes, turno.motoboy) + valorMotoboyTaxasExtras;
       // turnoPredefinido nunca é LIVRE aqui (query já filtrou), mas o tipo
       // de encontrarPerfilFixo não aceita LIVRE — a checagem serve só pra
       // isso, TypeScript não sabe do filtro da query.
@@ -92,11 +96,13 @@ export async function fecharTurnosEsquecidos(agora: Date = new Date()): Promise<
             horaFim: horaFimConfigurada,
             fechamentoAutomatico: true,
             quantidadeBandas,
+            quantidadeRetornos,
             quantidadeTaxasExtras: turno.quantidadeTaxasExtrasCliente ?? 0,
             valorBandaAplicado,
             valorTotal: valorMotoboyFinal,
             valorCobradoCliente: valorCliente,
             quantidadeBandasMotoboyOriginal: turno.quantidadeBandas,
+            quantidadeRetornosMotoboyOriginal: turno.quantidadeRetornos,
             observacaoDivergencia: "Motoboy não encerrou dentro do prazo — usada a contagem do cliente.",
             resolvidoDivergenciaEm: agora,
           },
@@ -116,6 +122,7 @@ export async function fecharTurnosEsquecidos(agora: Date = new Date()): Promise<
           horaFim: horaFimConfigurada,
           fechamentoAutomatico: true,
           quantidadeBandas: 0,
+          quantidadeRetornos: 0,
           quantidadeTaxasExtras: 0,
           valorBandaAplicado: 0,
           valorTotal: 0,

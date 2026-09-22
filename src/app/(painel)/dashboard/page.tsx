@@ -137,6 +137,7 @@ export default async function DashboardPage() {
   const divergencias = turnosDivergentes.filter(
     (t) =>
       t.quantidadeBandasCliente !== t.quantidadeBandas ||
+      (t.quantidadeRetornosCliente !== null && t.quantidadeRetornosCliente !== t.quantidadeRetornos) ||
       t.taxaExtraItens.some((item) => item.quantidade !== (item.quantidadeCliente ?? 0))
   );
 
@@ -347,6 +348,8 @@ export default async function DashboardPage() {
                   valorExcedenteMotoboy={perfil ? paraNumero(perfil.valorExcedenteMotoboy) : null}
                   bandasMotoboy={t.quantidadeBandas}
                   bandasCliente={t.quantidadeBandasCliente ?? 0}
+                  retornosMotoboy={t.quantidadeRetornos}
+                  retornosCliente={t.quantidadeRetornosCliente}
                   taxas={t.taxaExtraItens.map((item) => ({
                     itemId: item.id,
                     descricao: item.descricao,

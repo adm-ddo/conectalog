@@ -81,6 +81,9 @@ export default async function HistoricoPortalPage({
         <ul className="flex flex-col gap-2">
           {turnos.map((t) => {
             const bandasIguais = t.quantidadeBandasCliente !== null && t.quantidadeBandasCliente === t.quantidadeBandas;
+            const mostrarRetornos = t.quantidadeRetornos > 0 || t.quantidadeRetornosCliente !== null;
+            const retornosIguais =
+              t.quantidadeRetornosCliente !== null && t.quantidadeRetornosCliente === t.quantidadeRetornos;
             const prazoAberto =
               t.horaFim !== null && agora <= new Date(t.horaFim.getTime() + PRAZO_CONFIRMACAO_MIN * 60_000);
             return (
@@ -114,6 +117,24 @@ export default async function HistoricoPortalPage({
                     )}
                   </span>
                 </div>
+                {mostrarRetornos && (
+                  <div className="flex items-center justify-between gap-2 text-sm">
+                    <span className="text-stone-500">
+                      Retornos — motoboy disse: <strong className="text-navy-900">{t.quantidadeRetornos}</strong>
+                    </span>
+                    <span
+                      className={
+                        retornosIguais || t.quantidadeRetornosCliente === null
+                          ? "text-stone-500"
+                          : "text-red-600 font-semibold"
+                      }
+                    >
+                      {t.quantidadeRetornosCliente === null
+                        ? "Você não confirmou"
+                        : <>Você confirmou: <strong>{t.quantidadeRetornosCliente}</strong></>}
+                    </span>
+                  </div>
+                )}
                 {t.avaliacao && (
                   <p className="text-xs text-stone-500">{"★".repeat(t.avaliacao.nota)} avaliado</p>
                 )}

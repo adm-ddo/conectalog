@@ -17,6 +17,11 @@ export type LinhaMotoboyRelatorio = {
   motoboyId: number;
   nome: string;
   bandas: number;
+  /// Soma de Turno.quantidadeRetornos no período — quantas vezes esse
+  /// motoboy precisou voltar porque a expedição do cliente errou/
+  /// esqueceu algo (já incluso em "bandas" pro cálculo de valor, mas
+  /// contado à parte aqui como indicador de erro da expedição).
+  retornos: number;
   valorRecebe: number;
   valorCliente: number;
   /// Margem que ESSE motoboy deixou pra cooperativa no período — o que o
@@ -50,6 +55,9 @@ export type RelatorioCliente = {
   valorTotalCliente: number;
   lucroTotal: number;
   totalBandas: number;
+  /// Soma de retornos de todos os motoboys no período (ver
+  /// LinhaMotoboyRelatorio.retornos).
+  totalRetornos: number;
   turnosAbertosNaoIncluidos: number;
   totalEscalas: number;
   totalConfirmados: number;
@@ -106,6 +114,7 @@ export async function gerarRelatorioCliente(
         motoboyId: true,
         motoboy: { select: { nomeCompleto: true } },
         quantidadeBandas: true,
+        quantidadeRetornos: true,
         valorTotal: true,
         valorCobradoCliente: true,
         status: true,
@@ -175,6 +184,7 @@ export async function gerarRelatorioCliente(
     {
       nome: string;
       bandas: number;
+      retornos: number;
       valorRecebe: number;
       valorCliente: number;
       itensTotal: number;
@@ -185,7 +195,7 @@ export async function gerarRelatorioCliente(
   function linha(motoboyId: number, nome: string) {
     let atual = porMotoboy.get(motoboyId);
     if (!atual) {
-      atual = { nome, bandas: 0, valorRecebe: 0, valorCliente: 0, itensTotal: 0, itensPagos: 0 };
+      atual = { nome, bandas: 0, retornos: 0, valorRecebe: 0, valorCliente: 0, itensTotal: 0, itensPagos: 0 };
       porMotoboy.set(motoboyId, atual);
     }
     return atual;
@@ -194,6 +204,7 @@ export async function gerarRelatorioCliente(
   for (const t of turnos) {
     const l = linha(t.motoboyId, t.motoboy.nomeCompleto);
     l.bandas += t.quantidadeBandas;
+    l.retornos += t.quantidadeRetornos;
     l.valorRecebe += paraNumero(t.valorTotal);
     l.valorCliente += paraNumero(t.valorCobradoCliente);
     l.itensTotal += 1;
@@ -212,6 +223,7 @@ export async function gerarRelatorioCliente(
     motoboyId,
     nome: dados.nome,
     bandas: dados.bandas,
+    retornos: dados.retornos,
     valorRecebe: dados.valorRecebe,
     valorCliente: dados.valorCliente,
     lucro: dados.valorCliente - dados.valorRecebe,
@@ -261,6 +273,7 @@ export async function gerarRelatorioCliente(
     valorTotalCliente: Math.max(0, motoboys.reduce((soma, m) => soma + m.valorCliente, 0) - totalDescontoIfood),
     lucroTotal: motoboys.reduce((soma, m) => soma + m.lucro, 0) - totalDescontoIfood,
     totalBandas: motoboys.reduce((soma, m) => soma + m.bandas, 0),
+    totalRetornos: motoboys.reduce((soma, m) => soma + m.retornos, 0),
     turnosAbertosNaoIncluidos: turnosAbertos,
     totalEscalas: escalas.length,
     totalConfirmados: escalas.filter((e) => e.statusConfirmacao === "CONFIRMADO").length,

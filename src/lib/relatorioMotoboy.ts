@@ -22,6 +22,9 @@ export type ItemRelatorioMotoboy = {
   horaInicio: Date | null;
   horaFim: Date | null;
   quantidadeBandas: number;
+  /// Só preenchido em itens de turno (apoio não tem retorno, ver
+  /// comentário no schema).
+  quantidadeRetornos: number;
   valorRecebe: number;
 };
 
@@ -30,6 +33,7 @@ export type RelatorioMotoboy = {
   dataInicio: string;
   dataFim: string;
   totalBandas: number;
+  totalRetornos: number;
   totalValor: number;
   itens: ItemRelatorioMotoboy[];
   vales: { id: number; valor: number; data: Date; descontado: boolean; observacao: string | null }[];
@@ -68,6 +72,7 @@ export async function gerarRelatorioMotoboy(
         horaInicio: true,
         horaFim: true,
         quantidadeBandas: true,
+        quantidadeRetornos: true,
         valorTotal: true,
       },
       orderBy: { horaInicio: "asc" },
@@ -103,6 +108,7 @@ export async function gerarRelatorioMotoboy(
       horaInicio: t.horaInicio,
       horaFim: t.horaFim,
       quantidadeBandas: t.quantidadeBandas,
+      quantidadeRetornos: t.quantidadeRetornos,
       valorRecebe: paraNumero(t.valorTotal),
     })),
     ...apoios.map((a) => ({
@@ -113,6 +119,7 @@ export async function gerarRelatorioMotoboy(
       horaInicio: null,
       horaFim: null,
       quantidadeBandas: a.quantidadeBandas,
+      quantidadeRetornos: 0,
       valorRecebe: paraNumero(a.valorTotal),
     })),
   ].sort((x, y) => x.data.getTime() - y.data.getTime());
@@ -122,6 +129,7 @@ export async function gerarRelatorioMotoboy(
     dataInicio,
     dataFim,
     totalBandas: itens.reduce((soma, i) => soma + i.quantidadeBandas, 0),
+    totalRetornos: itens.reduce((soma, i) => soma + i.quantidadeRetornos, 0),
     totalValor: itens.reduce((soma, i) => soma + i.valorRecebe, 0),
     itens,
     vales: vales.map((v) => ({

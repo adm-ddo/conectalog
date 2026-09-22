@@ -707,6 +707,14 @@ model Turno {
   assinaturaReciboUrl   String?
   quantidadeBandas      Int              @default(0)
   quantidadeTaxasExtras Int              @default(0)
+  /// Quantas vezes o motoboy precisou VOLTAR nesse cliente porque a
+  /// expedição errou/esqueceu algo — conta pro preço exatamente como se
+  /// fosse mais uma banda normal (mesmo valor, mesma lógica de
+  /// garantido/excedente: quem chama calcularValores soma
+  /// quantidadeBandas + quantidadeRetornos antes de passar), mas fica
+  /// separado aqui pra virar indicador de erro da expedição nos
+  /// relatórios (cooperativa e cliente veem "quantos retornos tivemos").
+  quantidadeRetornos    Int              @default(0)
   valorBandaAplicado    Decimal?         @db.Decimal(10, 2)
   /// O que o MOTOBOY recebe (sempre existiu). valorCobradoCliente é o que
   /// a COOPERATIVA cobra da empresa cliente por esse turno — pode ser
@@ -732,28 +740,36 @@ model Turno {
   /// (ver resolvidoDivergenciaEm) — decisão confirmada com o Thiago: os
   /// dois têm que bater, não é o registro de um lado que automaticamente
   /// vale mais que o outro.
-  quantidadeBandasCliente         Int?
-  quantidadeTaxasExtrasCliente    Int?
+  quantidadeBandasCliente           Int?
+  quantidadeTaxasExtrasCliente      Int?
+  /// Confirmação do CLIENTE de quantos retornos houve — mesmo espírito
+  /// de quantidadeBandasCliente (null até ele confirmar pelo portal),
+  /// entra na mesma checagem de divergência que bandas/taxas extras.
+  quantidadeRetornosCliente         Int?
   /// Preenchido quando a cooperativa resolve manualmente uma divergência
   /// (ou confirma que os números batem) — enquanto null e os dois
   /// números existirem e forem diferentes, o turno aparece na tela de
   /// divergências do painel. Uma vez preenchido, fica pra sempre (não tem
   /// "reabrir divergência") — é o registro permanente de que a
   /// cooperativa e o cliente entraram em acordo sobre esse turno.
-  resolvidoDivergenciaEm          DateTime?
+  resolvidoDivergenciaEm            DateTime?
   /// Snapshot do que o motoboy tinha informado originalmente, tirado no
   /// momento da resolução — depois disso quantidadeBandas passa a valer
   /// o número combinado (usado no pagamento), então sem isso o número
   /// original do motoboy se perderia (o do cliente já fica preservado em
   /// quantidadeBandasCliente, que nunca é sobrescrito).
-  quantidadeBandasMotoboyOriginal Int?
+  quantidadeBandasMotoboyOriginal   Int?
+  /// Mesmo snapshot, só que pra retorno — preservado quando a
+  /// cooperativa resolve a divergência e quantidadeRetornos passa a
+  /// valer o número combinado.
+  quantidadeRetornosMotoboyOriginal Int?
   /// Quem da cooperativa resolveu a divergência — junto com
   /// resolvidoDivergenciaEm e observacaoDivergencia, é o registro de que
   /// a disputa foi resolvida em comum acordo, não decidida sozinha.
-  resolvidoPorUsuarioId           Int?
+  resolvidoPorUsuarioId             Int?
   /// Explicação livre e opcional do acordo (ex.: "cliente contou errado,
   /// motoboy tinha razão") — só preenchido na resolução da divergência.
-  observacaoDivergencia           String?
+  observacaoDivergencia             String?
 
   /// true quando a COOPERATIVA (não o motoboy, não o cron) encerrou esse
   /// turno na mão pelo painel — usado quando o motoboy passou de 15min do

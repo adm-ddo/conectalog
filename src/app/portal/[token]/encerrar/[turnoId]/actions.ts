@@ -12,6 +12,7 @@ export type DadosEncerrarPortal = {
   token: string;
   turnoId: number;
   quantidadeBandas: number;
+  quantidadeRetornos: number;
   taxasExtras: { itemId: number; quantidade: number }[];
   nota: number;
   comentario: string;
@@ -57,7 +58,7 @@ export async function encerrarPeloCliente(
     }
   }
 
-  if (dados.quantidadeBandas < 0) {
+  if (dados.quantidadeBandas < 0 || dados.quantidadeRetornos < 0) {
     return { erro: "Quantidade inválida." };
   }
   const idsValidos = new Set(turno.taxaExtraItens.map((item) => item.id));
@@ -83,6 +84,7 @@ export async function encerrarPeloCliente(
       where: { id: turno.id },
       data: {
         quantidadeBandasCliente: dados.quantidadeBandas,
+        quantidadeRetornosCliente: dados.quantidadeRetornos,
         quantidadeTaxasExtrasCliente: totalTaxasExtras,
       },
     }),

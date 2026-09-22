@@ -23,6 +23,8 @@ export default function DivergenciaRow({
   valorExcedenteMotoboy,
   bandasMotoboy,
   bandasCliente,
+  retornosMotoboy,
+  retornosCliente,
   taxas,
 }: {
   turnoId: number;
@@ -34,9 +36,12 @@ export default function DivergenciaRow({
   valorExcedenteMotoboy: number | null;
   bandasMotoboy: number;
   bandasCliente: number;
+  retornosMotoboy: number;
+  retornosCliente: number | null;
   taxas: TaxaDivergente[];
 }) {
   const [bandasFinal, setBandasFinal] = useState(bandasMotoboy);
+  const [retornosFinal, setRetornosFinal] = useState(retornosMotoboy);
   const [taxasFinais, setTaxasFinais] = useState<Record<number, number>>(
     Object.fromEntries(taxas.map((t) => [t.itemId, t.motoboy]))
   );
@@ -44,12 +49,15 @@ export default function DivergenciaRow({
   const [pending, startTransition] = useTransition();
 
   const taxasDivergentes = taxas.filter((t) => t.motoboy !== t.cliente);
+  const retornosDivergem = retornosCliente !== null && retornosCliente !== retornosMotoboy;
 
   const temGarantido =
     bandasIncluidas !== null && valorGarantidoMotoboy !== null && valorExcedenteMotoboy !== null;
+  // Retorno conta pro cálculo igual a uma banda normal (ver
+  // Turno.quantidadeRetornos no schema).
   const { valorMotoboyBandas, excedentes, deficitBandas, deficitValor } = calcularBandasGarantido(
     temGarantido ? { bandasIncluidas, valorGarantidoMotoboy, valorExcedenteMotoboy } : null,
-    bandasFinal
+    bandasFinal + retornosFinal
   );
   const taxaExtraBruta = taxas.reduce(
     (soma, t) => soma + (taxasFinais[t.itemId] ?? 0) * t.valorMotoboyUnidade,
@@ -67,6 +75,11 @@ export default function DivergenciaRow({
         <p className="text-xs text-stone-500">
           Bandas: motoboy disse {bandasMotoboy}, cliente disse {bandasCliente}
         </p>
+        {retornosDivergem && (
+          <p className="text-xs text-stone-500">
+            Retornos: motoboy disse {retornosMotoboy}, cliente disse {retornosCliente}
+          </p>
+        )}
         {taxasDivergentes.map((t) => (
           <p key={t.itemId} className="text-xs text-stone-500">
             {t.descricao}: motoboy disse {t.motoboy}, cliente disse {t.cliente}
@@ -83,7 +96,7 @@ export default function DivergenciaRow({
           </p>
           {excedentes > 0 && (
             <p>
-              {bandasFinal} entregas combinadas = <strong>R$ {formatarMoeda(valorMotoboyBandas)}</strong>{" "}
+              {bandasFinal + retornosFinal} entregas combinadas = <strong>R$ {formatarMoeda(valorMotoboyBandas)}</strong>{" "}
               ({excedentes} excedente{excedentes === 1 ? "" : "s"} × R${" "}
               {formatarMoeda(valorExcedenteMotoboy)}).
             </p>
@@ -115,6 +128,16 @@ export default function DivergenciaRow({
             min="0"
             value={bandasFinal}
             onChange={(e) => setBandasFinal(Number(e.target.value))}
+            className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm w-24"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-stone-500">Retornos (combinado)</span>
+          <input
+            type="number"
+            min="0"
+            value={retornosFinal}
+            onChange={(e) => setRetornosFinal(Number(e.target.value))}
             className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm w-24"
           />
         </label>
@@ -151,6 +174,7 @@ export default function DivergenciaRow({
             resolverDivergenciaTurno(
               turnoId,
               bandasFinal,
+              retornosFinal,
               taxas.map((t) => ({ itemId: t.itemId, quantidade: taxasFinais[t.itemId] ?? 0 })),
               observacao
             )

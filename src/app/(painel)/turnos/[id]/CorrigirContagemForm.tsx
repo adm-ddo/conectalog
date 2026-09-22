@@ -21,6 +21,8 @@ export default function CorrigirContagemForm({
   valorExcedenteMotoboy,
   bandasMotoboy,
   bandasCliente,
+  retornosMotoboy,
+  retornosCliente,
   prazoClienteEncerrado,
   taxas,
 }: {
@@ -31,10 +33,13 @@ export default function CorrigirContagemForm({
   valorExcedenteMotoboy: number | null;
   bandasMotoboy: number;
   bandasCliente: number | null;
+  retornosMotoboy: number;
+  retornosCliente: number | null;
   prazoClienteEncerrado: boolean;
   taxas: Taxa[];
 }) {
   const [bandasFinal, setBandasFinal] = useState(bandasMotoboy);
+  const [retornosFinal, setRetornosFinal] = useState(retornosMotoboy);
   const [taxasFinais, setTaxasFinais] = useState<Record<number, number>>(
     Object.fromEntries(taxas.map((t) => [t.itemId, t.motoboy]))
   );
@@ -42,12 +47,15 @@ export default function CorrigirContagemForm({
   const [pending, startTransition] = useTransition();
 
   const taxasDivergentes = taxas.filter((t) => t.cliente !== null && t.motoboy !== t.cliente);
+  const retornosDivergem = retornosCliente !== null && retornosCliente !== retornosMotoboy;
 
   const temGarantido =
     bandasIncluidas !== null && valorGarantidoMotoboy !== null && valorExcedenteMotoboy !== null;
+  // Retorno conta pro cálculo igual a uma banda normal (ver
+  // Turno.quantidadeRetornos no schema).
   const { valorMotoboyBandas, excedentes, deficitBandas, deficitValor } = calcularBandasGarantido(
     temGarantido ? { bandasIncluidas, valorGarantidoMotoboy, valorExcedenteMotoboy } : null,
-    bandasFinal
+    bandasFinal + retornosFinal
   );
   const taxaExtraBruta = taxas.reduce(
     (soma, t) => soma + (taxasFinais[t.itemId] ?? 0) * t.valorMotoboyUnidade,
@@ -77,6 +85,11 @@ export default function CorrigirContagemForm({
             </>
           )}
         </p>
+        {retornosDivergem && (
+          <p className="text-xs text-amber-800">
+            Retornos: motoboy disse {retornosMotoboy}, cliente disse {retornosCliente}
+          </p>
+        )}
         {taxasDivergentes.map((t) => (
           <p key={t.itemId} className="text-xs text-amber-800">
             {t.descricao}: motoboy disse {t.motoboy}, cliente disse {t.cliente}
@@ -93,7 +106,7 @@ export default function CorrigirContagemForm({
           </p>
           {excedentes > 0 && (
             <p>
-              {bandasFinal} entregas combinadas = <strong>R$ {formatarMoeda(valorMotoboyBandas)}</strong>{" "}
+              {bandasFinal + retornosFinal} entregas combinadas = <strong>R$ {formatarMoeda(valorMotoboyBandas)}</strong>{" "}
               ({excedentes} excedente{excedentes === 1 ? "" : "s"} × R${" "}
               {formatarMoeda(valorExcedenteMotoboy)}).
             </p>
@@ -125,6 +138,16 @@ export default function CorrigirContagemForm({
             min="0"
             value={bandasFinal}
             onChange={(e) => setBandasFinal(Number(e.target.value))}
+            className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm w-24"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-stone-600">Retornos (combinado)</span>
+          <input
+            type="number"
+            min="0"
+            value={retornosFinal}
+            onChange={(e) => setRetornosFinal(Number(e.target.value))}
             className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm w-24"
           />
         </label>
@@ -161,6 +184,7 @@ export default function CorrigirContagemForm({
             resolverDivergenciaTurno(
               turnoId,
               bandasFinal,
+              retornosFinal,
               taxas.map((t) => ({ itemId: t.itemId, quantidade: taxasFinais[t.itemId] ?? 0 })),
               observacao
             )

@@ -24,6 +24,7 @@ export type EncerrarManualState = { erro?: string } | undefined;
 export async function encerrarTurnoManualmente(
   turnoId: number,
   quantidadeBandas: number,
+  quantidadeRetornos: number,
   taxasExtras: { itemId: number; quantidade: number }[],
   observacao: string
 ): Promise<EncerrarManualState> {
@@ -38,7 +39,7 @@ export async function encerrarTurnoManualmente(
     },
   });
   if (!turno) return { erro: "Turno não encontrado ou já foi encerrado." };
-  if (quantidadeBandas < 0) return { erro: "Quantidade de bandas inválida." };
+  if (quantidadeBandas < 0 || quantidadeRetornos < 0) return { erro: "Quantidade inválida." };
 
   const itensComQuantidade = turno.taxaExtraItens.map((item) => ({
     id: item.id,
@@ -48,13 +49,17 @@ export async function encerrarTurnoManualmente(
   }));
   const totalTaxasExtras = itensComQuantidade.reduce((soma, item) => soma + item.quantidade, 0);
 
+  // Retorno conta pro preço igual a uma banda normal (ver comentário no
+  // schema, Turno.quantidadeRetornos) — só entra separado no que é
+  // gravado, não no que é calculado.
+  const totalBandasEquivalentes = quantidadeBandas + quantidadeRetornos;
   const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaEfetivoId } });
   const { valorMotoboyBandas, valorMotoboyTaxasExtras, valorCliente } = calcularValores(
     turno.cliente,
     empresa,
     turno.horaInicio,
     turno.turnoPredefinido,
-    quantidadeBandas,
+    totalBandasEquivalentes,
     itensComQuantidade.map((item) => ({
       valorMotoboy: item.valorMotoboyAplicado,
       valorCliente: item.valorClienteAplicado,
@@ -62,7 +67,7 @@ export async function encerrarTurnoManualmente(
     }))
   );
   const valorMotoboyFinal =
-    aplicarRemuneracaoGestor(valorMotoboyBandas, quantidadeBandas, turno.motoboy) + valorMotoboyTaxasExtras;
+    aplicarRemuneracaoGestor(valorMotoboyBandas, totalBandasEquivalentes, turno.motoboy) + valorMotoboyTaxasExtras;
 
   const perfilFixo =
     turno.turnoPredefinido !== "LIVRE"
@@ -78,6 +83,7 @@ export async function encerrarTurnoManualmente(
       data: {
         horaFim: new Date(),
         quantidadeBandas,
+        quantidadeRetornos,
         quantidadeTaxasExtras: totalTaxasExtras,
         valorBandaAplicado,
         valorTotal: valorMotoboyFinal,

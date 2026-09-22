@@ -16,6 +16,7 @@ export default function EncerrarTurnoWizard({
   const [passo, setPasso] = useState(0);
   const [fotoFimDataUrl, setFotoFimDataUrl] = useState<string | null>(null);
   const [bandas, setBandas] = useState(0);
+  const [retornos, setRetornos] = useState(0);
   const [quantidades, setQuantidades] = useState<Record<number, number>>({});
   const [turnoCumprido, setTurnoCumprido] = useState<boolean | null>(null);
   const [assinaturaReciboDataUrl, setAssinaturaReciboDataUrl] = useState<string | null>(null);
@@ -25,7 +26,7 @@ export default function EncerrarTurnoWizard({
   const [pending, startTransition] = useTransition();
 
   const totalTaxasExtras = Object.values(quantidades).reduce((soma, v) => soma + v, 0);
-  const semNadaMarcado = bandas <= 0 && totalTaxasExtras <= 0;
+  const semNadaMarcado = bandas <= 0 && retornos <= 0 && totalTaxasExtras <= 0;
 
   function concluir() {
     if (!fotoFimDataUrl || !assinaturaReciboDataUrl) return;
@@ -34,6 +35,7 @@ export default function EncerrarTurnoWizard({
     startTransition(async () => {
       const resultado = await encerrarTurno({
         quantidadeBandas: bandas,
+        quantidadeRetornos: retornos,
         taxasExtras: taxasExtras.map((t) => ({
           itemId: t.id,
           quantidade: quantidades[t.id] ?? 0,
@@ -85,6 +87,11 @@ export default function EncerrarTurnoWizard({
         <div className="flex flex-col gap-4">
           <p className="text-sm text-stone-600">Quantas bandas você fez nesse turno?</p>
           <ContadorStepper label="Bandas" valor={bandas} onChange={setBandas} />
+          <ContadorStepper
+            label="Retornos (voltei pq a expedição errou/esqueceu algo)"
+            valor={retornos}
+            onChange={setRetornos}
+          />
           {taxasExtras.map((t) => (
             <ContadorStepper
               key={t.id}
@@ -96,8 +103,9 @@ export default function EncerrarTurnoWizard({
           {semNadaMarcado && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 flex flex-col gap-2">
               <p className="text-sm text-amber-800">
-                Você não marcou nenhuma banda. Isso foi um turno completo (cumpriu a escala, só não
-                teve entrega) ou você está saindo sem cumprir — por exemplo, errou o cliente?
+                Você não marcou nenhuma banda nem retorno. Isso foi um turno completo (cumpriu a
+                escala, só não teve entrega) ou você está saindo sem cumprir — por exemplo, errou o
+                cliente?
               </p>
               <div className="flex gap-2">
                 <button
@@ -145,7 +153,9 @@ export default function EncerrarTurnoWizard({
       {passo === 2 && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-stone-600">
-            Assine o recibo pra confirmar {bandas} bandas e {totalTaxasExtras} taxas extras.
+            Assine o recibo pra confirmar {bandas} bandas
+            {retornos > 0 && `, ${retornos} retorno${retornos === 1 ? "" : "s"}`} e {totalTaxasExtras}{" "}
+            taxas extras.
           </p>
           <SignaturePadInput
             onConfirm={(dataUrl) => {

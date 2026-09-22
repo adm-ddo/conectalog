@@ -40,6 +40,7 @@ export async function responderSolicitacaoApoio(
 export async function resolverDivergenciaTurno(
   turnoId: number,
   quantidadeBandasFinal: number,
+  quantidadeRetornosFinal: number,
   taxasExtrasFinais: { itemId: number; quantidade: number }[],
   observacao: string
 ) {
@@ -65,12 +66,15 @@ export async function resolverDivergenciaTurno(
 
   const { calcularValores, aplicarRemuneracaoGestor } = await import("@/lib/precificacao");
   const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaEfetivoId } });
+  // Retorno conta pro cálculo igual a uma banda normal (ver
+  // Turno.quantidadeRetornos no schema).
+  const totalBandasEquivalentes = quantidadeBandasFinal + quantidadeRetornosFinal;
   const { valorMotoboyBandas, valorMotoboyTaxasExtras, valorCliente } = calcularValores(
     turno.cliente,
     empresa,
     turno.horaInicio,
     turno.turnoPredefinido,
-    quantidadeBandasFinal,
+    totalBandasEquivalentes,
     turno.taxaExtraItens.map((item) => ({
       valorMotoboy: item.valorMotoboyAplicado,
       valorCliente: item.valorClienteAplicado,
@@ -81,17 +85,19 @@ export async function resolverDivergenciaTurno(
   // Mesma regra do encerramento normal — a cobrança do cliente
   // (valorCliente) nunca muda por causa disso, só o que o Gestor recebe.
   const valorMotoboyFinal =
-    aplicarRemuneracaoGestor(valorMotoboyBandas, quantidadeBandasFinal, turno.motoboy) + valorMotoboyTaxasExtras;
+    aplicarRemuneracaoGestor(valorMotoboyBandas, totalBandasEquivalentes, turno.motoboy) + valorMotoboyTaxasExtras;
 
   await prisma.$transaction([
     prisma.turno.update({
       where: { id: turnoId },
       data: {
         quantidadeBandas: quantidadeBandasFinal,
+        quantidadeRetornos: quantidadeRetornosFinal,
         quantidadeTaxasExtras: totalTaxasExtras,
         valorTotal: valorMotoboyFinal,
         valorCobradoCliente: valorCliente,
         quantidadeBandasMotoboyOriginal: turno.quantidadeBandas,
+        quantidadeRetornosMotoboyOriginal: turno.quantidadeRetornos,
         resolvidoPorUsuarioId: sessao.usuarioId,
         observacaoDivergencia: observacao.trim() || null,
         resolvidoDivergenciaEm: new Date(),

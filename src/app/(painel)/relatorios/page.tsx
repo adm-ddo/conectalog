@@ -160,6 +160,9 @@ export default async function RelatoriosPage({
                   <div className="text-right">
                     <p className="text-xs text-navy-200 uppercase tracking-wide font-semibold">Bandas</p>
                     <p className="text-2xl font-bold mt-1">{relatorioMotoboy.totalBandas}</p>
+                    {relatorioMotoboy.totalRetornos > 0 && (
+                      <p className="text-xs text-navy-300 mt-1">{relatorioMotoboy.totalRetornos} retorno{relatorioMotoboy.totalRetornos === 1 ? "" : "s"}</p>
+                    )}
                   </div>
                 </div>
 
@@ -226,7 +229,11 @@ export default async function RelatoriosPage({
                           </span>
                         </div>
                         <span className="text-sm font-medium text-navy-900">
-                          {item.quantidadeBandas} bandas · R$ {formatarMoeda(item.valorRecebe)}
+                          {item.quantidadeBandas} bandas
+                          {item.quantidadeRetornos > 0 && (
+                            <span className="text-red-600"> · {item.quantidadeRetornos} retorno{item.quantidadeRetornos === 1 ? "" : "s"}</span>
+                          )}{" "}
+                          · R$ {formatarMoeda(item.valorRecebe)}
                         </span>
                       </li>
                     ))}
@@ -316,7 +323,7 @@ export default async function RelatoriosPage({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
                 <div className="rounded-2xl border border-stone-200 bg-white p-5">
                   <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
                     Bandas no período
@@ -340,6 +347,14 @@ export default async function RelatoriosPage({
                     Confirmaram
                   </p>
                   <p className="text-2xl font-bold text-navy-900 mt-1">{relatorio.totalConfirmados}</p>
+                </div>
+                <div className="rounded-2xl border border-stone-200 bg-white p-5">
+                  <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">
+                    Retornos
+                  </p>
+                  <p className={`text-2xl font-bold mt-1 ${relatorio.totalRetornos > 0 ? "text-red-600" : "text-navy-900"}`}>
+                    {relatorio.totalRetornos}
+                  </p>
                 </div>
               </div>
 
@@ -393,10 +408,16 @@ export default async function RelatoriosPage({
                           {LABEL_STATUS[m.statusPagamento]}
                         </span>
                       </div>
-                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 text-sm">
+                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-3 text-sm">
                         <div>
                           <p className="text-xs text-stone-500">Bandas</p>
                           <p className="font-medium text-navy-900">{m.bandas}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-stone-500">Retornos</p>
+                          <p className={`font-medium ${m.retornos > 0 ? "text-red-600" : "text-navy-900"}`}>
+                            {m.retornos}
+                          </p>
                         </div>
                         <div>
                           <p className="text-xs text-stone-500">Ele recebe</p>

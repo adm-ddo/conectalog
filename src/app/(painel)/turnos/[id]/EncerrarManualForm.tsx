@@ -32,6 +32,7 @@ export default function EncerrarManualForm({
 }) {
   const [aberto, setAberto] = useState(false);
   const [quantidadeBandas, setQuantidadeBandas] = useState(0);
+  const [quantidadeRetornos, setQuantidadeRetornos] = useState(0);
   const [taxasFinais, setTaxasFinais] = useState<Record<number, number>>(
     Object.fromEntries(taxas.map((t) => [t.itemId, 0]))
   );
@@ -41,9 +42,13 @@ export default function EncerrarManualForm({
 
   const temGarantido =
     bandasIncluidas !== null && valorGarantidoMotoboy !== null && valorExcedenteMotoboy !== null;
+  // Retorno conta igual a uma banda normal pro cálculo (ver
+  // Turno.quantidadeRetornos no schema) — soma antes de simular o
+  // garantido, sem misturar o que é gravado separado.
+  const totalBandasEquivalentes = quantidadeBandas + quantidadeRetornos;
   const { valorMotoboyBandas, excedentes } = calcularBandasGarantido(
     temGarantido ? { bandasIncluidas, valorGarantidoMotoboy, valorExcedenteMotoboy } : null,
-    quantidadeBandas
+    totalBandasEquivalentes
   );
   const taxaExtraTotal = taxas.reduce(
     (soma, t) => soma + (taxasFinais[t.itemId] ?? 0) * t.valorMotoboyUnidade,
@@ -62,6 +67,7 @@ export default function EncerrarManualForm({
       const resultado = await encerrarTurnoManualmente(
         turnoId,
         quantidadeBandas,
+        quantidadeRetornos,
         taxas.map((t) => ({ itemId: t.itemId, quantidade: taxasFinais[t.itemId] ?? 0 })),
         observacao
       );
@@ -110,7 +116,7 @@ export default function EncerrarManualForm({
           </p>
           {excedentes > 0 && (
             <p>
-              {quantidadeBandas} entregas = <strong>R$ {formatarMoeda(valorMotoboyBandas)}</strong> (
+              {totalBandasEquivalentes} entregas = <strong>R$ {formatarMoeda(valorMotoboyBandas)}</strong> (
               {excedentes} excedente{excedentes === 1 ? "" : "s"}).
             </p>
           )}
@@ -128,6 +134,16 @@ export default function EncerrarManualForm({
             min="0"
             value={quantidadeBandas}
             onChange={(e) => setQuantidadeBandas(Math.max(0, Number(e.target.value)))}
+            className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm w-24"
+          />
+        </label>
+        <label className="flex flex-col gap-1">
+          <span className="text-xs text-stone-600">Retornos</span>
+          <input
+            type="number"
+            min="0"
+            value={quantidadeRetornos}
+            onChange={(e) => setQuantidadeRetornos(Math.max(0, Number(e.target.value)))}
             className="border border-stone-300 rounded-lg px-3 py-1.5 text-sm w-24"
           />
         </label>

@@ -22,6 +22,7 @@ export default function EncerrarPeloClienteForm({
 }) {
   const router = useRouter();
   const [bandas, setBandas] = useState(0);
+  const [retornos, setRetornos] = useState(0);
   const [quantidades, setQuantidades] = useState<Record<number, number>>({});
   const [nota, setNota] = useState(0);
   const [comentario, setComentario] = useState("");
@@ -42,6 +43,7 @@ export default function EncerrarPeloClienteForm({
         token,
         turnoId,
         quantidadeBandas: bandas,
+        quantidadeRetornos: retornos,
         taxasExtras: taxasExtras.map((t) => ({ itemId: t.id, quantidade: quantidades[t.id] ?? 0 })),
         nota,
         comentario,
@@ -66,6 +68,11 @@ export default function EncerrarPeloClienteForm({
         fez aqui hoje?
       </p>
       <ContadorStepper label="Bandas" valor={bandas} onChange={setBandas} />
+      <ContadorStepper
+        label="Retornos (motoboy teve que voltar aqui de novo)"
+        valor={retornos}
+        onChange={setRetornos}
+      />
       {taxasExtras.map((t) => (
         <ContadorStepper
           key={t.id}

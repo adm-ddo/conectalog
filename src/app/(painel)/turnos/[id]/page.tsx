@@ -83,7 +83,9 @@ export default async function TurnoDetalhePage({
   // divergem, a cooperativa sempre pode reconciliar aqui, mesmo que já
   // tenha corrigido antes (não é uma ação de uso único).
   const bandasBatem = turno.quantidadeBandasCliente !== null && turno.quantidadeBandasCliente === turno.quantidadeBandas;
-  const podeCorrigirContagem = turno.status !== "ABERTO" && !bandasBatem;
+  const retornosBatem =
+    turno.quantidadeRetornosCliente !== null && turno.quantidadeRetornosCliente === turno.quantidadeRetornos;
+  const podeCorrigirContagem = turno.status !== "ABERTO" && (!bandasBatem || !retornosBatem);
   const prazoClienteEncerrado =
     turno.horaFim !== null && new Date() > new Date(turno.horaFim.getTime() + PRAZO_CONFIRMACAO_MIN * 60_000);
 
@@ -149,6 +151,8 @@ export default async function TurnoDetalhePage({
           valorExcedenteMotoboy={perfilFixoDivergencia ? paraNumero(perfilFixoDivergencia.valorExcedenteMotoboy) : null}
           bandasMotoboy={turno.quantidadeBandas}
           bandasCliente={turno.quantidadeBandasCliente}
+          retornosMotoboy={turno.quantidadeRetornos}
+          retornosCliente={turno.quantidadeRetornosCliente}
           prazoClienteEncerrado={prazoClienteEncerrado}
           taxas={turno.taxaExtraItens.map((item) => ({
             itemId: item.id,
@@ -179,6 +183,17 @@ export default async function TurnoDetalhePage({
           <span className="text-stone-500">Bandas (cliente):</span>{" "}
           {turno.quantidadeBandasCliente ?? "ainda não confirmou"}
         </p>
+        {(turno.quantidadeRetornos > 0 || turno.quantidadeRetornosCliente) && (
+          <>
+            <p>
+              <span className="text-stone-500">Retornos (motoboy):</span> {turno.quantidadeRetornos}
+            </p>
+            <p>
+              <span className="text-stone-500">Retornos (cliente):</span>{" "}
+              {turno.quantidadeRetornosCliente ?? "ainda não confirmou"}
+            </p>
+          </>
+        )}
         <p>
           <span className="text-stone-500">Motoboy recebe:</span>{" "}
           {turno.valorTotal ? `R$ ${formatarMoeda(turno.valorTotal)}` : "—"}
@@ -223,6 +238,13 @@ export default async function TurnoDetalhePage({
             {turno.resolvidoPorUsuario?.nome ?? "alguém da cooperativa"} em{" "}
             {formatarDataHora(turno.resolvidoDivergenciaEm)}.
           </p>
+          {turno.quantidadeRetornosMotoboyOriginal !== null &&
+            turno.quantidadeRetornosMotoboyOriginal !== turno.quantidadeRetornos && (
+              <p className="text-sm text-amber-800">
+                Retornos: motoboy informou {turno.quantidadeRetornosMotoboyOriginal}, cliente informou{" "}
+                {turno.quantidadeRetornosCliente} — combinado em {turno.quantidadeRetornos}.
+              </p>
+            )}
           {turno.taxaExtraItens
             .filter((item) => item.quantidadeMotoboyOriginal !== null && item.quantidadeMotoboyOriginal !== item.quantidade)
             .map((item) => (

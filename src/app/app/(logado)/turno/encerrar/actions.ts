@@ -13,8 +13,13 @@ export type EncerrarTurnoState = { erro?: string } | undefined;
 
 export type DadosEncerrarTurno = {
   quantidadeBandas: number;
+  /** Quantas vezes ele precisou voltar nesse cliente porque a expedição
+   * errou/esqueceu algo — conta pro cálculo de preço igual a uma banda
+   * normal (soma com quantidadeBandas antes de calcularValores), mas
+   * fica salva separada pra virar indicador de erro da expedição. */
+  quantidadeRetornos: number;
   taxasExtras: { itemId: number; quantidade: number }[];
-  /** Só perguntado quando fecha com 0 bandas e 0 taxas extras: true =
+  /** Só perguntado quando fecha com 0 bandas, 0 retornos e 0 taxas extras: true =
    * cumpriu o turno normalmente, só não teve entrega (recebe o
    * garantido, se o cliente tiver); false = saiu sem cumprir a escala
    * (ex.: errou o cliente) — nesse caso não recebe nada, nem o
@@ -54,7 +59,8 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
   // (recebe o garantido normalmente, se o cliente tiver) ou saída sem
   // cumprir a escala (não recebe nada) — com qualquer banda/taxa
   // marcada, sempre conta como cumprido.
-  const semNadaMarcado = dados.quantidadeBandas <= 0 && totalTaxasExtras <= 0;
+  const semNadaMarcado =
+    dados.quantidadeBandas <= 0 && dados.quantidadeRetornos <= 0 && totalTaxasExtras <= 0;
   const naoCumpriuEscala = semNadaMarcado && !dados.turnoCumprido;
   if (!dados.fotoFimDataUrl || !dados.assinaturaReciboDataUrl) {
     return { erro: "Falta a foto ou a assinatura do recibo." };
@@ -74,6 +80,10 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
   // motoboy não trabalhou de verdade ali, então nem calcularValores
   // entra em jogo (senão um cliente com garantido pagaria o piso mesmo
   // pra quem foi embora por engano).
+  // Retorno conta pro preço exatamente como se fosse mais uma banda
+  // normal (mesmo valor, mesma lógica de garantido/excedente) — só entra
+  // separado no que é GRAVADO no turno, nunca no que é CALCULADO.
+  const totalBandasEquivalentes = dados.quantidadeBandas + dados.quantidadeRetornos;
   const { valorMotoboyBandas, valorMotoboyTaxasExtras, valorCliente } = naoCumpriuEscala
     ? { valorMotoboyBandas: 0, valorMotoboyTaxasExtras: 0, valorCliente: 0 }
     : calcularValores(
@@ -81,7 +91,7 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
         empresa,
         turno.horaInicio,
         turno.turnoPredefinido,
-        dados.quantidadeBandas,
+        totalBandasEquivalentes,
         itensComQuantidade.map((item) => ({
           valorMotoboy: item.valorMotoboyAplicado,
           valorCliente: item.valorClienteAplicado,
@@ -93,7 +103,7 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
   // taxa extra (já líquida do desconto de déficit, ver calcularValores)
   // nunca entra nessa substituição.
   const valorMotoboyFinal =
-    aplicarRemuneracaoGestor(valorMotoboyBandas, dados.quantidadeBandas, motoboy) + valorMotoboyTaxasExtras;
+    aplicarRemuneracaoGestor(valorMotoboyBandas, totalBandasEquivalentes, motoboy) + valorMotoboyTaxasExtras;
   // Snapshot informativo do valor por banda em vigor — no valor fixo por
   // turno, é a tarifa de excedente do perfil que bateu (a única que de
   // fato varia com a quantidade).
@@ -118,6 +128,7 @@ export async function encerrarTurno(dados: DadosEncerrarTurno): Promise<Encerrar
         fotoFimUrl,
         assinaturaReciboUrl,
         quantidadeBandas: dados.quantidadeBandas,
+        quantidadeRetornos: dados.quantidadeRetornos,
         quantidadeTaxasExtras: totalTaxasExtras,
         valorBandaAplicado,
         valorTotal: valorMotoboyFinal,

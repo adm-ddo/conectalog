@@ -23,6 +23,9 @@ export type ItemRelatorioGestao = {
   horaInicio: Date | null;
   horaFim: Date | null;
   quantidadeBandas: number;
+  /// Quantas vezes o motoboy precisou voltar aqui porque a expedição
+  /// errou/esqueceu algo (só em itens de turno — apoio não tem retorno).
+  quantidadeRetornos: number;
   valorCobradoCliente: number;
 };
 
@@ -40,6 +43,9 @@ export type RelatorioGestaoCliente = {
   dataInicio: string;
   dataFim: string;
   totalBandas: number;
+  /// Soma de quantidadeRetornos de todos os itens (ver
+  /// ItemRelatorioGestao.quantidadeRetornos).
+  totalRetornos: number;
   /// Já líquido dos descontos de chamado iFood (nunca negativo).
   totalValorCobrado: number;
   totalTurnos: number;
@@ -80,6 +86,7 @@ export async function gerarRelatorioGestaoCliente(
         horaInicio: true,
         horaFim: true,
         quantidadeBandas: true,
+        quantidadeRetornos: true,
         valorCobradoCliente: true,
       },
       orderBy: { horaInicio: "asc" },
@@ -127,6 +134,7 @@ export async function gerarRelatorioGestaoCliente(
       horaInicio: t.horaInicio,
       horaFim: t.horaFim,
       quantidadeBandas: t.quantidadeBandas,
+      quantidadeRetornos: t.quantidadeRetornos,
       valorCobradoCliente: paraNumero(t.valorCobradoCliente),
     })),
     ...apoios.map((a) => ({
@@ -138,6 +146,7 @@ export async function gerarRelatorioGestaoCliente(
       horaInicio: null,
       horaFim: null,
       quantidadeBandas: a.quantidadeBandas,
+      quantidadeRetornos: 0,
       valorCobradoCliente: paraNumero(a.valorCobradoCliente),
     })),
   ].sort((x, y) => x.data.getTime() - y.data.getTime());
@@ -147,6 +156,7 @@ export async function gerarRelatorioGestaoCliente(
     dataInicio,
     dataFim,
     totalBandas: itens.reduce((soma, i) => soma + i.quantidadeBandas, 0),
+    totalRetornos: itens.reduce((soma, i) => soma + i.quantidadeRetornos, 0),
     totalValorCobrado: Math.max(0, itens.reduce((soma, i) => soma + i.valorCobradoCliente, 0) - totalDescontoIfood),
     totalTurnos: itens.length,
     turnosAbertosNaoIncluidos: turnosAbertos,

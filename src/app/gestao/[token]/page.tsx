@@ -158,6 +158,12 @@ export default async function GestaoRelatorioPage({
             R$ {formatarMoeda(relatorio.totalDescontoIfood)}
           </p>
         </div>
+        <div className="rounded-2xl border border-stone-200 bg-white p-4">
+          <p className="text-xs text-stone-500 uppercase tracking-wide font-semibold">Retornos no período</p>
+          <p className={`text-xl font-bold mt-1 ${relatorio.totalRetornos > 0 ? "text-red-600" : "text-navy-900"}`}>
+            {relatorio.totalRetornos}
+          </p>
+        </div>
       </div>
 
       {relatorio.turnosAbertosNaoIncluidos > 0 && (
@@ -219,7 +225,11 @@ export default async function GestaoRelatorioPage({
                     )}
                   </span>
                   <span className="font-medium text-navy-900">
-                    {item.quantidadeBandas} bandas · R$ {formatarMoeda(item.valorCobradoCliente)}
+                    {item.quantidadeBandas} bandas
+                    {item.quantidadeRetornos > 0 && (
+                      <span className="text-red-600"> · {item.quantidadeRetornos} retorno{item.quantidadeRetornos === 1 ? "" : "s"}</span>
+                    )}{" "}
+                    · R$ {formatarMoeda(item.valorCobradoCliente)}
                   </span>
                 </div>
               </li>
