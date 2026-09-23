@@ -6,12 +6,20 @@ import { dataISOBrasil, diaSemanaBrasil, inicioDoDiaBrasil, formatarHora } from 
 import { resumoDiaCliente } from "@/lib/resumoDia";
 import { baixarComoDataUrl } from "@/lib/blob";
 import { turnoAtivoAgora, type TurnoAtual } from "@/lib/equipe";
-import { chegouAtrasado } from "@/lib/atrasoChegada";
+import { chegouAtrasado, minutosAtrasoChegada } from "@/lib/atrasoChegada";
 import { formatarTelefone } from "@/lib/telefone";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
 import WhatsAppLink from "@/components/WhatsAppLink";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
+
+/** Passados esses minutos do horário configurado de início do turno sem
+ * NENHUM motoboy presente, libera o botão de registrar chamado iFood
+ * mesmo que o cliente não tenha "motos fixas" configuradas (ver
+ * SecaoTurno) — pedido do Thiago: dar meia hora de tolerância antes de
+ * considerar que realmente faltou moto, mas sem depender de configuração
+ * nenhuma pra isso acontecer. */
+const MINUTOS_SEM_MOTO_PARA_IFOOD = 30;
 
 type ItemPresenca = {
   chave: string;
@@ -141,6 +149,15 @@ export default async function PortalEscalaPage({
   const contratadasTarde = cliente.motosFixasTarde[diaSemana];
   const contratadasNoite = cliente.motosFixasNoite[diaSemana];
 
+  // Minutos desde o horário configurado de início de cada turno até agora
+  // — null se o Cliente não tem esse horário configurado. Serve só pra
+  // liberar o chamado iFood depois de meia hora sem nenhum motoboy (ver
+  // SecaoTurno), independente de ter "motos fixas" configuradas ou não.
+  const agora = new Date();
+  const minutosDesdeInicioManha = minutosAtrasoChegada(cliente, "MANHA", agora);
+  const minutosDesdeInicioTarde = minutosAtrasoChegada(cliente, "TARDE", agora);
+  const minutosDesdeInicioNoite = minutosAtrasoChegada(cliente, "NOITE", agora);
+
   return (
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
@@ -183,6 +200,7 @@ export default async function PortalEscalaPage({
           titulo="Manhã"
           itens={manha}
           contratadas={contratadasManha}
+          minutosDesdeInicio={minutosDesdeInicioManha}
           fotosPorMotoboy={fotosPorMotoboy}
         />
       )}
@@ -192,6 +210,7 @@ export default async function PortalEscalaPage({
           titulo="Tarde"
           itens={tarde}
           contratadas={contratadasTarde}
+          minutosDesdeInicio={minutosDesdeInicioTarde}
           fotosPorMotoboy={fotosPorMotoboy}
         />
       )}
@@ -201,6 +220,7 @@ export default async function PortalEscalaPage({
           titulo="Noite"
           itens={noite}
           contratadas={contratadasNoite}
+          minutosDesdeInicio={minutosDesdeInicioNoite}
           fotosPorMotoboy={fotosPorMotoboy}
         />
       )}
@@ -223,6 +243,7 @@ function SecaoTurno({
   titulo,
   itens,
   contratadas,
+  minutosDesdeInicio = null,
   fotosPorMotoboy,
   textoPersonalizado,
 }: {
@@ -230,12 +251,22 @@ function SecaoTurno({
   titulo: string;
   itens: ItemPresenca[];
   contratadas: number;
+  /// Minutos desde o horário configurado de início desse turno — null se
+  /// o Cliente não tem horário configurado pra ele (ex.: "Fora do
+  /// horário"). Ver MINUTOS_SEM_MOTO_PARA_IFOOD.
+  minutosDesdeInicio?: number | null;
   fotosPorMotoboy: Map<string, string>;
   textoPersonalizado?: string;
 }) {
   const escaladas = itens.filter((i) => i.escalado).length;
   const presentes = itens.filter((i) => i.turnoVinculado).length;
   const moto = (n: number) => `moto${n === 1 ? "" : "s"}`;
+  // Libera o chamado iFood também quando passou da meia hora de
+  // tolerância sem NENHUM motoboy presente, mesmo sem "motos fixas"
+  // configuradas — complementa (não substitui) o alerta de déficit
+  // abaixo, que já mostra na hora quando tem contratação configurada.
+  const semMotoAposTolerancia =
+    presentes === 0 && minutosDesdeInicio !== null && minutosDesdeInicio >= MINUTOS_SEM_MOTO_PARA_IFOOD;
 
   return (
     <div className="rounded-2xl border border-stone-200 bg-white px-4 py-3 flex flex-col gap-1.5">
@@ -277,7 +308,7 @@ function SecaoTurno({
           <>Nenhuma moto configurada nem escalada pra hoje.</>
         )}
       </p>
-      {contratadas > 0 && presentes < contratadas && (
+      {((contratadas > 0 && presentes < contratadas) || semMotoAposTolerancia) && (
         <Link
           href={`/portal/${token}/ifood`}
           className="self-start rounded-lg border border-red-300 text-red-700 hover:bg-red-50 text-xs font-semibold px-3 py-1.5 transition-colors"
