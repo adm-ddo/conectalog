@@ -11,6 +11,7 @@ import { formatarTelefone } from "@/lib/telefone";
 import EquipamentoBadge from "@/components/EquipamentoBadge";
 import ResumoDiaClienteCard from "@/components/ResumoDiaClienteCard";
 import WhatsAppLink from "@/components/WhatsAppLink";
+import AjudaPortalButton from "./AjudaPortalButton";
 import type { TipoEquipamento } from "@/generated/prisma/enums";
 
 /** Passados esses minutos do horário configurado de início do turno sem
@@ -160,7 +161,7 @@ export default async function PortalEscalaPage({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-baseline justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 sm:gap-3">
         <h1 className="text-base font-semibold text-navy-900">
           Escala de hoje{" "}
           <span className="font-normal text-stone-500">
@@ -173,7 +174,8 @@ export default async function PortalEscalaPage({
             })}
           </span>
         </h1>
-        <div className="flex items-center gap-2 shrink-0">
+        <div className="flex flex-wrap items-center gap-2">
+          <AjudaPortalButton />
           <Link
             href={`/portal/${token}/historico`}
             className="rounded-lg border border-stone-300 text-stone-600 hover:border-brand-300 text-xs font-semibold px-3 py-1.5 transition-colors"
