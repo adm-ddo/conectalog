@@ -153,3 +153,79 @@ export async function invalidarTurnoPorFraude(turnoId: number, motivo: string): 
   revalidatePath("/dashboard/ativos");
   revalidatePath(`/motoboys/${turno.motoboyId}`);
 }
+
+/** Marca que um turno que seria "diária" (ClienteTurnoFixo) teve um
+ * problema técnico (pane na moto) ou pessoal/familiar que fez o motoboy
+ * sair antes da hora — a cooperativa não quer pagar nem cobrar a diária
+ * cheia nesse caso, só as bandas que ele de fato fez. Recalcula
+ * valorTotal/valorCobradoCliente forçando o modelo "por banda" simples
+ * (ver calcularValores, opcoes.ignorarPerfilFixo) — quantidadeBandas
+ * continua sendo o que ele realmente fez, não muda. Diferente de
+ * invalidarTurnoPorFraude (que zera tudo por suspeita de golpe): aqui o
+ * motoboy trabalhou de verdade, só não completou o turno inteiro, e isso
+ * é reconhecido como legítimo. */
+export async function marcarProblemaTecnico(turnoId: number, observacao: string): Promise<EncerrarManualState> {
+  const sessao = await requireTenantCompleto();
+
+  if (!observacao.trim()) return { erro: "Descreva o que aconteceu (pane na moto, imprevisto pessoal etc.)." };
+
+  const turno = await prisma.turno.findFirst({
+    where: {
+      id: turnoId,
+      status: "CONCLUIDO",
+      problemaTecnico: false,
+      motoboy: { empresaId: sessao.empresaEfetivoId },
+    },
+    include: {
+      cliente: { include: { turnosFixos: true } },
+      taxaExtraItens: true,
+      motoboy: { select: { ehGestor: true, modoRemuneracaoGestor: true, valorBandaGestorEspecial: true } },
+    },
+  });
+  if (!turno) return { erro: "Turno não encontrado, ainda não concluído, ou já marcado." };
+
+  const perfilFixo =
+    turno.turnoPredefinido !== "LIVRE"
+      ? encontrarPerfilFixo(turno.cliente.turnosFixos, turno.turnoPredefinido, diaSemanaBrasil(turno.horaInicio))
+      : null;
+  if (!perfilFixo) {
+    return { erro: "Esse turno já é cobrado só por banda, não tem diária pra remover." };
+  }
+
+  const totalBandasEquivalentes = turno.quantidadeBandas + turno.quantidadeRetornos;
+  const empresa = await prisma.empresa.findUniqueOrThrow({ where: { id: sessao.empresaEfetivoId } });
+  const { valorMotoboyBandas, valorMotoboyTaxasExtras, valorCliente } = calcularValores(
+    turno.cliente,
+    empresa,
+    turno.horaInicio,
+    turno.turnoPredefinido,
+    totalBandasEquivalentes,
+    turno.taxaExtraItens.map((item) => ({
+      valorMotoboy: item.valorMotoboyAplicado,
+      valorCliente: item.valorClienteAplicado,
+      quantidade: item.quantidade,
+    })),
+    { ignorarPerfilFixo: true }
+  );
+  const valorMotoboyFinal =
+    aplicarRemuneracaoGestor(valorMotoboyBandas, totalBandasEquivalentes, turno.motoboy) + valorMotoboyTaxasExtras;
+  const valorBandaAplicado = valorEfetivo(turno.cliente.valorBandaMotoboy, empresa.valorBandaMotoboyPadrao);
+
+  await prisma.turno.update({
+    where: { id: turno.id },
+    data: {
+      valorBandaAplicado,
+      valorTotal: valorMotoboyFinal,
+      valorCobradoCliente: valorCliente,
+      problemaTecnico: true,
+      problemaTecnicoEm: new Date(),
+      problemaTecnicoPorUsuarioId: sessao.usuarioId,
+      observacaoProblemaTecnico: observacao.trim(),
+    },
+  });
+
+  revalidatePath(`/turnos/${turno.id}`);
+  revalidatePath("/turnos");
+  revalidatePath("/dashboard");
+  revalidatePath(`/motoboys/${turno.motoboyId}`);
+}

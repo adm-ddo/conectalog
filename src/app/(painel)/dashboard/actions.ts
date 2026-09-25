@@ -79,7 +79,12 @@ export async function resolverDivergenciaTurno(
       valorMotoboy: item.valorMotoboyAplicado,
       valorCliente: item.valorClienteAplicado,
       quantidade: itensValidos.find((t) => t.itemId === item.id)?.quantidade ?? item.quantidade,
-    }))
+    })),
+    // Se o gestor já removeu a diária desse turno por problema técnico
+    // (ver Turno.problemaTecnico), resolver uma divergência de contagem
+    // depois não pode "ressuscitar" a diária escondido — continua só
+    // por banda.
+    { ignorarPerfilFixo: turno.problemaTecnico }
   );
   const totalTaxasExtras = itensValidos.reduce((soma, t) => soma + t.quantidade, 0);
   // Mesma regra do encerramento normal — a cobrança do cliente

@@ -142,10 +142,18 @@ export function calcularValores(
   inicioTurno: Date,
   turnoPredefinido: TurnoPredefinido,
   quantidadeBandas: number,
-  taxasExtras: ItemTaxaExtraCalculo[]
+  taxasExtras: ItemTaxaExtraCalculo[],
+  /// ignorarPerfilFixo: força o modelo "por banda" simples mesmo que um
+  /// ClienteTurnoFixo bateria com esse turno — usado quando o gestor
+  /// marca "problema técnico" num turno que seria diária (ver
+  /// Turno.problemaTecnico, marcarProblemaTecnico em turnos/[id]/
+  /// actions.ts): motoboy foi embora antes da hora por pane na moto ou
+  /// imprevisto pessoal, então a cooperativa não paga/cobra a diária
+  /// cheia, só as bandas que ele de fato fez.
+  opcoes?: { ignorarPerfilFixo?: boolean }
 ): ResultadoCalculo {
   const perfil =
-    turnoPredefinido !== "LIVRE"
+    !opcoes?.ignorarPerfilFixo && turnoPredefinido !== "LIVRE"
       ? encontrarPerfilFixo(cliente.turnosFixos, turnoPredefinido, diaSemanaBrasil(inicioTurno))
       : null;
 

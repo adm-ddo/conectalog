@@ -13,6 +13,7 @@ import BotaoVoltar from "@/components/BotaoVoltar";
 import CorrigirContagemForm from "./CorrigirContagemForm";
 import EncerrarManualForm from "./EncerrarManualForm";
 import InvalidarFraudeForm from "./InvalidarFraudeForm";
+import ProblemaTecnicoForm from "./ProblemaTecnicoForm";
 import { PRAZO_CONFIRMACAO_MIN } from "@/lib/confirmacaoBandas";
 
 /** Tolerância antes de liberar o botão de encerrar manualmente pelo
@@ -63,6 +64,7 @@ export default async function TurnoDetalhePage({
       resolvidoPorUsuario: { select: { nome: true } },
       encerradoManualmentePorUsuario: { select: { nome: true } },
       invalidadoFraudePorUsuario: { select: { nome: true } },
+      problemaTecnicoPorUsuario: { select: { nome: true } },
     },
   });
   if (!turno) notFound();
@@ -168,6 +170,17 @@ export default async function TurnoDetalhePage({
         />
       )}
 
+      {perfilFixoDivergencia !== null && turno.status === "CONCLUIDO" && !turno.problemaTecnico && (
+        <ProblemaTecnicoForm
+          turnoId={turno.id}
+          turnoLabel={turnoLabel}
+          motoboyNome={turno.motoboy.nomeCompleto}
+          bandasIncluidas={perfilFixoDivergencia.bandasIncluidas}
+          valorGarantidoMotoboy={paraNumero(perfilFixoDivergencia.valorGarantidoMotoboy)}
+          quantidadeBandas={turno.quantidadeBandas + turno.quantidadeRetornos}
+        />
+      )}
+
       {turno.clienteMarcouAusente && (
         <div className="rounded-2xl border border-red-500 bg-red-900 p-5 text-sm text-white">
           🚩 O cliente marcou que ele nunca esteve presente aqui
@@ -190,6 +203,25 @@ export default async function TurnoDetalhePage({
             valor final: R$ 0,00.
           </p>
           {turno.motivoFraude && <p className="text-sm text-red-100 italic">“{turno.motivoFraude}”</p>}
+        </div>
+      )}
+
+      {turno.problemaTecnico && (
+        <div className="rounded-2xl border border-amber-500 bg-amber-950 p-5 flex flex-col gap-2">
+          <h2 className="text-sm font-semibold text-white">⚠️ Diária removida por problema técnico</h2>
+          <p className="text-sm text-amber-100">
+            Por {turno.problemaTecnicoPorUsuario?.nome ?? "alguém da cooperativa"}
+            {turno.problemaTecnicoEm && <> em {formatarDataHora(turno.problemaTecnicoEm)}</>}. Só as{" "}
+            {turno.quantidadeBandas} banda{turno.quantidadeBandas === 1 ? "" : "s"}
+            {turno.quantidadeRetornos > 0 && (
+              <> e {turno.quantidadeRetornos} retorno{turno.quantidadeRetornos === 1 ? "" : "s"}</>
+            )}{" "}
+            feitas foram cobradas/pagas
+            {turno.valorTotal && <> — R$ {formatarMoeda(turno.valorTotal)}</>}.
+          </p>
+          {turno.observacaoProblemaTecnico && (
+            <p className="text-sm text-amber-100 italic">“{turno.observacaoProblemaTecnico}”</p>
+          )}
         </div>
       )}
 

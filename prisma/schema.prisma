@@ -231,6 +231,7 @@ model Usuario {
   divergenciasResolvidas       Turno[]                    @relation("TurnoResolvidoPor")
   turnosEncerradosManualmente  Turno[]                    @relation("TurnoEncerradoManualmentePor")
   turnosInvalidadosPorFraude   Turno[]                    @relation("TurnoInvalidadoFraudePor")
+  turnosComProblemaTecnico     Turno[]                    @relation("TurnoProblemaTecnicoPor")
 }
 
 /// Token de uso único (verificação de e-mail / recuperação de senha) do
@@ -823,12 +824,29 @@ model Turno {
   /// documentado por que o gestor decidiu isso.
   motivoFraude                 String?
 
+  /// true quando o gestor marca que teve um problema técnico (pane na
+  /// moto) ou pessoal/familiar que fez o motoboy sair antes de terminar
+  /// um turno que seria "diária" (ver ClienteTurnoFixo) — nesse caso a
+  /// cooperativa não cobra nem paga a diária, só as bandas que ele de
+  /// fato fez, pela tarifa "por banda" simples (ver calcularValores,
+  /// opcoes.ignorarPerfilFixo em precificacao.ts). Recalcula
+  /// valorTotal/valorCobradoCliente na hora — quantidadeBandas continua
+  /// sendo o que ele realmente fez, não muda.
+  problemaTecnico             Boolean   @default(false)
+  problemaTecnicoEm           DateTime?
+  problemaTecnicoPorUsuarioId Int?
+  /// Observação OBRIGATÓRIA (o que aconteceu: pane na moto, imprevisto
+  /// pessoal/familiar etc.) — sempre documentado por que a diária não
+  /// foi paga/cobrada.
+  observacaoProblemaTecnico   String?
+
   motoboy                        Motoboy              @relation(fields: [motoboyId], references: [id], onDelete: Cascade)
   cliente                        Cliente              @relation(fields: [clienteId], references: [id], onDelete: Cascade)
   pagamento                      Pagamento?           @relation(fields: [pagamentoId], references: [id], onDelete: SetNull)
   resolvidoPorUsuario            Usuario?             @relation("TurnoResolvidoPor", fields: [resolvidoPorUsuarioId], references: [id])
   encerradoManualmentePorUsuario Usuario?             @relation("TurnoEncerradoManualmentePor", fields: [encerradoManualmentePorUsuarioId], references: [id])
   invalidadoFraudePorUsuario     Usuario?             @relation("TurnoInvalidadoFraudePor", fields: [invalidadoFraudePorUsuarioId], references: [id])
+  problemaTecnicoPorUsuario      Usuario?             @relation("TurnoProblemaTecnicoPor", fields: [problemaTecnicoPorUsuarioId], references: [id])
   apoios                         Apoio[]
   escalas                        EscalaTurno[]
   avaliacao                      Avaliacao?
